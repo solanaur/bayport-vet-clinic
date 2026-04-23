@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>:root{--soft-teal:#0057b8}body{font-family:Inter,system-ui,sans-serif}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-8 py-4 shadow">
+    <div class="flex items-center gap-3">
+      <img src="assets/logo.png" class="w-10 h-10 rounded bg-white p-0.5" alt="">
+      <div>
+        <h1 class="text-xl font-semibold">Settings</h1>
+        <p class="text-xs text-white/80">Clinic profile and global receipt printer</p>
+      </div>
+    </div>
+    <button class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div id="setToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 hidden z-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-[var(--soft-teal)] uppercase mb-4">Menu</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+    <main class="flex-1 p-6">
+      <div class="max-w-2xl bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <h2 class="text-lg font-semibold text-gray-800 mb-4">Clinic Information</h2>
+        <div class="space-y-3">
+          <label class="block">
+            <span class="text-xs text-gray-600">Clinic name</span>
+            <input id="clinicName" class="w-full border rounded-md px-3 py-2" />
+          </label>
+          <label class="block">
+            <span class="text-xs text-gray-600">Clinic address</span>
+            <input id="clinicAddress" class="w-full border rounded-md px-3 py-2" />
+          </label>
+          <label class="block">
+            <span class="text-xs text-gray-600">Logo</span>
+            <input id="clinicLogo" type="file" accept="image/png,image/jpeg,image/webp" class="w-full border rounded-md px-3 py-2 bg-white" />
+          </label>
+          <img id="logoPreview" alt="logo preview" class="h-16 w-auto hidden border rounded-md p-1 bg-white" />
+        </div>
+
+        <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Receipt Printing</h2>
+        <div class="space-y-3">
+          <label class="block">
+            <span class="text-xs text-gray-600">Default receipt printer</span>
+            <div class="flex gap-2">
+              <select id="defaultPrinter" class="w-full border rounded-md px-3 py-2">
+                <option value="">System default</option>
+              </select>
+              <button id="refreshPrinters" type="button" class="border rounded-md px-3 py-2 hover:bg-gray-50">↻</button>
+            </div>
+          </label>
+        </div>
+
+        <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Cloud API</h2>
+        <div class="space-y-3">
+          <label class="block">
+            <span class="text-xs text-gray-600">Cloud API base URL</span>
+            <input id="apiBaseUrl" class="w-full border rounded-md px-3 py-2" placeholder="https://your-app-xxxxx.koyeb.app/api" />
+          </label>
+          <p class="text-xs text-gray-500">This saves to <code>bayport_api_base</code> and updates <code>window.BAYPORT_API_BASE</code> for this session.</p>
+        </div>
+
+        <div class="flex gap-2 mt-6">
+          <button id="saveSettingsBtn" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 hover:brightness-95">Save Settings</button>
+          <button id="printTestBtn" class="border rounded-md px-4 py-2 hover:bg-gray-50">Print Test Page</button>
+          <button id="resetLogoBtn" class="border rounded-md px-4 py-2 hover:bg-gray-50">Remove Logo</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true;window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('settings');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'settings.html');
+
+    function toast(msg, isError) {
+      const el = document.getElementById('setToast');
+      el.textContent = msg;
+      el.classList.remove('hidden', 'bg-emerald-700', 'bg-rose-700');
+      el.classList.add(isError ? 'bg-rose-700' : 'bg-emerald-700');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.add('hidden'), 3500);
+    }
+
+    async function fileToDataUrl(file) {
+      return await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function loadPrinters() {
+      const sel = document.getElementById('defaultPrinter');
+      const preferred = getPreferredReceiptPrinter?.() || '';
+      const printers = await listDesktopPrinters();
+      let html = '<option value="">System default</option>';
+      for (const p of printers) {
+        const name = String(p?.name || '').trim();
+        if (!name) continue;
+        const safe = name.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        html += `<option value="${safe}">${safe}</option>`;
+      }
+      sel.innerHTML = html;
+      if (preferred && Array.from(sel.options).some((o) => o.value === preferred)) sel.value = preferred;
+    }
+
+    function loadSettings() {
+      const s = getClinicSettings?.() || {};
+      document.getElementById('clinicName').value = s.name || '';
+      document.getElementById('clinicAddress').value = s.address || '';
+      const preview = document.getElementById('logoPreview');
+      if (s.logoDataUrl) {
+        preview.src = s.logoDataUrl;
+        preview.classList.remove('hidden');
+      } else {
+        preview.src = '';
+        preview.classList.add('hidden');
+      }
+      document.getElementById('apiBaseUrl').value = localStorage.getItem('bayport_api_base') || window.BAYPORT_API_BASE || '';
+    }
+
+    let pendingLogoDataUrl = '';
+    document.getElementById('clinicLogo').addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        pendingLogoDataUrl = await fileToDataUrl(file);
+        const preview = document.getElementById('logoPreview');
+        preview.src = pendingLogoDataUrl;
+        preview.classList.remove('hidden');
+      } catch {
+        toast('Unable to read logo file.', true);
+      }
+    });
+
+    document.getElementById('refreshPrinters').onclick = loadPrinters;
+    document.getElementById('defaultPrinter').addEventListener('change', () => {
+      setPreferredReceiptPrinter?.(document.getElementById('defaultPrinter').value || '');
+    });
+
+    document.getElementById('resetLogoBtn').onclick = () => {
+      pendingLogoDataUrl = '';
+      const current = getClinicSettings?.() || {};
+      setClinicSettings?.({ ...current, logoDataUrl: '' });
+      loadSettings();
+      toast('Logo removed.', false);
+    };
+
+    document.getElementById('saveSettingsBtn').onclick = () => {
+      const current = getClinicSettings?.() || {};
+      const next = {
+        ...current,
+        name: (document.getElementById('clinicName').value || '').trim() || current.name || 'Bayport Veterinary Clinic',
+        address: (document.getElementById('clinicAddress').value || '').trim() || current.address || '',
+      };
+      if (pendingLogoDataUrl) next.logoDataUrl = pendingLogoDataUrl;
+      setClinicSettings?.(next);
+      setPreferredReceiptPrinter?.(document.getElementById('defaultPrinter').value || '');
+      const apiBase = (document.getElementById('apiBaseUrl').value || '').trim();
+      if (apiBase) {
+        localStorage.setItem('bayport_api_base', apiBase);
+        window.BAYPORT_API_BASE = apiBase;
+      } else {
+        localStorage.removeItem('bayport_api_base');
+      }
+      pendingLogoDataUrl = '';
+      toast('Settings saved. Reload pages to apply API base.', false);
+    };
+
+    function buildTestPrintHtml(settings) {
+      const esc = (v) => String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+      const name = esc(settings?.name || 'Bayport Veterinary Clinic');
+      const address = esc(settings?.address || '');
+      const logo = settings?.logoDataUrl
+        ? `<img src="${settings.logoDataUrl}" alt="Clinic logo" style="max-height:44px;max-width:140px;display:block;margin-bottom:8px;" />`
+        : '';
+      const printedAt = new Date().toLocaleString();
+      return `<!doctype html><html><head><meta charset="utf-8"/><style>
+body{font-family:Arial,sans-serif;font-size:12px;padding:14px;color:#111}
+h3,p{margin:0}.muted{color:#555;font-size:11px}
+.box{margin-top:10px;border:1px dashed #333;padding:8px}
+</style></head><body>
+${logo}
+<h3>${name}</h3>
+<p class="muted">${address}</p>
+<div class="box">
+  <p><strong>Printer Test Page</strong></p>
+  <p class="muted">Printed at: ${esc(printedAt)}</p>
+  <p class="muted">If this prints clearly, receipt printing is ready.</p>
+</div>
+</body></html>`;
+    }
+
+    document.getElementById('printTestBtn').onclick = async () => {
+      if (!window.desktopBridge?.printReceipt) {
+        toast('Desktop printer bridge unavailable.', true);
+        return;
+      }
+      try {
+        const settings = getClinicSettings?.() || {};
+        const preferred = getPreferredReceiptPrinter?.() || '';
+        const result = await window.desktopBridge.printReceipt({
+          html: buildTestPrintHtml(settings),
+          silent: false,
+          deviceName: preferred || undefined
+        });
+        if (!result || !result.ok) {
+          throw new Error((result && result.error) || 'Print failed');
+        }
+        toast('Test page sent to printer.', false);
+      } catch (err) {
+        toast((err.message || 'Unable to print test page').slice(0, 160), true);
+      }
+    };
+
+    loadSettings();
+    loadPrinters();
+  </script>
+</body>
+</html>

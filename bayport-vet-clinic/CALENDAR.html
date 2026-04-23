@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Calendar View - Reminders</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 p-8">
+  <h1 class="text-3xl font-bold mb-6">Reminder Calendar</h1>
+
+  <div id="calendar" class="grid grid-cols-7 gap-2"></div>
+
+  <script src="assets/deploy-env.js"></script>
+
+  <script src="assets/api.js"></script>
+
+  <script>
+    async function loadCalendar() {
+      const reminders = await Api.reminders.list();
+      const container = document.getElementById("calendar");
+
+      const days = Array.from({ length: 30 }, (_, i) => i + 1);
+
+      container.innerHTML = days.map(day => {
+        const hits = reminders.filter(r => Number(r.date?.split("-")[2]) === day);
+
+        return `
+          <div class="bg-white shadow p-3 rounded-md min-h-[100px]">
+            <div class="font-semibold">${day}</div>
+            <div class="text-sm text-gray-500">
+              ${hits.map(h => `<div>${h.type}: ${h.message.substring(0,20)}...</div>`).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    loadCalendar();
+  </script>
+</body>
+</html>

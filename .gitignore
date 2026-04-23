@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Node / Electron
+node_modules/
+npm-debug.log*
+yarn-error.log*
+dist/
+build/
+out/
+
+# Bundled JRE / Electron build output (regenerate locally; do not commit)
+bayport-vet-clinic/desktop-shell/runtime/
+bayport-vet-clinic/desktop-shell/dist/
+
+# Java / Spring Boot
+target/
+*.log
+*.tmp
+
+# IDEs / Editor
+.idea/
+.vscode/
+*.iml
+
+# Databases / data files
+data/
+*.mv.db
+*.db

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Prescriptions - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    .shadow-card{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    :root{--soft-teal:#0057b8}
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50 transition-all duration-200" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Prescriptions</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <div>
+            <h3 class="text-2xl font-semibold text-gray-800 mb-1">Prescriptions</h3>
+            <p class="text-gray-600 text-sm">Issue medications from inventory. Pricing and payment are at <strong>Point of Sale</strong>.</p>
+          </div>
+          <button id="issueBtn" class="px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#158a8a] text-white font-semibold hover:from-[#158a8a] hover:to-[var(--soft-teal)] shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 hidden">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Issue Prescription
+          </button>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="flex gap-2 mb-6 border-b border-gray-200">
+          <button id="tabActive" onclick="switchTab('active')" class="px-4 py-2 rounded-t-lg font-medium transition-all duration-200 bg-[var(--soft-teal)] text-white">
+            Active Prescriptions
+          </button>
+          <button id="tabArchived" onclick="switchTab('archived')" class="px-4 py-2 rounded-t-lg font-medium transition-all duration-200 bg-gray-100 text-gray-700 hover:bg-gray-200">
+            Archived Prescriptions
+          </button>
+        </div>
+
+        <!-- Active Prescriptions -->
+        <div id="activeSection" class="space-y-3">
+          <!-- Prescriptions will be rendered here -->
+        </div>
+
+        <!-- Archived Prescriptions -->
+        <div id="archivedSection" class="space-y-3 hidden">
+          <!-- Archived prescriptions will be rendered here -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('prescriptions');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'prescriptions.html');
+
+    const role=getRole();
+    const activeSection=document.getElementById('activeSection');
+    const archivedSection=document.getElementById('archivedSection');
+    const modalRoot=document.getElementById('modalRoot');
+    let selectedProducts = [];
+    let currentTab = 'active';
+    let expandedPrescriptions = new Set();
+    if(role==='admin'||role==='vet'){document.getElementById('issueBtn').classList.remove('hidden');}
+
+    /** Medications come from clinic inventory (same catalog as POS). */
+    let inventoryCache = [];
+
+    // Group prescriptions by pet, date, and prescriber
+    function groupPrescriptions(prescriptions) {
+      const groups = {};
+      prescriptions.forEach(rx => {
+        const key = `${rx.petId}_${rx.date}_${rx.prescriber}`;
+        if (!groups[key]) {
+          groups[key] = {
+            id: rx.id,
+            petId: rx.petId,
+            pet: rx.pet,
+            owner: rx.owner,
+            date: rx.date,
+            prescriber: rx.prescriber,
+            dispensed: rx.dispensed,
+            archived: rx.archived,
+            products: []
+          };
+        }
+        groups[key].products.push({
+          id: rx.id,
+          drug: rx.drug
+        });
+      });
+      return Object.values(groups);
+    }
+
+    window.switchTab = function(tab) {
+      currentTab = tab;
+      if (tab === 'active') {
+        document.getElementById('tabActive').classList.add('bg-[var(--soft-teal)]', 'text-white');
+        document.getElementById('tabActive').classList.remove('bg-gray-100', 'text-gray-700');
+        document.getElementById('tabArchived').classList.remove('bg-[var(--soft-teal)]', 'text-white');
+        document.getElementById('tabArchived').classList.add('bg-gray-100', 'text-gray-700');
+        activeSection.classList.remove('hidden');
+        archivedSection.classList.add('hidden');
+      } else {
+        document.getElementById('tabArchived').classList.add('bg-[var(--soft-teal)]', 'text-white');
+        document.getElementById('tabArchived').classList.remove('bg-gray-100', 'text-gray-700');
+        document.getElementById('tabActive').classList.remove('bg-[var(--soft-teal)]', 'text-white');
+        document.getElementById('tabActive').classList.add('bg-gray-100', 'text-gray-700');
+        activeSection.classList.add('hidden');
+        archivedSection.classList.remove('hidden');
+      }
+    };
+
+    window.togglePrescription = function(groupKey) {
+      if (expandedPrescriptions.has(groupKey)) {
+        expandedPrescriptions.delete(groupKey);
+      } else {
+        expandedPrescriptions.add(groupKey);
+      }
+      render();
+    };
+
+    async function render(){
+      try {
+        const list = await repoListRx();
+        const active = list.filter(r => !r.archived);
+        const archived = list.filter(r => r.archived);
+        
+        const activeGroups = groupPrescriptions(active);
+        const archivedGroups = groupPrescriptions(archived);
+        
+        // Render active prescriptions (compact with view button)
+        if (activeGroups.length === 0) {
+          activeSection.innerHTML = '<div class="text-center py-12 text-gray-400"><p>No active prescriptions</p></div>';
+        } else {
+          activeSection.innerHTML = activeGroups.map(g => {
+            const groupKey = `${g.petId}_${g.date}_${g.prescriber}`;
+            const isExpanded = expandedPrescriptions.has(groupKey);
+            const statusColor = g.dispensed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
+            return `
+              <div class="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
+                <div class="flex items-center justify-between p-4">
+                  <div class="flex items-center gap-4 flex-1 min-w-0">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-3 mb-1">
+                        <h5 class="text-base font-semibold text-gray-800 truncate">${g.pet || 'Unknown Pet'}</h5>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}">${g.dispensed ? 'Dispensed' : 'Pending'}</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-xs text-gray-600">
+                        <span>${g.owner || 'N/A'}</span>
+                        <span>•</span>
+                        <span>${g.date || 'N/A'}</span>
+                        <span>•</span>
+                        <span>${g.products.length} line${g.products.length === 1 ? '' : 's'}</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button onclick="togglePrescription('${groupKey}')" class="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">
+                        ${isExpanded ? 'Hide' : 'View'}
+                      </button>
+                      <button onclick="printRxGroup('${groupKey}')" class="px-3 py-1.5 text-xs font-medium bg-[var(--soft-teal)] text-white rounded-lg hover:bg-[#158a8a] transition-all">Print</button>
+                      ${role==='admin' && !g.dispensed ? `<button onclick="dispenseGroup('${groupKey}')" class="px-3 py-1.5 text-xs font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all" title="Override: use POS for normal fulfillment">Dispense</button>`:''}
+                      <button onclick="removeGroup('${groupKey}')" class="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all" title="Delete prescription">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                ${isExpanded ? `
+                  <div class="border-t border-gray-200 p-4 bg-gray-50">
+                    <p class="text-xs font-semibold text-gray-600 mb-3 uppercase">Medications (${g.products.length})</p>
+                    <div class="space-y-2">
+                        ${g.products.map(p => `
+                        <div class="text-sm bg-white rounded-lg p-3 border border-gray-200">
+                          <p class="font-medium text-gray-800">${p.drug || 'N/A'}</p>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+        
+        // Render archived prescriptions (compact)
+        if (archivedGroups.length === 0) {
+          archivedSection.innerHTML = '<div class="text-center py-12 text-gray-400"><p>No archived prescriptions</p></div>';
+        } else {
+          archivedSection.innerHTML = archivedGroups.map(g => {
+            const groupKey = `${g.petId}_${g.date}_${g.prescriber}`;
+            const isExpanded = expandedPrescriptions.has(groupKey);
+            return `
+              <div class="bg-gray-50 rounded-lg border border-gray-200 opacity-90">
+                <div class="flex items-center justify-between p-4">
+                  <div class="flex items-center gap-4 flex-1 min-w-0">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-3 mb-1">
+                        <h5 class="text-base font-semibold text-gray-800 truncate">${g.pet || 'Unknown Pet'}</h5>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Archived</span>
+                      </div>
+                      <div class="flex items-center gap-3 text-xs text-gray-600">
+                        <span>${g.owner || 'N/A'}</span>
+                        <span>•</span>
+                        <span>${g.date || 'N/A'}</span>
+                        <span>•</span>
+                        <span>${g.products.length} line${g.products.length === 1 ? '' : 's'}</span>
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button onclick="togglePrescription('${groupKey}')" class="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-100 transition-all">
+                        ${isExpanded ? 'Hide' : 'View'}
+                      </button>
+                      <button onclick="unarchiveGroup('${groupKey}')" class="px-3 py-1.5 text-xs font-medium border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all">Unarchive</button>
+                      <button onclick="removeGroup('${groupKey}')" class="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-all" title="Delete prescription">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                ${isExpanded ? `
+                  <div class="border-t border-gray-200 p-4 bg-white">
+                    <p class="text-xs font-semibold text-gray-600 mb-3 uppercase">Medications (${g.products.length})</p>
+                    <div class="space-y-2">
+                      ${g.products.map(p => `
+                        <div class="text-sm bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <p class="font-medium text-gray-800">${p.drug || 'N/A'}</p>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('');
+        }
+      } catch(err) {
+        console.error('Error rendering prescriptions:', err);
+        activeSection.innerHTML = '<div class="text-center py-12 text-red-500"><p>Error loading prescriptions</p></div>';
+      }
+    }
+
+    document.getElementById('issueBtn')?.addEventListener('click', openForm);
+
+    async function openForm(){
+      const pets = await repoListPets();
+      try {
+        inventoryCache = await Api.inventory.list() || [];
+      } catch (e) {
+        alert('Could not load inventory: ' + (e.message || ''));
+        return;
+      }
+      const medInventory = inventoryCache.filter(i => (i.category || '').toUpperCase() !== 'SERVICE');
+      const cats = [...new Set(medInventory.map(i => i.category || 'Other'))].sort();
+      selectedProducts = [];
+
+      modalRoot.innerHTML=`
+        <div class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
+          <div class="bg-white rounded-3xl w-full max-w-6xl shadow-2xl ring-1 ring-slate-200/80 max-h-[95vh] overflow-y-auto">
+            <div class="sticky top-0 z-10 bg-gradient-to-r from-[var(--soft-teal)] to-[#0a4a96] text-white px-8 py-5 flex items-start justify-between gap-4 rounded-t-3xl">
+              <div>
+                <h3 class="text-2xl font-bold tracking-tight">Issue prescription</h3>
+                <p class="text-sm text-white/90 mt-1">Clinical record only — pricing &amp; payment are done at <strong>Point of Sale</strong>.</p>
+              </div>
+              <button onclick="closeModal()" class="shrink-0 rounded-full p-2 bg-white/15 hover:bg-white/25 text-white transition" aria-label="Close">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+
+            <div class="p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div class="lg:col-span-1 space-y-4">
+                <label class="block">
+                  <span class="text-sm font-medium text-gray-700 mb-2 block">Pet</span>
+                  <select id="f_pet" class="w-full border-2 border-gray-300 rounded-lg p-3.5 focus:border-[var(--soft-teal)] outline-none">
+                    ${pets.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+                  </select>
+                </label>
+                <label class="block">
+                  <span class="text-sm font-medium text-gray-700 mb-2 block">Veterinarian</span>
+                  <input id="f_vet" class="w-full border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50 outline-none" readonly>
+                </label>
+                <label class="block">
+                  <span class="text-sm font-medium text-gray-700 mb-2 block">Owner</span>
+                  <input id="f_owner" class="w-full border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50 outline-none" readonly>
+                </label>
+              </div>
+
+              <div class="lg:col-span-2 space-y-4">
+                <p class="text-xs text-gray-500">Pick items from <strong>inventory</strong> (same catalog as POS). One line per medication.</p>
+                <div>
+                  <label class="block mb-2">
+                    <span class="text-sm font-medium text-gray-700">Category</span>
+                    <select id="f_category" class="w-full border-2 border-gray-300 rounded-lg p-3.5 mt-1 focus:border-[var(--soft-teal)] outline-none">
+                      <option value="">Select category</option>
+                      ${cats.map(c => `<option value="${c}">${c}</option>`).join('')}
+                    </select>
+                  </label>
+                  <label class="block mt-3">
+                    <span class="text-sm font-medium text-gray-700">Medication</span>
+                    <select id="f_product" class="w-full border-2 border-gray-300 rounded-lg p-3.5 mt-1 focus:border-[var(--soft-teal)] outline-none" disabled>
+                      <option value="">Select category first</option>
+                    </select>
+                  </label>
+                </div>
+
+                <button type="button" onclick="addProduct()" class="w-full px-4 py-2.5 bg-[var(--soft-teal)] text-white rounded-lg font-medium hover:bg-[#158a8a] flex items-center justify-center gap-2">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                  Add to prescription
+                </button>
+
+                <div id="selectedProducts" class="border-2 border-gray-200 rounded-lg p-4">
+                  <p class="text-sm font-medium text-gray-700 mb-3">Lines (<span id="lineCount">0</span>)</p>
+                  <div id="productsList" class="space-y-2 max-h-48 overflow-y-auto">
+                    <p class="text-sm text-gray-400 text-center py-4">No lines yet</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="px-8 pb-8 pt-2 flex justify-end gap-3 border-t border-slate-100">
+              <button type="button" class="px-6 py-3 rounded-xl border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-50" onclick="closeModal()">Cancel</button>
+              <button type="button" class="px-8 py-3 rounded-xl bg-[var(--soft-teal)] text-white font-bold shadow-lg shadow-blue-900/10 hover:brightness-95" onclick="saveRx()">Save prescription</button>
+            </div>
+          </div>
+        </div>`;
+
+      const petSel = document.getElementById('f_pet');
+      const ownerInp = document.getElementById('f_owner');
+      const vetInp = document.getElementById('f_vet');
+      const categorySel = document.getElementById('f_category');
+      const productSel = document.getElementById('f_product');
+
+      try {
+        vetInp.value = (typeof getUserName === 'function' ? getUserName() : '') || localStorage.getItem('userDisplayName') || localStorage.getItem('username') || 'Vet';
+      } catch (_) {
+        vetInp.value = 'Vet';
+      }
+
+      async function syncOwner(){
+        try {
+          ownerInp.value = await ownerForPet(Number(petSel.value)) || '';
+        } catch(err) {
+          ownerInp.value = '';
+        }
+      }
+
+      categorySel.addEventListener('change', () => {
+        const category = categorySel.value;
+        if (!category) {
+          productSel.innerHTML = '<option value="">Select category first</option>';
+          productSel.disabled = true;
+          return;
+        }
+        const items = medInventory.filter(i => (i.category || 'Other') === category);
+        productSel.innerHTML = '<option value="">Select medication</option>' + items.map(i =>
+          `<option value="${i.id}" data-name="${(i.name||'').replace(/"/g, '&quot;')}">${i.name}</option>`
+        ).join('');
+        productSel.disabled = false;
+      });
+
+      function updateProductsList() {
+        const productsList = document.getElementById('productsList');
+        const lineCount = document.getElementById('lineCount');
+        lineCount.textContent = String(selectedProducts.length);
+        if (selectedProducts.length === 0) {
+          productsList.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No lines yet</p>';
+          return;
+        }
+        productsList.innerHTML = selectedProducts.map((p, idx) => `
+          <div class="flex items-start justify-between bg-gray-50 rounded-lg p-3 border border-gray-100 gap-2">
+            <div class="flex-1 min-w-0 text-sm">
+              <p class="font-medium text-gray-800">${p.name}</p>
+            </div>
+            <button type="button" onclick="removeProduct(${idx})" class="text-red-600 text-xs shrink-0 hover:underline">Remove</button>
+          </div>
+        `).join('');
+      }
+
+      window.addProduct = function() {
+        const opt = productSel.options[productSel.selectedIndex];
+        if (!productSel.value) {
+          alert('Select a medication from inventory');
+          return;
+        }
+        const name = opt?.dataset?.name || opt?.textContent || '';
+        selectedProducts.push({ name });
+        updateProductsList();
+      };
+
+      window.removeProduct = function(index) {
+        selectedProducts.splice(index, 1);
+        updateProductsList();
+      };
+
+      petSel.addEventListener('change', syncOwner);
+      syncOwner();
+      updateProductsList();
+    }
+    
+    function closeModal(){ 
+      modalRoot.innerHTML=''; 
+      selectedProducts = [];
+    }
+    
+    async function saveRx(){
+      if (selectedProducts.length === 0) {
+        alert('Please add at least one product to the prescription');
+        return;
+      }
+      
+      const petId = Number(document.getElementById('f_pet').value);
+      if (!petId) {
+        alert('Please select a pet');
+        return;
+      }
+      
+      try {
+        const pet = await petName(petId);
+        const owner = await ownerForPet(petId);
+        // Safely get user name with fallback
+        const vetField = document.getElementById('f_vet');
+        let prescriber = (vetField && vetField.value && vetField.value.trim()) ? vetField.value.trim() : 'Vet';
+        if (prescriber === 'Vet') {
+          try {
+            prescriber = (typeof getUserName === 'function' ? getUserName() : '') ||
+              localStorage.getItem('userDisplayName') || localStorage.getItem('username') || 'Vet';
+          } catch (e) {
+            prescriber = localStorage.getItem('userDisplayName') || localStorage.getItem('username') || 'Vet';
+          }
+        }
+        const date = new Date().toISOString().slice(0, 10);
+        
+        // Store selectedProducts count before clearing
+        const totalProducts = selectedProducts.length;
+        
+        // Create multiple prescriptions (one per product) - backend stores one product per prescription
+        const promises = selectedProducts.map(product => {
+          const prescriptionData = {
+            petId: petId,
+            pet: pet,
+            owner: owner,
+            drug: product.name,
+            prescriber: prescriber,
+            date: date,
+            dispensed: false
+          };
+          return repoCreateRx(prescriptionData);
+        });
+        
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r && r.id).length;
+        
+        closeModal();
+        render();
+        if (successCount === totalProducts && totalProducts > 0) {
+          alert(`Prescription issued successfully with ${successCount} product(s)`);
+        } else if (successCount > 0 && successCount < totalProducts) {
+          alert(`Prescription partially saved. ${successCount} of ${totalProducts} products saved.`);
+        } else {
+          alert(`Error: No products were saved. Please try again.`);
+        }
+      } catch(err) {
+        console.error('Error saving prescription:', err);
+        alert('Error saving prescription: ' + (err.message || 'Unknown error'));
+      }
+    }
+    
+    async function dispenseGroup(groupKey) {
+      if (!confirm('Mark all products in this prescription as dispensed? This will automatically archive the prescription.')) return;
+      try {
+        const list = await repoListRx();
+        const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey && !r.dispensed);
+        // Dispense all products
+        await Promise.all(groupRxs.map(rx => repoDispenseRx(rx.id)));
+        // Auto-archive after dispensing
+        await Promise.all(groupRxs.map(rx => repoArchiveRx(rx.id, true)));
+        render();
+      } catch(err) {
+        console.error('Error dispensing:', err);
+        alert('Error marking as dispensed');
+      }
+    }
+    
+    async function printRxGroup(groupKey) {
+      try {
+        const list = await repoListRx();
+        const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey);
+        if (groupRxs.length === 0) {
+          alert('No prescriptions found for this group');
+          return;
+        }
+        // Use first prescription ID and pass group key
+        const firstId = groupRxs[0].id;
+        const tok = localStorage.getItem('jwt') || localStorage.getItem('token');
+        const res = await fetch(`${window.API_BASE}/prescriptions/${firstId}/pdf?group=${encodeURIComponent(groupKey)}`, {
+          headers: {
+            Accept: 'application/pdf',
+            ...(tok ? { Authorization: `Bearer ${tok}` } : {})
+          }
+        });
+        if (!res.ok) {
+          throw new Error(`Failed to generate PDF: ${res.status}`);
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Prescription_${groupRxs[0].pet}_${groupRxs[0].date}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch(err) {
+        alert('Unable to generate PDF: ' + (err.message || 'Unexpected error'));
+      }
+    }
+    
+    async function unarchiveGroup(groupKey) {
+      try {
+        const list = await repoListRx();
+        const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey && r.archived);
+        await Promise.all(groupRxs.map(rx => repoArchiveRx(rx.id, false)));
+        render();
+      } catch(err) {
+        console.error('Error unarchiving:', err);
+        alert('Error unarchiving prescription');
+      }
+    }
+    
+    async function removeGroup(groupKey) {
+      if (!confirm('Delete this entire prescription with all products?')) return;
+      try {
+        const list = await repoListRx();
+        const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey);
+        await Promise.all(groupRxs.map(rx => repoDeleteRx(rx.id)));
+        render();
+      } catch(err) {
+        console.error('Error deleting:', err);
+        alert('Error deleting prescription');
+      }
+    }
+    
+    async function printRx(id){
+      try {
+        const list = await repoListRx();
+        const rx = list.find(r => r.id === id);
+        if (!rx) {
+          alert('Prescription not found');
+          return;
+        }
+        const groupKey = `${rx.petId}_${rx.date}_${rx.prescriber}`;
+        await printRxGroup(groupKey);
+      } catch(err) {
+        alert('Unable to generate PDF: ' + (err.message || 'Unexpected error'));
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>

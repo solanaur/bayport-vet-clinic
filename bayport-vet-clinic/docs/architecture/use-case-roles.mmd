@@ -1,0 +1,62 @@
+%% Bayport Veterinary Clinic — module access by role (assets/app.js CONFIG)
+flowchart TB
+  subgraph actors["Actors"]
+    direction TB
+    ADMIN[Admin]
+    FO[Front Office]
+    VET[Veterinarian]
+  end
+
+  subgraph modules["System modules"]
+    direction TB
+    UC1(["Login / Logout"])
+    UC2(["Dashboard"])
+    UC3(["Pet Records"])
+    UC4(["Appointments"])
+    UC5(["Prescriptions"])
+    UC6(["Point of Sale"])
+    UC7(["Billing"])
+    UC8(["Reminders"])
+    UC9(["Inventory"])
+    UC10(["Reports"])
+    UC11(["Settings"])
+    UC12(["Activity Logs"])
+    UC13(["Recycle Bin"])
+    UC14(["Manage Users"])
+  end
+
+  ADMIN --- UC1
+  ADMIN --- UC2
+  ADMIN --- UC3
+  ADMIN --- UC4
+  ADMIN --- UC5
+  ADMIN --- UC6
+  ADMIN --- UC7
+  ADMIN --- UC8
+  ADMIN --- UC9
+  ADMIN --- UC10
+  ADMIN --- UC11
+  ADMIN --- UC12
+  ADMIN --- UC13
+  ADMIN --- UC14
+
+  FO --- UC1
+  FO --- UC2
+  FO --- UC3
+  FO --- UC4
+  FO --- UC5
+  FO --- UC6
+  FO --- UC7
+  FO --- UC8
+  FO --- UC9
+
+  VET --- UC1
+  VET --- UC2
+  VET --- UC3
+  VET --- UC4
+  VET --- UC5
+
+  classDef actor fill:#e8f4fc,stroke:#0a4a96,stroke-width:2px
+  classDef mod fill:#f0f7ff,stroke:#2d6a9f,stroke-width:1px
+  class ADMIN,FO,VET actor
+  class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10,UC11,UC12,UC13,UC14 mod

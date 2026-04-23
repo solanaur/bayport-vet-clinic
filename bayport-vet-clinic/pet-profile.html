@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pet Profile - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet Profile</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+      <div id="profileCard" class="bg-white rounded-2xl shadow-soft p-8"></div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('pet-records');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'pet-records.html');
+
+    const id=Number(new URLSearchParams(location.search).get('id'));
+    const modalRoot = document.getElementById('modalRoot');
+    window.closeModal = () => { modalRoot.innerHTML = ''; };
+    function row(label,val){return `<div><div class="text-sm text-gray-500">${label}</div><div class="font-medium">${val||''}</div></div>`;}
+
+    async function renderProfile(){
+      const p=await repoGetPet(id);
+      currentPet = p;
+      const rawPhoto = p?.photo;
+      const photoSrc = rawPhoto ? resolveAssetUrl(rawPhoto) : 'assets/cutie.jpg';
+      document.getElementById('profileCard').innerHTML=`
+        <div class="flex items-start gap-8">
+      <div class="w-44 shrink-0">
+        <div class="w-44 h-44 rounded-2xl bg-gray-100 border flex items-center justify-center text-gray-400 overflow-hidden shadow-inner">
+          <img src="${photoSrc}" class="w-full h-full object-cover" alt="Pet photo"
+               onerror="this.onerror=null;this.src='assets/cutie.jpg';">
+        </div>
+      </div>
+      <div class="flex-1 flex flex-col gap-6">
+        <section class="border-b pb-4">
+          <h3 class="text-2xl font-semibold text-gray-800 mb-3">${p?.name||'Unknown Pet'}</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${row('Species',p?.species)} ${row('Breed',p?.breed)}
+            ${row('Gender',p?.gender)}   ${row('Age',p?.age)}
+            ${row('Microchip',p?.microchip || 'None')} ${row('Federation',p?.federation||'N/A')}
+            ${row('Address',p?.address)}
+          </div>
+        </section>
+
+        <section class="p-4 border rounded-xl bg-[#f7fbfb]">
+          <div class="flex items-center justify-between mb-2">
+            <div class="font-semibold">Owner</div>
+          </div>
+          <div id="ownerCard" class="text-sm text-gray-700">Loading owner...</div>
+        </section>
+
+        <section class="border rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-lg font-semibold text-gray-800">Procedures</h4>
+            <button class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm" onclick="openProc()">Add Procedure</button>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full border-collapse text-sm">
+              <thead><tr class="text-left text-gray-600 border-b"><th class="py-2">Performed At</th><th class="py-2">Category</th><th class="py-2">Name</th><th class="py-2">Notes</th><th class="py-2">Medications</th><th class="py-2">Cost</th><th class="py-2">Actions</th></tr></thead>
+              <tbody id="procRows">
+              </tbody>
+            </table>
+            <div class="mt-3 text-right font-semibold text-sm">Total Cost: <span id="procTotal">0</span></div>
+          </div>
+        </section>
+
+        <section class="border rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-lg font-semibold text-gray-800">Reminders</h4>
+            <button class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm"
+                    onclick="openPetReminderModal()">
+              + Add Reminder
+            </button>
+          </div>
+          <div id="petReminderList" class="space-y-3">
+            <div class="text-sm text-gray-500">Loading reminders...</div>
+          </div>
+        </section>
+
+        <div class="mt-2 flex gap-3">
+          <button class="px-4 py-2 border rounded-md text-sm" onclick="history.back()">Back</button>
+          <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm" onclick="location.href='pet-records.html'">Pet Records</button>
+        </div>
+      </div>
+        </div>`;
+
+      // Owner card render
+      (async()=>{
+        const el = document.getElementById('ownerCard');
+        let ownerName = p?.owner||''; let phone=''; let email=''; let address='';
+        if(p?.ownerId){ const o = await repoGetOwner(p.ownerId); if(o){ ownerName=o.fullName; phone=o.phone; email=o.email; address=o.address; }}
+        el.innerHTML = ownerName
+          ? `<div><b>${ownerName}</b></div><div>${phone}</div>${email?`<div>${email}</div>`:''}${address?`<div class='text-gray-600 mt-1'>${address}</div>`:''}`
+          : `<div class='text-gray-500'>No owner linked.</div>`;
+      })();
+
+      renderProcedures();
+      renderPetReminders();
+    }
+
+    function renderProcedures(){
+      repoGetPet(id).then(p=>{
+        const list = (p?.procedures||[]);
+        const tbody = document.getElementById('procRows');
+        if(!tbody) return;
+        tbody.innerHTML = list.map((pr,idx)=>`
+          <tr class="border-b">
+            <td class="py-3">${pr.performedAt||''}</td>
+            <td class="py-3">${pr.category||''}</td>
+            <td class="py-3">${pr.name||''}</td>
+            <td class="py-3">${pr.notes||''}</td>
+            <td class="py-3">${pr.medications||''}</td>
+            <td class="py-3">₱ ${formatPrice(pr.cost || 0)}</td>
+            <td class="py-3">
+              <button class="px-2 py-1 border rounded-md mr-2 text-sm" onclick="openProc(${idx})">Edit</button>
+              <button class="px-2 py-1 border rounded-md text-sm text-red-600" onclick="delProc(${idx})">Delete</button>
+            </td>
+          </tr>`).join('') || `<tr><td class="py-3" colspan="6">No procedures recorded.</td></tr>`;
+        const total = list.reduce((s,pr)=>s+Number(pr.cost||0),0);
+        document.getElementById('procTotal').textContent = `₱ ${formatPrice(total)}`;
+      });
+    }
+
+    function openProc(editIndex){
+      const wrap=document.createElement('div');
+      wrap.innerHTML=`
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div class="bg-white rounded-2xl w-full max-w-xl p-6">
+            <h3 class="text-xl font-semibold mb-4">${editIndex!=null?'Edit':'Add'} Procedure</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label class="text-sm text-gray-600">Category
+                <select id="pr_category" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                  <option value=""></option>
+                  <option>Consultation & Check-up</option>
+                  <option>Vaccine & Deworming</option>
+                  <option>Laboratory Tests</option>
+                  <option>Rapid Tests</option>
+                  <option>Surgical Service</option>
+                  <option>Spaying & Castration</option>
+                </select>
+              </label>
+              <label id="wrap_type" class="text-sm text-gray-600 hidden">Procedure Type
+                <select id="pr_type" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+              </label>
+              <label id="wrap_labType" class="text-sm text-gray-600 hidden">Lab Test Type
+                <select id="pr_labType" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                  <option value=""></option>
+                  <option>Complete Blood Count (CBC)</option>
+                  <option>Comprehensive Blood Chemistry</option>
+                  <option>Chemistry 10 Panel</option>
+                  <option>Chemistry 24 Panel</option>
+                  <option>X-Ray</option>
+                  <option>Ultrasound OB</option>
+                  <option>Ultrasound</option>
+                  <option>Incubator</option>
+                  <option>2D ECHO</option>
+                  <option>ECG</option>
+                  <option>PCR Test</option>
+                  <option>Rivalta Test</option>
+                  <option>Urinalysis</option>
+                  <option>Fecalysis</option>
+                  <option>Immunofluorescence Assay Test</option>
+                  <option>Ear Smear Test</option>
+                  <option>Oxygen Chamber</option>
+                  <option>Nebulization Treatment</option>
+                  <option>Pet iChip Standard</option>
+                  <option>Blood Glucose Test</option>
+                  <option>Vaginal Smear Test</option>
+                  <option>Skin Scrape Test</option>
+                  <option>Laser Therapy</option>
+                  <option>Dental Service</option>
+                </select>
+              </label>
+              <label class="text-sm text-gray-600">Performed At
+                <input id="pr_performedAt" type="date" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+              </label>
+              <label class="text-sm text-gray-600">Name
+                <input id="pr_name" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="e.g., Vaccination">
+              </label>
+              <label class="text-sm text-gray-600 md:col-span-2">Notes
+                <input id="pr_notes" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+              </label>
+              <label class="text-sm text-gray-600 md:col-span-2">Medications
+                <input id="pr_meds" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Comma-separated">
+              </label>
+              <label class="text-sm text-gray-600">Cost (₱)
+                <input id="pr_cost" type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="0" readonly>
+              </label>
+            </div>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="this.closest('.fixed').remove()">Cancel</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="saveProc(${editIndex!=null?editIndex:''})">Save</button>
+            </div>
+          </div>
+        </div>`;
+      document.body.appendChild(wrap);
+      // keyboard shortcuts for save/cancel
+      function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); saveProc(editIndex); } if(e.key==='Escape'){ e.preventDefault(); document.querySelector('.fixed.inset-0')?.remove(); } }
+      wrap.addEventListener('keydown', onKey);
+      // defaults
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById('pr_performedAt').value = today;
+      const catEl = document.getElementById('pr_category');
+      const labWrap = document.getElementById('wrap_labType');
+      const labEl = document.getElementById('pr_labType');
+      const typeWrap = document.getElementById('wrap_type');
+      const typeEl = document.getElementById('pr_type');
+      function syncLabVisibility(){
+        const isLab = catEl.value === 'Laboratory Tests';
+        labWrap.classList.toggle('hidden', !isLab);
+        if(!isLab){ labEl.value=''; }
+        // If a lab type is chosen, mirror to name (still editable)
+        if(isLab && labEl.value){ document.getElementById('pr_name').value = labEl.value; }
+      }
+      catEl.addEventListener('change', syncLabVisibility);
+      labEl.addEventListener('change', ()=>{ if(labEl.value){ document.getElementById('pr_name').value = labEl.value; } });
+      function populateTypes(){
+        const cat = catEl.value;
+        const catalog = (window.PROCEDURE_CATALOG||{})[cat]||[];
+        typeWrap.classList.toggle('hidden', catalog.length===0);
+        typeEl.innerHTML = `<option value=""></option>` + catalog.map(i=>`<option>${i.name}</option>`).join('');
+      }
+      function syncCostFieldFromCatalog(){
+        const cat = catEl.value;
+        const t = typeEl.value;
+        const catalog = (window.PROCEDURE_CATALOG||{})[cat]||[];
+        const item = catalog.find(i=>i.name===t);
+        const costEl = document.getElementById('pr_cost');
+        if(!item) return;
+        if(item.customPrice){
+          costEl.readOnly = false;
+          costEl.placeholder = 'Enter quoted price (PHP)';
+        } else {
+          costEl.readOnly = true;
+          costEl.placeholder = '';
+        }
+      }
+      catEl.addEventListener('change', ()=>{ populateTypes(); applySelectedType(); });
+      typeEl.addEventListener('change', applySelectedType);
+      function applySelectedType(){
+        const cat = catEl.value;
+        const type = typeEl.value;
+        const catalog = (window.PROCEDURE_CATALOG||{})[cat]||[];
+        const item = catalog.find(i=>i.name===type);
+        if(item){
+          document.getElementById('pr_name').value = item.name;
+          const costEl = document.getElementById('pr_cost');
+          if(item.customPrice){
+            costEl.value = '';
+            costEl.readOnly = false;
+            costEl.placeholder = 'Enter quoted price (PHP)';
+          } else {
+            costEl.value = Number(item.price||0);
+            costEl.readOnly = true;
+            costEl.placeholder = '';
+          }
+          if(item.medications){ document.getElementById('pr_meds').value = item.medications; }
+          const bits = [];
+          if(item.notes){ bits.push(item.notes); }
+          if(item.dosage){ bits.push(`Dosage: ${item.dosage}. ${item.directions||''}`.trim()); }
+          if(bits.length){ document.getElementById('pr_notes').value = bits.filter(Boolean).join(' '); }
+        }
+      }
+      populateTypes();
+      document.getElementById('pr_name').focus();
+      if(editIndex!=null){
+        repoGetPet(id).then(p=>{ const pr=p.procedures[editIndex]; if(!pr) return; document.getElementById('pr_performedAt').value=pr.performedAt||today; document.getElementById('pr_name').value=pr.name||''; document.getElementById('pr_notes').value=pr.notes||''; document.getElementById('pr_meds').value=pr.medications||''; document.getElementById('pr_cost').value=Number(pr.cost||0); catEl.value=pr.category||''; populateTypes(); typeEl.value=pr.name||''; labEl.value=pr.labType||''; syncLabVisibility(); syncCostFieldFromCatalog(); });
+      }
+    }
+    async function saveProc(editIndex){
+      const performedAt=document.getElementById('pr_performedAt').value || new Date().toISOString().slice(0,10);
+      const name=document.getElementById('pr_name').value.trim();
+      const notes=document.getElementById('pr_notes').value.trim();
+      const medications=document.getElementById('pr_meds').value.trim();
+      const cost=Number(document.getElementById('pr_cost').value||0);
+      const category=document.getElementById('pr_category').value;
+      const labType=(document.getElementById('pr_labType')?.value||'');
+      if(category==='Laboratory Tests' && !labType){ alert('Lab Test Type is required for Laboratory Tests'); return; }
+      if(!name){alert('Procedure name is required');return;}
+      const catList = (window.PROCEDURE_CATALOG||{})[category]||[];
+      const catalogItem = catList.find(i=>i.name===name);
+      if(catalogItem && catalogItem.customPrice && (!cost || cost<=0)){ alert('Enter the agreed price for this procedure (PHP).'); return; }
+      const payload={performedAt,name,notes,medications,cost,category,labType};
+      if(editIndex!=null){ await repoUpdateProcedure(id, editIndex, payload); }
+      else { await repoAddProcedure(id,payload); }
+      document.querySelector('.fixed.inset-0')?.remove();
+      renderProcedures();
+    }
+
+    async function delProc(idx){ if(confirm('Delete this procedure?')){ await repoDeleteProcedure(id, idx); renderProcedures(); } }
+
+let currentPet = null;
+let petRemindersCache = [];
+const templateCache = {};
+
+async function loadPetForReminder() {
+  currentPet = await repoGetPet(id);
+}
+loadPetForReminder();
+
+renderProfile();
+
+async function renderPetReminders(){
+  const container = document.getElementById('petReminderList');
+  if(!container) return;
+  try{
+    const list = await Api.reminders.listByPet(id);
+    petRemindersCache = Array.isArray(list) ? list : [];
+    if(!petRemindersCache.length){
+      container.innerHTML = `<div class="text-sm text-gray-500 border border-dashed rounded-lg p-4">No reminders yet for this pet.</div>`;
+      return;
+    }
+    container.innerHTML = petRemindersCache.map(r=>renderReminderCard(r)).join('');
+  }catch(err){
+    console.error(err);
+    container.innerHTML = `<div class="text-sm text-red-600">Unable to load reminders: ${err.message}</div>`;
+  }
+}
+
+function cleanDisplayText(text) {
+  if (!text) return text;
+  return text.replace(/\{\{[^}]+\}\}/g, '').trim();
+}
+
+function extractSubject(message) {
+  if (!message) return 'REMINDER';
+  const lines = message.split('\n');
+  for (let line of lines) {
+    line = line.trim();
+    if (line.startsWith('Subject:')) {
+      const subject = line.replace(/^Subject:\s*/i, '').trim();
+      return cleanDisplayText(subject) || 'REMINDER';
+    }
+  }
+  const firstLine = lines[0].trim();
+  if (firstLine.length > 0 && firstLine.length < 60) {
+    return cleanDisplayText(firstLine).toUpperCase() || 'REMINDER';
+  }
+  if (message.includes('Vaccination') || message.includes('vaccination')) return 'VACCINATION REMINDER';
+  if (message.includes('Follow-up') || message.includes('Follow-Up') || message.includes('follow-up')) return 'FOLLOW UP REMINDER';
+  if (message.includes('Deworming') || message.includes('deworming')) return 'DEWORMING REMINDER';
+  if (message.includes('Annual') || message.includes('annual')) return 'ANNUAL CHECKUP REMINDER';
+  if (message.includes('Appointment') || message.includes('appointment')) return 'APPOINTMENT REMINDER';
+  if (message.includes('Surgery') || message.includes('surgery')) return 'POST-SURGERY REMINDER';
+  if (message.includes('Dental') || message.includes('dental')) return 'DENTAL CLEANING REMINDER';
+  if (message.includes('Grooming') || message.includes('grooming')) return 'GROOMING REMINDER';
+  if (message.includes('Boarding') || message.includes('boarding')) return 'BOARDING REMINDER';
+  if (message.includes('Prescription') || message.includes('prescription')) return 'PRESCRIPTION REMINDER';
+  if (message.includes('Lab') || message.includes('Test Results')) return 'LAB TEST RESULTS';
+  return 'REMINDER';
+}
+
+function renderReminderCard(r){
+  const sentTag = r.sent
+    ? `<span class="text-xs text-green-700 bg-green-50 px-2 py-1 rounded-full">Sent</span>`
+    : `<span class="text-xs text-yellow-700 bg-yellow-50 px-2 py-1 rounded-full">Pending</span>`;
+  const sentInfo = r.sentAt ? new Date(r.sentAt).toLocaleString() : 'Not yet sent';
+  const dueDate = r.date ? new Date(r.date).toLocaleDateString() : 'No date';
+  const subject = extractSubject(r.message || '');
+  const cleanSubject = cleanDisplayText(subject);
+  return `
+    <div class="border rounded-xl p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2 text-sm text-gray-600">
+          <span class="font-semibold text-gray-800">${dueDate}</span>
+          ${sentTag}
+        </div>
+        <div class="text-sm font-medium text-gray-800 mt-1">${cleanSubject}</div>
+        <div class="text-xs text-gray-500 mt-1">Owner email: ${r.ownerEmail || 'N/A'} • ${sentInfo}</div>
+      </div>
+      <div class="flex gap-2">
+        <button class="px-3 py-2 text-sm rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white"
+                onclick="openSendReminderEmailModal(${r.id})">
+          Send Email
+        </button>
+        <button class="px-3 py-2 text-sm rounded-md border text-red-600 hover:bg-red-50"
+                onclick="deleteReminder(${r.id})">
+          Delete
+        </button>
+      </div>
+    </div>`;
+}
+
+async function openPetReminderModal(){
+  if(!currentPet){
+    currentPet = await repoGetPet(id);
+  }
+  const templates = await getTemplates('PET');
+  modalRoot.innerHTML = `
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl w-full max-w-lg p-6">
+        <h3 class="text-xl font-semibold mb-4">Add Reminder for ${currentPet?.name||'this pet'}</h3>
+        <label class="text-sm text-gray-600 block mb-3">Reminder Date
+          <input type="date" id="petReminderDate" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${new Date().toISOString().slice(0,10)}">
+        </label>
+        <label class="text-sm text-gray-600 block mb-3">Template
+          <select id="petReminderTemplate" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+            <option value="">-- Select template --</option>
+            ${templates.map(t=>{
+              const title = cleanDisplayText(t.subject || '');
+              let shortTitle = title.toUpperCase();
+              if (shortTitle.includes('VACCINATION') || shortTitle.includes('VACCINE')) shortTitle = 'VACCINATION';
+              else if (shortTitle.includes('FOLLOW-UP') || shortTitle.includes('FOLLOW UP')) shortTitle = 'FOLLOW UP SCHEDULE';
+              else if (shortTitle.includes('MISSED')) shortTitle = 'MISSED APPOINTMENT';
+              else if (shortTitle.includes('ANNUAL')) shortTitle = 'ANNUAL CHECKUP';
+              else if (shortTitle.includes('DEWORMING')) shortTitle = 'DEWORMING';
+              else if (shortTitle.includes('SURGERY')) shortTitle = 'POST-SURGERY CARE';
+              else if (shortTitle.includes('LAB') || shortTitle.includes('TEST')) shortTitle = 'LAB TEST RESULTS';
+              else if (shortTitle.includes('DENTAL')) shortTitle = 'DENTAL CLEANING';
+              else if (shortTitle.includes('GROOMING')) shortTitle = 'GROOMING';
+              else if (shortTitle.includes('BOARDING')) shortTitle = 'BOARDING RESERVATION';
+              else if (shortTitle.includes('PRESCRIPTION')) shortTitle = 'PRESCRIPTION PICKUP';
+              return `<option value="${t.id}">${shortTitle}</option>`;
+            }).join('')}
+          </select>
+        </label>
+        <label class="text-sm text-gray-600 block mb-3">Message
+          <textarea id="petReminderMessage" rows="4" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Message to send"></textarea>
+        </label>
+        <div class="mt-5 flex justify-end gap-3">
+          <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+          <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="savePetReminder()">Save Reminder</button>
+        </div>
+      </div>
+    </div>`;
+
+  const templateSelect = document.getElementById('petReminderTemplate');
+  const messageInput = document.getElementById('petReminderMessage');
+  templateSelect?.addEventListener('change', ()=>{
+    const match = templates.find(t=>String(t.id)===templateSelect.value);
+    if(match){
+      messageInput.value = match.body || '';
+    }
+  });
+}
+
+async function savePetReminder(){
+  const date = document.getElementById('petReminderDate').value;
+  const message = document.getElementById('petReminderMessage').value.trim();
+  if(!date){ alert('Reminder date is required'); return; }
+  if(!message){ alert('Reminder message is required'); return; }
+  try{
+    await Api.reminders.add({
+      type:'PET',
+      petId:id,
+      ownerId:currentPet?.ownerId || null,
+      date,
+      message
+    });
+    closeModal();
+    renderPetReminders();
+  }catch(err){
+    alert('Failed to save reminder: '+err.message);
+  }
+}
+
+async function openSendReminderEmailModal(reminderId){
+  const reminder = petRemindersCache.find(r=>r.id===reminderId);
+  if(!reminder){
+    alert('Reminder not found.');
+    return;
+  }
+  const templates = await getTemplates(reminder.type || 'PET');
+  modalRoot.innerHTML = `
+    <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl w-full max-w-lg p-6">
+        <h3 class="text-xl font-semibold mb-4">Send Reminder Email</h3>
+        <div class="text-sm text-gray-600 mb-2">To: ${reminder.ownerEmail || currentPet?.owner || 'Owner email not available'}</div>
+        <label class="text-sm text-gray-600 block mb-3">Template
+          <select id="petReminderEmailTemplate" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+            <option value="">-- Select template --</option>
+            ${templates.map(t=>{
+              const title = cleanDisplayText(t.subject || '');
+              let shortTitle = title.toUpperCase();
+              if (shortTitle.includes('VACCINATION') || shortTitle.includes('VACCINE')) shortTitle = 'VACCINATION';
+              else if (shortTitle.includes('FOLLOW-UP') || shortTitle.includes('FOLLOW UP')) shortTitle = 'FOLLOW UP SCHEDULE';
+              else if (shortTitle.includes('MISSED')) shortTitle = 'MISSED APPOINTMENT';
+              else if (shortTitle.includes('ANNUAL')) shortTitle = 'ANNUAL CHECKUP';
+              else if (shortTitle.includes('DEWORMING')) shortTitle = 'DEWORMING';
+              else if (shortTitle.includes('SURGERY')) shortTitle = 'POST-SURGERY CARE';
+              else if (shortTitle.includes('LAB') || shortTitle.includes('TEST')) shortTitle = 'LAB TEST RESULTS';
+              else if (shortTitle.includes('DENTAL')) shortTitle = 'DENTAL CLEANING';
+              else if (shortTitle.includes('GROOMING')) shortTitle = 'GROOMING';
+              else if (shortTitle.includes('BOARDING')) shortTitle = 'BOARDING RESERVATION';
+              else if (shortTitle.includes('PRESCRIPTION')) shortTitle = 'PRESCRIPTION PICKUP';
+              return `<option value="${t.id}">${shortTitle}</option>`;
+            }).join('')}
+          </select>
+        </label>
+        <label class="text-sm text-gray-600 block mb-3">Subject
+          <input id="petReminderEmailSubject" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${cleanDisplayText(reminder.type==='GENERAL'?'Bayport Update':'Pet Reminder')}">
+        </label>
+        <label class="text-sm text-gray-600 block mb-3">Preview
+          <textarea id="petReminderEmailPreview" rows="5" class="w-full border border-gray-300 rounded-md p-3 mt-1">${cleanDisplayText(reminder.message||'')}</textarea>
+        </label>
+        <div class="mt-5 flex justify-end gap-3">
+          <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+          <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white"
+                  onclick="sendReminderEmail(${reminderId})">
+            Send Email
+          </button>
+        </div>
+      </div>
+    </div>`;
+  const templateSelect = document.getElementById('petReminderEmailTemplate');
+  const subjectInput = document.getElementById('petReminderEmailSubject');
+  const previewInput = document.getElementById('petReminderEmailPreview');
+  templateSelect?.addEventListener('change', ()=>{
+    const selected = templates.find(t=>String(t.id)===templateSelect.value);
+    if(selected){
+      previewInput.value = cleanDisplayText(selected.body || reminder.message || '');
+      subjectInput.value = cleanDisplayText(selected.subject || subjectInput.value);
+    }
+  });
+}
+
+async function sendReminderEmail(reminderId){
+  const templateSelect = document.getElementById('petReminderEmailTemplate');
+  const subjectInput = document.getElementById('petReminderEmailSubject');
+  const previewInput = document.getElementById('petReminderEmailPreview');
+  const reminder = petRemindersCache.find(r=>r.id===reminderId);
+  if(!reminder){
+    alert('Reminder not found.');
+    return;
+  }
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    alert('No Internet Connection.');
+    return;
+  }
+  const templateBody = (() => {
+    const selectedId = templateSelect?.value;
+    if(!selectedId) return previewInput.value;
+    const templates = templateCache[(reminder.type||'PET').toUpperCase()] || [];
+    const selected = templates.find(t=>String(t.id)===selectedId);
+    return selected?.body || previewInput.value;
+  })();
+  try{
+    await Api.reminders.sendEmail(reminderId, {
+      template: templateBody,
+      subject: subjectInput.value || 'Bayport Reminder'
+    });
+    alert('Email sent!');
+    closeModal();
+    renderPetReminders();
+  }catch(err){
+    alert('Failed to send email: '+err.message);
+  }
+}
+
+async function deleteReminder(reminderId){
+  if(!confirm('Delete this reminder?')) return;
+  try{
+    await Api.reminders.remove(reminderId);
+    renderPetReminders();
+  }catch(err){
+    alert('Unable to delete reminder: '+err.message);
+  }
+}
+
+async function getTemplates(type){
+  const key = (type || 'PET').toUpperCase();
+  if(!templateCache[key]){
+    try{
+      templateCache[key] = await Api.email.templates.list(key);
+    }catch(err){
+      console.warn('Could not load templates from backend, falling back to built-in defaults.', err);
+      const all = (window.REMINDER_TEMPLATES || []).map(t => ({
+        id: t.id,
+        subject: t.subject,
+        body: t.template
+      }));
+      if (key === 'PET') {
+        templateCache[key] = all.filter(t => t.id !== 'general');
+      } else {
+        templateCache[key] = all.filter(t => t.id === 'general');
+      }
+    }
+  }
+  return templateCache[key];
+}
+  </script>
+</body>
+</html>

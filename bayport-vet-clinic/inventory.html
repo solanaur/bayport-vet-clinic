@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Inventory - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; }
+    :root { --soft-teal: #0057b8; }
+    .shadow-soft { box-shadow: 0 4px 24px rgba(0, 87, 184, 0.06); }
+    .inv-tab-on { background: var(--soft-teal); color: #fff; }
+    .inv-tab-off { background: #e2e8f0; color: #475569; }
+    .inv-tab-off:hover { background: #cbd5e1; color: #1e293b; }
+  </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex flex-col sm:flex-row items-center justify-between px-4 sm:px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-3 sm:space-x-5 mb-2 sm:mb-0">
+      <img src="assets/logo.png" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-white p-1 object-contain" alt="Logo">
+      <div>
+        <h1 class="text-lg sm:text-2xl font-semibold">Bayport Veterinary Clinic</h1>
+        <p class="text-xs sm:text-sm text-white/90">Inventory</p>
+      </div>
+    </div>
+    <button class="bg-white text-[var(--soft-teal)] px-4 sm:px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1 flex-col xl:flex-row min-h-0">
+    <aside class="w-full xl:w-56 shrink-0 bg-white border-b xl:border-b-0 xl:border-r border-slate-200 p-4 shadow-sm">
+      <h2 class="text-sm font-bold text-[var(--soft-teal)] uppercase tracking-wide mb-3">Menu</h2>
+      <nav id="sidebarNav" class="flex flex-col gap-1 text-sm"></nav>
+    </aside>
+
+    <main class="flex-1 flex flex-col lg:flex-row gap-4 p-4 lg:p-6 min-w-0 min-h-0">
+      <!-- Main table area -->
+      <div class="flex-1 min-w-0 flex flex-col bg-white rounded-xl border border-slate-200 shadow-soft overflow-hidden">
+        <div class="p-4 lg:p-5 border-b border-slate-100 bg-gradient-to-r from-white to-sky-50/40">
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h2 class="text-xl font-bold text-slate-800">Stock &amp; catalog</h2>
+              <p class="text-sm text-slate-600 mt-0.5">Products and clinic services are split below. Same list powers POS.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="mergeCatalogBtn" class="px-3 py-2 rounded-lg border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50">Load clinic catalog</button>
+              <button type="button" id="addBtn" class="px-4 py-2 rounded-lg bg-[var(--soft-teal)] text-white text-sm font-semibold hover:brightness-95">Add item</button>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2 mt-4" role="tablist">
+            <button type="button" id="invTabProducts" class="inv-tab inv-tab-on px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Products</button>
+            <button type="button" id="invTabServices" class="inv-tab inv-tab-off px-4 py-2 rounded-lg text-sm font-semibold transition-colors">Services</button>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 mt-4">
+            <div class="sm:col-span-2 lg:col-span-5">
+              <label class="sr-only" for="invSearch">Search</label>
+              <input id="invSearch" type="search" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500/30 focus:border-sky-400" placeholder="Search name, SKU, category…"/>
+            </div>
+            <div class="lg:col-span-3">
+              <label class="sr-only" for="invSort">Sort</label>
+              <select id="invSort" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-sky-500/30">
+                <option value="name-asc">Sort: Name A–Z</option>
+                <option value="name-desc">Sort: Name Z–A</option>
+                <option value="sku">Sort: SKU</option>
+                <option value="category">Sort: Category</option>
+                <option value="qty-asc">Sort: Qty (low first)</option>
+                <option value="qty-desc">Sort: Qty (high first)</option>
+              </select>
+            </div>
+            <div class="lg:col-span-4">
+              <label class="sr-only" for="invFilterCat">Filter category</label>
+              <select id="invFilterCat" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-sky-500/30">
+                <option value="">All categories</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto flex-1">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-left text-slate-600 border-b border-slate-200">
+              <tr>
+                <th class="p-3 font-semibold whitespace-nowrap">SKU</th>
+                <th class="p-3 font-semibold">Name</th>
+                <th class="p-3 font-semibold">Category</th>
+                <th class="p-3 font-semibold whitespace-nowrap">Qty</th>
+                <th class="p-3 font-semibold whitespace-nowrap">Reorder</th>
+                <th class="p-3 font-semibold">Unit</th>
+                <th class="p-3 font-semibold whitespace-nowrap">Price</th>
+                <th class="p-3 font-semibold"></th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Running low -->
+      <aside class="w-full lg:w-72 xl:w-80 shrink-0 flex flex-col">
+        <div class="bg-gradient-to-b from-amber-50 to-white rounded-xl border border-amber-200/80 shadow-soft overflow-hidden flex flex-col max-h-[min(70vh,520px)] lg:max-h-none lg:sticky lg:top-4">
+          <div class="px-4 py-3 border-b border-amber-200/60 bg-amber-100/50">
+            <h3 class="text-sm font-bold text-amber-950 flex items-center gap-2">
+              <span class="inline-flex w-2 h-2 rounded-full bg-amber-500 animate-pulse" aria-hidden="true"></span>
+              Running low
+            </h3>
+            <p class="text-xs text-amber-900/80 mt-0.5">At or below reorder level</p>
+          </div>
+          <div id="lowStockBody" class="p-3 overflow-y-auto flex-1 text-sm space-y-2 min-h-[120px]">
+            <p class="text-amber-800/60 text-center py-6 text-xs">Loading…</p>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('inventory');
+    const role = getRole();
+    renderSidebar(document.getElementById('sidebarNav'), role, 'inventory.html');
+
+    const tbody = document.getElementById('tbody');
+    const modalRoot = document.getElementById('modalRoot');
+    const lowStockBody = document.getElementById('lowStockBody');
+    const invSearch = document.getElementById('invSearch');
+    const invSort = document.getElementById('invSort');
+    const invFilterCat = document.getElementById('invFilterCat');
+
+    let allItems = [];
+    let invTab = 'products';
+
+    window.closeModal = () => { modalRoot.innerHTML = ''; };
+
+    function money(n) {
+      return window.formatPrice ? window.formatPrice(n) : Number(n || 0).toFixed(2);
+    }
+
+    function isService(i) {
+      return (i.category || '').toUpperCase() === 'SERVICE';
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    }
+
+    function lowStockList() {
+      return allItems.filter((i) =>
+        i.reorderLevel != null && i.quantity != null && Number(i.quantity) <= Number(i.reorderLevel)
+      );
+    }
+
+    function baseByTab() {
+      return allItems.filter((i) => (invTab === 'services' ? isService(i) : !isService(i)));
+    }
+
+    function sortList(list) {
+      const key = invSort.value;
+      const copy = [...list];
+      const name = (x) => (x.name || '').toLowerCase();
+      const q = (x) => Number(x.quantity) || 0;
+      switch (key) {
+        case 'name-desc':
+          return copy.sort((a, b) => name(b).localeCompare(name(a)));
+        case 'sku':
+          return copy.sort((a, b) => (a.sku || '').localeCompare(b.sku || ''));
+        case 'category':
+          return copy.sort((a, b) => ((a.category || '').localeCompare(b.category || '')) || name(a).localeCompare(name(b)));
+        case 'qty-asc':
+          return copy.sort((a, b) => q(a) - q(b));
+        case 'qty-desc':
+          return copy.sort((a, b) => q(b) - q(a));
+        default:
+          return copy.sort((a, b) => name(a).localeCompare(name(b)));
+      }
+    }
+
+    function filteredList() {
+      let list = baseByTab();
+      const q = (invSearch.value || '').trim().toLowerCase();
+      if (q) {
+        list = list.filter((i) =>
+          (i.name || '').toLowerCase().includes(q) ||
+          (i.sku || '').toLowerCase().includes(q) ||
+          (i.category || '').toLowerCase().includes(q)
+        );
+      }
+      const cat = invFilterCat.value;
+      if (cat && invTab === 'products') {
+        list = list.filter((i) => (i.category || '') === cat);
+      }
+      return sortList(list);
+    }
+
+    function populateCategoryFilter() {
+      const products = allItems.filter((i) => !isService(i));
+      const cats = [...new Set(products.map((i) => (i.category || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+      const prev = invFilterCat.value;
+      invFilterCat.innerHTML = '<option value="">All categories</option>' + cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+      if (prev && cats.includes(prev)) invFilterCat.value = prev;
+    }
+
+    function setInvTab(tab) {
+      invTab = tab;
+      const on = 'inv-tab inv-tab-on px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+      const off = 'inv-tab inv-tab-off px-4 py-2 rounded-lg text-sm font-semibold transition-colors';
+      document.getElementById('invTabProducts').className = tab === 'products' ? on : off;
+      document.getElementById('invTabServices').className = tab === 'services' ? on : off;
+      invFilterCat.disabled = tab === 'services';
+      if (tab === 'services') invFilterCat.value = '';
+      render();
+    }
+
+    function renderLowStock() {
+      const low = lowStockList();
+      if (!low.length) {
+        lowStockBody.innerHTML = '<p class="text-slate-500 text-center py-8 text-xs">Nothing running low.</p>';
+        return;
+      }
+      low.sort((a, b) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0));
+      lowStockBody.innerHTML = low.map((i) => {
+        const svc = isService(i);
+        return `<div class="rounded-lg border border-amber-200/60 bg-white/80 p-2.5 hover:bg-amber-50/50 transition-colors">
+          <div class="flex justify-between gap-2 items-start">
+            <div class="min-w-0">
+              <p class="font-medium text-slate-800 truncate">${escapeHtml(i.name || '')}</p>
+              <p class="text-xs text-slate-500 font-mono mt-0.5">${escapeHtml(i.sku || '')}${svc ? ' · <span class="text-sky-700">Service</span>' : ''}</p>
+            </div>
+            <button type="button" class="shrink-0 text-xs font-medium text-[var(--soft-teal)] hover:underline" data-edit-low="${i.id}">Edit</button>
+          </div>
+          <p class="text-xs mt-1.5 tabular-nums"><span class="font-semibold text-amber-800">${i.quantity ?? '—'}</span> <span class="text-slate-500">/ reorder ${i.reorderLevel ?? '—'}</span></p>
+        </div>`;
+      }).join('');
+      lowStockBody.querySelectorAll('[data-edit-low]').forEach((b) => {
+        b.onclick = () => openForm(Number(b.getAttribute('data-edit-low')));
+      });
+    }
+
+    function render() {
+      const items = filteredList();
+      const lowIds = new Set(lowStockList().map((x) => x.id));
+
+      if (!allItems.length) {
+        tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">No inventory yet. Add your first item.</td></tr>';
+        renderLowStock();
+        return;
+      }
+
+      if (!items.length) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No ${invTab === 'services' ? 'services' : 'products'} match your filters.</td></tr>`;
+        renderLowStock();
+        return;
+      }
+
+      tbody.innerHTML = items.map((i) => `
+        <tr class="border-t border-slate-100 hover:bg-sky-50/40 ${lowIds.has(i.id) ? 'bg-amber-50/30' : ''}">
+          <td class="p-3 font-mono text-xs text-slate-600">${escapeHtml(i.sku || '')}</td>
+          <td class="p-3 font-medium text-slate-800">${escapeHtml(i.name || '')}</td>
+          <td class="p-3 text-slate-600">${escapeHtml(i.category || '')}</td>
+          <td class="p-3 font-semibold tabular-nums ${lowIds.has(i.id) ? 'text-amber-800' : 'text-slate-800'}">${i.quantity ?? '—'}</td>
+          <td class="p-3 tabular-nums text-slate-600">${i.reorderLevel ?? '—'}</td>
+          <td class="p-3 text-slate-600">${escapeHtml(i.unit || '')}</td>
+          <td class="p-3 tabular-nums">${money(i.unitPrice)}</td>
+          <td class="p-3 whitespace-nowrap">
+            <button type="button" data-edit="${i.id}" class="text-[var(--soft-teal)] font-medium hover:underline mr-2 text-xs">Edit</button>
+            <button type="button" data-del="${i.id}" class="text-red-600 font-medium hover:underline text-xs">Delete</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbody.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => openForm(Number(b.getAttribute('data-edit'))));
+      tbody.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => delItem(Number(b.getAttribute('data-del'))));
+      renderLowStock();
+    }
+
+    async function load() {
+      tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-slate-500">Loading…</td></tr>';
+      try {
+        allItems = await Api.inventory.list() || [];
+        populateCategoryFilter();
+        render();
+      } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="8" class="p-8 text-center text-red-600">' + escapeHtml(e.message) + '</td></tr>';
+        lowStockBody.innerHTML = '<p class="text-red-600 text-center text-xs py-4">Could not load</p>';
+      }
+    }
+
+    async function openForm(id) {
+      let item = { name: '', sku: '', category: '', unit: 'pc', quantity: 0, reorderLevel: 5, unitPrice: 0 };
+      if (id) {
+        try { item = await Api.inventory.get(id); } catch (e) { alert(e.message); return; }
+      }
+      modalRoot.innerHTML = `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onclick="if(event.target===this)window.closeModal()">
+          <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-semibold mb-4">${id ? 'Edit' : 'Add'} item</h3>
+            <div class="space-y-3">
+              <label class="block text-sm text-gray-600">SKU *<input id="inv_sku" class="w-full border rounded-lg p-2 mt-1" value="${escapeHtml(item.sku || '')}"></label>
+              <label class="block text-sm text-gray-600">Name *<input id="inv_name" class="w-full border rounded-lg p-2 mt-1" value="${escapeHtml(item.name || '')}"></label>
+              <label class="block text-sm text-gray-600">Category <span class="text-xs text-slate-400">(use <code class="bg-slate-100 px-1 rounded">SERVICE</code> for clinic services)</span><input id="inv_cat" class="w-full border rounded-lg p-2 mt-1" value="${escapeHtml(item.category || '')}"></label>
+              <label class="block text-sm text-gray-600">Unit<input id="inv_unit" class="w-full border rounded-lg p-2 mt-1" value="${escapeHtml(item.unit || 'pc')}"></label>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block text-sm text-gray-600">Quantity<input id="inv_qty" type="number" class="w-full border rounded-lg p-2 mt-1" value="${item.quantity ?? 0}"></label>
+                <label class="block text-sm text-gray-600">Reorder at<input id="inv_reorder" type="number" class="w-full border rounded-lg p-2 mt-1" value="${item.reorderLevel ?? 5}"></label>
+              </div>
+              <label class="block text-sm text-gray-600">Unit price (PHP)<input id="inv_price" type="number" step="0.01" class="w-full border rounded-lg p-2 mt-1" value="${item.unitPrice ?? 0}"></label>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+              <button type="button" class="px-4 py-2 border rounded-lg" onclick="window.closeModal()">Cancel</button>
+              <button type="button" id="inv_save" class="px-5 py-2 rounded-lg bg-[var(--soft-teal)] text-white font-medium">Save</button>
+            </div>
+          </div>
+        </div>`;
+      document.getElementById('inv_save').onclick = async () => {
+        const body = {
+          id: item.id,
+          sku: document.getElementById('inv_sku').value.trim(),
+          name: document.getElementById('inv_name').value.trim(),
+          category: document.getElementById('inv_cat').value.trim(),
+          unit: document.getElementById('inv_unit').value.trim() || 'pc',
+          quantity: parseInt(document.getElementById('inv_qty').value, 10) || 0,
+          reorderLevel: parseInt(document.getElementById('inv_reorder').value, 10) || 0,
+          unitPrice: parseFloat(document.getElementById('inv_price').value) || 0,
+        };
+        if (!body.sku || !body.name) { alert('SKU and name are required'); return; }
+        try {
+          if (id) await Api.inventory.update({ ...body, id });
+          else await Api.inventory.create(body);
+          window.closeModal();
+          await load();
+        } catch (e) { alert(e.message); }
+      };
+    }
+
+    async function delItem(id) {
+      if (!confirm('Remove this inventory item?')) return;
+      try {
+        await Api.inventory.remove(id);
+        await load();
+      } catch (e) { alert(e.message); }
+    }
+
+    document.getElementById('addBtn').onclick = () => openForm(null);
+    document.getElementById('invTabProducts').onclick = () => setInvTab('products');
+    document.getElementById('invTabServices').onclick = () => setInvTab('services');
+    invSearch.addEventListener('input', () => render());
+    invSort.addEventListener('change', () => render());
+    invFilterCat.addEventListener('change', () => render());
+
+    document.getElementById('mergeCatalogBtn').onclick = async () => {
+      if (!confirm('Add missing default products and clinic services to inventory? (Skips rows that already exist by SKU.)')) return;
+      try {
+        const r = await Api.inventory.mergeCatalog();
+        alert(`Catalog updated. Total rows: ${r.rowsAfter} (new this run: ${r.rowsAddedThisRun}).`);
+        await load();
+      } catch (e) {
+        alert(e.message || 'Could not merge catalog');
+      }
+    };
+
+    load();
+  </script>
+</body>
+</html>

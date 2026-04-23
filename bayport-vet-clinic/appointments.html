@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Appointments - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet" />
+  <script>
+    // Load FullCalendar with fallback support
+    function loadFullCalendar() {
+      return new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (typeof FullCalendar !== 'undefined' || typeof window.FullCalendar !== 'undefined') {
+          resolve();
+          return;
+        }
+        
+        // Try primary CDN
+        const script1 = document.createElement('script');
+        script1.src = 'https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js';
+        script1.onload = () => {
+          console.log('FullCalendar loaded from primary CDN');
+          resolve();
+        };
+        script1.onerror = () => {
+          console.warn('Primary CDN failed, trying fallback...');
+          // Try fallback CDN
+          const script2 = document.createElement('script');
+          script2.src = 'https://unpkg.com/fullcalendar@6.1.8/index.global.min.js';
+          script2.onload = () => {
+            console.log('FullCalendar loaded from fallback CDN');
+            resolve();
+          };
+          script2.onerror = () => {
+            console.error('All FullCalendar CDNs failed');
+            reject(new Error('Failed to load FullCalendar from all sources'));
+          };
+          document.head.appendChild(script2);
+        };
+        document.head.appendChild(script1);
+      });
+    }
+    
+    // Load FullCalendar immediately
+    loadFullCalendar().catch(err => {
+      console.error('FullCalendar loading error:', err);
+    });
+  </script>
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    :root{--soft-teal:#0057b8}
+    /* Calendar styling - Clean, minimalistic design with natural/pastel colors */
+    .fc {
+      font-family: 'Poppins', sans-serif;
+      border: none;
+      font-size: 13px;
+    }
+    
+    /* Remove default borders and make it clean */
+    .fc-theme-standard td, .fc-theme-standard th {
+      border-color: #e5e7eb;
+      border-width: 1px;
+    }
+    
+    /* Header styling - clean and minimal */
+    .fc-header-toolbar {
+      margin-bottom: 0.75rem;
+      padding: 0.5rem 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .fc-toolbar-chunk {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .fc-toolbar-chunk:nth-child(2) {
+      flex: 1;
+      justify-content: center;
+    }
+    
+    .fc-toolbar-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #374151;
+      letter-spacing: -0.2px;
+      text-align: center;
+    }
+    
+    /* Buttons - clean and minimal */
+    .fc-button {
+      background-color: white !important;
+      border: 1px solid #e5e7eb !important;
+      color: #6b7280 !important;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      transition: all 0.2s;
+      height: 28px;
+      line-height: 1.2;
+      min-width: auto;
+    }
+    
+    .fc-button:hover {
+      background-color: #f9fafb !important;
+      border-color: #d1d5db !important;
+      color: #374151 !important;
+    }
+    
+    .fc-button:focus {
+      box-shadow: none;
+      outline: none;
+    }
+    
+    .fc-button-primary:not(:disabled):active {
+      background-color: #f3f4f6 !important;
+      border-color: #d1d5db !important;
+      color: #374151 !important;
+    }
+    
+    /* Arrow buttons - clean icons */
+    .fc-prev-button, .fc-next-button {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 5px 8px;
+      min-width: 28px;
+    }
+    
+    .fc-today-button {
+      font-size: 0.7rem;
+      padding: 5px 12px;
+    }
+    
+    /* Column headers - clean and minimal */
+    .fc-col-header-cell {
+      background-color: #fafafa;
+      padding: 8px 4px;
+      font-weight: 500;
+      color: #6b7280;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      border-color: #e5e7eb;
+    }
+    
+    /* Day cells - fixed height to prevent expansion */
+    .fc-daygrid-day {
+      background-color: white;
+      border-color: #e5e7eb;
+      min-height: 80px;
+      height: 80px;
+    }
+    
+    .fc-daygrid-day-frame {
+      min-height: 80px;
+      height: 80px;
+    }
+    
+    /* Weekend - subtle pastel background */
+    .fc-day-sat, .fc-day-sun {
+      background-color: #fafafa !important;
+    }
+    
+    /* Today - subtle pastel highlight */
+    .fc-day-today {
+      background-color: #fef3c7 !important;
+    }
+    
+    .fc-day-today .fc-daygrid-day-number {
+      color: #d97706;
+      font-weight: 600;
+      background-color: #fef3c7;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin: 4px;
+    }
+    
+    /* Day numbers - clean and minimal */
+    .fc-daygrid-day-number {
+      padding: 4px 6px;
+      color: #374151;
+      font-weight: 400;
+      font-size: 0.8rem;
+    }
+    
+    .fc-daygrid-day:hover {
+      background-color: #fafafa !important;
+    }
+    
+    /* No date highlighting - appointments are shown as events only */
+    
+    /* Events - pastel colored blocks, fixed height */
+    .fc-event {
+      cursor: pointer;
+      border: none !important;
+      border-radius: 4px;
+      padding: 2px 4px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      margin: 1px 0;
+      height: 18px;
+      line-height: 16px;
+      display: flex;
+      align-items: center;
+      box-shadow: none;
+      overflow: hidden;
+    }
+    
+    .fc-event-title {
+      padding: 0;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-size: 0.7rem;
+      color: #1f2937 !important;
+    }
+    
+    /* Event text colors for readability on pastel backgrounds */
+    .fc-event[style*="background-color: rgb(167, 243, 208)"] .fc-event-title,
+    .fc-event[style*="background-color: #a7f3d0"] .fc-event-title {
+      color: #065f46 !important;
+    }
+    
+    .fc-event[style*="background-color: rgb(191, 219, 254)"] .fc-event-title,
+    .fc-event[style*="background-color: #bfdbfe"] .fc-event-title {
+      color: #1e40af !important;
+    }
+    
+    .fc-event[style*="background-color: rgb(253, 230, 138)"] .fc-event-title,
+    .fc-event[style*="background-color: #fde68a"] .fc-event-title {
+      color: #92400e !important;
+    }
+    
+    .fc-event[style*="background-color: rgb(254, 202, 202)"] .fc-event-title,
+    .fc-event[style*="background-color: #fecaca"] .fc-event-title {
+      color: #991b1b !important;
+    }
+    
+    .fc-event:hover {
+      opacity: 0.85;
+      transform: translateY(-1px);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: all 0.2s;
+    }
+    
+    /* Event blocks styling - prevent row expansion */
+    .fc-daygrid-event {
+      margin: 1px 0;
+      height: 18px;
+    }
+    
+    .fc-daygrid-event-dot {
+      display: none;
+    }
+    
+    /* Day grid event container - fixed height, show only 2 events */
+    .fc-daygrid-day-events {
+      margin-top: 2px;
+      max-height: 40px;
+      overflow: hidden;
+    }
+    
+    /* More events link - pastel colors */
+    .fc-more-link {
+      font-size: 0.65rem;
+      color: #60a5fa;
+      font-weight: 500;
+      padding: 1px 4px;
+      border-radius: 4px;
+      margin-top: 2px;
+      display: block;
+    }
+    
+    .fc-more-link:hover {
+      background-color: #dbeafe;
+    }
+    
+    /* More events link - pastel colors */
+    .fc-more-link {
+      font-size: 0.7rem;
+      color: #60a5fa;
+      font-weight: 500;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    
+    .fc-more-link:hover {
+      background-color: #dbeafe;
+    }
+    
+    /* Remove scrollbars and make it fit */
+    .fc-scroller {
+      overflow: hidden !important;
+    }
+    
+    .fc-scroller-liquid-absolute {
+      overflow: visible !important;
+    }
+    
+    .fc-daygrid-body {
+      overflow: visible !important;
+    }
+    
+    /* Calendar container - no overflow */
+    #appointmentsCalendar {
+      overflow: hidden;
+    }
+    
+    #appointmentsCalendar .fc {
+      overflow: visible;
+    }
+    
+    /* Adjust height to fit without scroll */
+    #appointmentsCalendar .fc-view-harness {
+      height: auto !important;
+    }
+    
+    /* Popover styling */
+    .fc-popover {
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border: 1px solid #e5e7eb;
+    }
+    
+    .fc-popover-header {
+      background-color: #fafafa;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 8px;
+      font-weight: 600;
+      color: #374151;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5">
+      <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt="">
+      <div>
+        <h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1>
+        <p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p>
+      </div>
+    </div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <!-- Sidebar -->
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Appointments</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <!-- Date Filter Sidebar -->
+    <aside id="dateFilterSidebar" class="w-64 bg-gray-50 border-r border-gray-200 p-4 shadow-sm overflow-y-auto">
+      <h3 class="text-sm font-semibold text-gray-700 uppercase mb-4">Filter by Date</h3>
+      <div id="dateFilterList" class="space-y-2">
+        <!-- Date filters will be populated here -->
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 p-8">
+      <div class="flex flex-col gap-6">
+        <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-800 mb-1">Appointments</h3>
+              <p class="text-sm text-gray-500">Manage appointments, approve requests, and track completed visits.</p>
+            </div>
+            <button id="addBtn" class="px-5 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-medium hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md hidden">+ Create Appointment</button>
+          </div>
+
+          <!-- Appointments Count -->
+          <div class="mb-5 pb-3 border-b border-gray-100">
+            <span class="text-sm font-medium text-gray-600" id="appointmentCount"></span>
+          </div>
+
+          <!-- Appointments List - Card Style -->
+          <div id="appointmentsList" class="mt-2"></div>
+        </div>
+
+        <div id="calendarSection" class="bg-white rounded-2xl shadow-soft p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h4 class="text-lg font-semibold text-gray-800">Appointments Calendar</h4>
+              <p class="text-xs text-gray-500">Click a date to view appointments.</p>
+            </div>
+          </div>
+          <div id="appointmentsCalendar" class="border rounded-xl" style="width: 100%; background: white; overflow: hidden;"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal root -->
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    // Ensure getUserName is available globally before using it
+    if (typeof window.getUserName !== 'function') {
+      window.getUserName = function() {
+        return localStorage.getItem('userDisplayName') || localStorage.getItem('username') || '';
+      };
+    }
+    
+    // Ensure getRole is available globally
+    if (typeof window.getRole !== 'function') {
+      window.getRole = function() {
+        return localStorage.getItem('role') || '';
+      };
+    }
+    
+    guard('appointments');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'appointments.html');
+
+  const SLOT_TIMES = (() => {
+    const times = [];
+    for (let minutes = 8 * 60; minutes <= (21 * 60 + 30); minutes += 30) {
+      const h = String(Math.floor(minutes / 60)).padStart(2, '0');
+      const m = String(minutes % 60).padStart(2, '0');
+      times.push(`${h}:${m}`);
+    }
+    return times;
+  })();
+
+  function formatSlotLabel(time) {
+    const [h, m] = time.split(':').map(Number);
+    const temp = new Date();
+    temp.setHours(h, m, 0, 0);
+    return temp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+    const role=getRole();
+    const appointmentsList=document.getElementById('appointmentsList');
+    const modalRoot=document.getElementById('modalRoot');
+    const calendarContainer = document.getElementById('appointmentsCalendar');
+    const dateFilterList = document.getElementById('dateFilterList');
+    let appointmentsCalendar = null;
+    let allAppointments = []; // Store all appointments for filtering
+    let selectedDate = null; // Currently selected date filter
+    
+    // Define user variable at module scope - available to all functions
+    // This MUST be defined before any functions that use it
+    let user = '';
+    
+    // Function to safely get and set user
+    function refreshUser() {
+      try {
+        if (typeof window.getUserName === 'function') {
+          user = window.getUserName() || '';
+        } else if (typeof getUserName === 'function') {
+          user = getUserName() || '';
+        } else {
+          user = localStorage.getItem('userDisplayName') || localStorage.getItem('username') || '';
+        }
+      } catch (e) {
+        console.warn('Error getting user name:', e);
+        user = localStorage.getItem('userDisplayName') || localStorage.getItem('username') || '';
+      }
+      // Ensure user is always a string, never undefined or null
+      if (user === null || user === undefined || typeof user !== 'string') {
+        user = '';
+      }
+      return user;
+    }
+    
+    // Initialize user immediately
+    refreshUser();
+    
+    // Also refresh user periodically to catch any changes
+    setInterval(refreshUser, 5000);
+    
+    if(role==='admin'||window.isFrontOffice(role)){document.getElementById('addBtn').classList.remove('hidden');}
+
+    function renderDateFilter(appointments) {
+      // Get unique dates from appointments
+      const datesSet = new Set();
+      appointments.forEach(a => {
+        if (a.date) datesSet.add(a.date);
+      });
+      
+      const dates = Array.from(datesSet).sort((a, b) => {
+        return new Date(a) - new Date(b); // Sort ascending (oldest first)
+      });
+      
+      if (dates.length === 0) {
+        dateFilterList.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">No appointments</p>';
+        return;
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      const todayIndex = dates.indexOf(today);
+      
+      // Move today to the front if it exists
+      if (todayIndex !== -1) {
+        dates.splice(todayIndex, 1);
+        dates.unshift(today);
+      }
+      
+      // Build date buttons
+      const dateButtons = dates.map(date => {
+        const dateObj = new Date(date + 'T00:00:00');
+        const isToday = date === today;
+        const isSelected = selectedDate === date;
+        const count = appointments.filter(a => a.date === date).length;
+        
+        const formattedDate = isToday 
+          ? `Today, ${dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+          : dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        
+        return `
+          <button 
+            onclick="filterByDate('${date}')" 
+            class="w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 ${
+              isSelected 
+                ? 'bg-[var(--soft-teal)] text-white shadow-md' 
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+            } ${isToday ? 'font-semibold' : 'font-medium'}"
+          >
+            <div class="flex items-center justify-between">
+              <span>${formattedDate}</span>
+              <span class="text-xs ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full font-medium">${count}</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+      
+      // Add "All Appointments" option at the top
+      const allButton = `
+        <button 
+          onclick="filterByDate(null)" 
+          class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-3 ${
+            selectedDate === null 
+              ? 'bg-[var(--soft-teal)] text-white shadow-md' 
+              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+          }"
+        >
+          <div class="flex items-center justify-between">
+            <span>All Appointments</span>
+            <span class="text-xs ${selectedDate === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'} px-2 py-0.5 rounded-full font-medium">${appointments.length}</span>
+          </div>
+        </button>
+      `;
+      dateFilterList.innerHTML = allButton + dateButtons;
+    }
+    
+    window.filterByDate = function(date) {
+      selectedDate = date;
+      renderAppointmentsList();
+    };
+    
+    function renderAppointmentsList() {
+      // Ensure user is defined (refresh from localStorage if needed)
+      refreshUser();
+      
+      let filtered = allAppointments;
+      
+      // Apply date filter if selected
+      if (selectedDate !== null) {
+        filtered = allAppointments.filter(a => a.date === selectedDate);
+      }
+      
+      const appointmentsList = document.getElementById('appointmentsList');
+      const appointmentCount = document.getElementById('appointmentCount');
+      
+      // Update count
+      if (selectedDate) {
+        const dateObj = new Date(selectedDate + 'T00:00:00');
+        const today = new Date().toISOString().split('T')[0];
+        const dateLabel = selectedDate === today 
+          ? 'Today' 
+          : dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        appointmentCount.textContent = `${filtered.length} appointment${filtered.length === 1 ? '' : 's'} on ${dateLabel}`;
+      } else {
+        appointmentCount.textContent = `${filtered.length} appointment${filtered.length === 1 ? '' : 's'}`;
+      }
+      
+      if (filtered.length === 0) {
+        appointmentsList.innerHTML = '<div class="py-12 text-center"><p class="text-gray-400 text-sm">No appointments found.</p><p class="text-gray-300 text-xs mt-2">Create your first appointment using the button above.</p></div>';
+      } else {
+        // Group appointments by date
+        const appointmentsByDate = {};
+        filtered.forEach(a => {
+          const dateKey = a.date || 'No Date';
+          if (!appointmentsByDate[dateKey]) {
+            appointmentsByDate[dateKey] = [];
+          }
+          appointmentsByDate[dateKey].push(a);
+        });
+        
+        // Sort dates (most recent first at the top) - descending order
+        const sortedDates = Object.keys(appointmentsByDate).sort((a, b) => {
+          if (a === 'No Date') return 1;
+          if (b === 'No Date') return -1;
+          const dateA = new Date(a);
+          const dateB = new Date(b);
+          return dateB - dateA; // Most recent first (descending: Dec 9, Dec 6, Dec 5)
+        });
+        
+        // Render appointments grouped by date
+        appointmentsList.innerHTML = sortedDates.map((dateKey, dateIdx) => {
+          const dateAppts = appointmentsByDate[dateKey];
+          const dateObj = dateKey !== 'No Date' ? new Date(dateKey + 'T00:00:00') : null;
+          const formattedDateHeader = dateObj 
+            ? dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+            : 'No Date';
+          
+          return `
+            <div class="mb-5 ${dateIdx > 0 ? 'mt-6 pt-5 border-t border-gray-200' : ''}">
+              <div class="mb-4 flex items-center gap-3">
+                <div class="flex-1">
+                  <h4 class="text-base font-semibold text-gray-800 mb-0.5">${formattedDateHeader}</h4>
+                  <p class="text-xs text-gray-500 font-medium">${dateAppts.length} appointment${dateAppts.length === 1 ? '' : 's'}</p>
+                </div>
+                <div class="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent flex-1"></div>
+              </div>
+              <div class="space-y-3 pl-3 border-l-2 border-gray-100">
+                ${dateAppts.map((a, idx) => {
+                  const statusColor = a.status === 'Done' ? 'bg-green-50 text-green-700' :
+                                     a.status === 'Approved by Vet' ? 'bg-blue-50 text-blue-700' :
+                                     a.status === 'Pending' ? 'bg-yellow-50 text-yellow-700' :
+                                     'bg-gray-50 text-gray-700';
+                  
+                  const formattedTime = a.time || 'N/A';
+                  
+                  return `
+                    <div class="flex items-center justify-between gap-4 py-4 px-4 rounded-lg bg-gradient-to-r from-white to-gray-50/50 border border-gray-200 hover:border-[var(--soft-teal)]/30 hover:shadow-md transition-all duration-200 group">
+                      <div class="min-w-0 flex-1">
+                        <div class="flex items-center gap-3 mb-2">
+                          <span class="font-semibold text-gray-900 text-base">${a.petName || 'Unknown Pet'}</span>
+                          <span class="text-xs ${statusColor} px-2.5 py-1 rounded-full font-medium">${a.status}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs text-gray-600 mb-1.5">
+                          <span class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            ${formattedTime}
+                          </span>
+                          ${a.vet ? `<span class="flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                            </svg>
+                            ${a.vet}
+                          </span>` : ''}
+                        </div>
+                        <div class="flex items-center gap-4 text-xs text-gray-500">
+                          <span class="font-medium text-gray-600">Code:</span> <span class="font-mono">${a.code || 'N/A'}</span>
+                          <span class="font-medium text-gray-600">Owner:</span> <span>${a.owner || 'N/A'}</span>
+                        </div>
+                      </div>
+                      <div class="flex-shrink-0 flex gap-2">
+                        ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status!=='Approved by Vet' && a.status!=='Done'
+                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md" onclick="approve(${a.id})">Approve</button>` : ''}
+
+                        ${(role==='vet' && a.status==='Approved by Vet')
+                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="openProcedurePage(${a.id}, ${a.petId})">Add Procedure</button>` : ''}
+
+                        ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status==='Approved by Vet'
+                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md" onclick="markDone(${a.id})">Mark Done</button>` : ''}
+
+                        ${(role==='vet'||role==='admin'||window.isFrontOffice(role))
+                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 transition-all duration-200" onclick="delAppt(${a.id})">Delete</button>` : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+      
+      // Render calendar with appointments (always show all, not filtered)
+      renderAppointmentsCalendar(allAppointments);
+    }
+    
+    async function render(){
+      let appts = [];
+      if(window.USE_API){
+        // Vets only see their own appointments (enforced by backend)
+        const currentUsername = localStorage.getItem('username');
+        if(role==='vet'){ 
+          appts = await Api.appts.list(currentUsername); // Backend filters by vet
+        }
+        else if(window.isFrontOffice(role)){ 
+          appts = await Api.appts.list(); // Front Office sees all appointments
+        }
+        else { 
+          appts = await Api.appts.list(); // Admin sees all
+        }
+      } else {
+        appts = await repoListAppts();
+      }
+      // Update user variable (already defined at module scope, but refresh it)
+      refreshUser();
+      const apptsWithNames = await Promise.all(appts.map(async a => {
+        try {
+          const pet = await petName(a.petId);
+          return { ...a, petName: pet || 'Unknown Pet' };
+        } catch (err) {
+          console.warn(`Error fetching pet ${a.petId}:`, err);
+          return { ...a, petName: 'Unknown Pet' };
+        }
+      }));
+      let filtered = apptsWithNames;
+      if(!window.USE_API){
+        if(role==='vet'){ filtered = apptsWithNames.filter(a=> (a.vet||'')===user); }
+        if(window.isFrontOffice(role)){ filtered = apptsWithNames.filter(a=> !a.vet); }
+      }
+      
+      // Store all appointments
+      allAppointments = filtered;
+      
+      // Render date filter sidebar
+      renderDateFilter(allAppointments);
+      
+      // Render appointments list (will use selectedDate filter)
+      renderAppointmentsList();
+    }
+    
+
+    // Color code appointments by status - using natural/pastel colors
+    function getStatusColor(status) {
+      const s = (status || '').toLowerCase();
+      // Natural/pastel color scheme
+      if (s === 'done') return '#a7f3d0'; // Soft mint green - completed
+      if (s === 'approved by vet') return '#bfdbfe'; // Soft sky blue - approved
+      if (s === 'pending') return '#fde68a'; // Soft yellow - pending
+      if (s === 'cancelled') return '#fecaca'; // Soft rose - cancelled
+      return '#bfdbfe'; // Default soft sky blue
+    }
+    
+    // Get procedure type color (for future use if procedure types are added)
+    function getProcedureColor(procedureType) {
+      // Color coding by procedure category
+      const proc = (procedureType || '').toLowerCase();
+      if (proc.includes('vaccine') || proc.includes('vaccination')) return '#3b82f6'; // Blue
+      if (proc.includes('consultation') || proc.includes('checkup')) return '#3b82f6'; // Blue
+      if (proc.includes('surgery') || proc.includes('emergency')) return '#f59e0b'; // Orange
+      if (proc.includes('lab') || proc.includes('test')) return '#3b82f6'; // Blue
+      if (proc.includes('deworming')) return '#3b82f6'; // Blue
+      if (proc.includes('grooming')) return '#3b82f6'; // Blue
+      return '#3b82f6'; // Default blue
+    }
+
+    function ensureAppointmentsCalendar() {
+      if (appointmentsCalendar) return; // Already initialized
+      if (!calendarContainer) {
+        console.error('Calendar container not found!');
+        return;
+      }
+      // Check if FullCalendar is available - try multiple ways to detect it
+      const fcAvailable = typeof FullCalendar !== 'undefined' && typeof FullCalendar.Calendar !== 'undefined';
+      const fcGlobalAvailable = typeof window.FullCalendar !== 'undefined' && typeof window.FullCalendar.Calendar !== 'undefined';
+      
+      if (!fcAvailable && !fcGlobalAvailable) {
+        console.warn('FullCalendar not ready yet, will retry...');
+        calendarContainer.innerHTML = '<div class="p-4 text-gray-500 text-center">Loading calendar...</div>';
+        setTimeout(() => ensureAppointmentsCalendar(), 200);
+        return;
+      }
+      
+      // Use whichever is available
+      const FC = FullCalendar || window.FullCalendar;
+      try {
+        console.log('Creating FullCalendar instance...');
+        const FC = FullCalendar || window.FullCalendar;
+        appointmentsCalendar = new FC.Calendar(calendarContainer, {
+        initialView: 'dayGridMonth',
+        height: 'auto',
+        contentHeight: 'auto',
+        eventDisplay: 'block',
+        aspectRatio: 1.35,
+        headerToolbar: {
+          left: 'prev',
+          center: 'title',
+          right: 'next'
+        },
+        firstDay: 0, // Start week on Sunday (matching example)
+        dayMaxEvents: 2, // Show max 2 events per day, rest hidden
+        moreLinkClick: 'popover',
+        dayMaxEventRows: 2, // Max 2 rows of events visible
+        eventTimeFormat: {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        },
+        dateClick: async function(info) {
+          const clickedDate = info.dateStr;
+          try {
+            // Fetch appointments for this date based on role
+            let dayAppts = [];
+            if(window.USE_API){
+              const currentUsername = localStorage.getItem('username');
+              if(role==='vet'){ 
+                const allAppts = await Api.appts.list(currentUsername);
+                dayAppts = allAppts.filter(a => a.date === clickedDate);
+              }
+              else if(window.isFrontOffice(role)){ 
+                const allAppts = await Api.appts.list(); // Receptionist sees all appointments
+                dayAppts = allAppts.filter(a => a.date === clickedDate);
+              }
+              else { 
+                dayAppts = await Api.appts.listByDate(clickedDate);
+              }
+            } else {
+              const allAppts = await repoListAppts();
+              dayAppts = allAppts.filter(a => a.date === clickedDate);
+            }
+            
+            // Filter out "Done" appointments
+            dayAppts = dayAppts.filter(apt => 
+              apt.status && apt.status.toLowerCase() !== 'done'
+            );
+            
+            // Get pet names for appointments
+            const apptsWithNames = await Promise.all(dayAppts.map(async a => {
+              try {
+                const pet = await petName(a.petId);
+                return { ...a, petName: pet || 'Unknown Pet' };
+              } catch (err) {
+                console.warn(`Error fetching pet ${a.petId}:`, err);
+                return { ...a, petName: 'Unknown Pet' };
+              }
+            }));
+            
+            if (apptsWithNames && apptsWithNames.length > 0) {
+              const apptList = apptsWithNames.map(a => {
+                const statusColor = getStatusColor(a.status);
+                const statusEmoji = a.status?.toLowerCase() === 'approved by vet' ? '✓' : 
+                                   a.status?.toLowerCase() === 'pending' ? '⏳' : '•';
+                return `${statusEmoji} ${a.time || 'N/A'} - ${a.petName || 'Unknown Pet'} (${a.owner || 'Unknown Owner'})\n   Status: ${a.status || 'Pending'} | Vet: ${a.vet || 'Unassigned'}`;
+              }).join('\n\n');
+              alert(`Appointments on ${new Date(clickedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}:\n\n${apptList}${apptsWithNames.length > 2 ? `\n\n(${apptsWithNames.length - 2} more appointment${apptsWithNames.length - 2 > 1 ? 's' : ''} hidden in calendar view)` : ''}`);
+            } else {
+              alert(`No appointments scheduled for ${new Date(clickedDate).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`);
+            }
+          } catch(err) {
+            console.error('Error loading appointments for date:', err);
+            alert('Unable to load appointments for this date.');
+          }
+        },
+        eventClick: async function(info) {
+          const apt = info.event.extendedProps.appointment;
+          const dateStr = new Date(apt.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const details = `APPOINTMENT DETAILS\n\nDate: ${dateStr}\nTime: ${apt.time || 'N/A'}\nPet: ${apt.petName || 'Unknown'}\nOwner: ${apt.owner || 'Unknown'}\nVet: ${apt.vet || 'Unassigned'}\nStatus: ${apt.status || 'Pending'}\nCode: ${apt.code || 'N/A'}`;
+          alert(details);
+          info.jsEvent.preventDefault();
+        }
+        });
+        appointmentsCalendar.render();
+        console.log('Calendar initialized successfully');
+      } catch (error) {
+        console.error('Error initializing calendar:', error);
+        calendarContainer.innerHTML = '<div class="p-4 text-red-600">Error initializing calendar: ' + error.message + '<br>Please refresh the page.</div>';
+        throw error; // Re-throw to help with debugging
+      }
+    }
+
+    function renderAppointmentsCalendar(appointments) {
+      ensureAppointmentsCalendar();
+      if (!appointmentsCalendar) {
+        console.error('Calendar not initialized, cannot render appointments');
+        return;
+      }
+      
+      // Filter out "Done" appointments from calendar (as per user request)
+      const activeAppointments = appointments.filter(apt => 
+        apt.status && apt.status.toLowerCase() !== 'done'
+      );
+      
+      appointmentsCalendar.removeAllEvents();
+      
+      // Add appointments as events - styled as colored blocks with pastel colors
+      const events = activeAppointments.map(apt => {
+        const timeDisplay = apt.time ? apt.time.substring(0, 5) : '';
+        const petName = apt.petName || 'Pet';
+        // Short title for compact display
+        const title = timeDisplay ? `${timeDisplay} ${petName}` : petName;
+        
+        // Use status-based pastel color coding
+        const eventColor = getStatusColor(apt.status);
+        
+        // Set text color based on background for readability
+        let textColor = '#1f2937';
+        const s = (apt.status || '').toLowerCase();
+        if (s === 'done') textColor = '#065f46';
+        else if (s === 'approved by vet') textColor = '#1e40af';
+        else if (s === 'pending') textColor = '#92400e';
+        else if (s === 'cancelled') textColor = '#991b1b';
+        
+        return {
+          id: `appt-${apt.id}`,
+          title: title,
+          start: apt.date,
+          backgroundColor: eventColor,
+          borderColor: eventColor,
+          textColor: textColor,
+          display: 'block',
+          classNames: ['appointment-event'],
+          extendedProps: { 
+            appointment: apt,
+            status: apt.status,
+            time: apt.time,
+            petName: apt.petName,
+            owner: apt.owner
+          }
+        };
+      });
+      
+      // Always add events (even if empty) to ensure calendar renders
+      if (events.length > 0) {
+        appointmentsCalendar.addEventSource(events);
+        console.log(`Added ${events.length} appointment events to calendar`);
+      } else {
+        console.log('No active appointments to display on calendar - calendar will show empty');
+        // Add empty event source to ensure calendar still renders
+        appointmentsCalendar.addEventSource([]);
+      }
+      
+      // No date highlighting - calendar only shows appointment events
+      
+      // Refresh calendar view to ensure it's visible
+      try {
+        appointmentsCalendar.render();
+        console.log('Calendar rendered successfully');
+      } catch (renderError) {
+        console.error('Error rendering calendar:', renderError);
+      }
+    }
+
+    async function approve(id){ 
+      await repoApproveAppt(id); 
+      await render(); // Re-render table, calendar, and date filter
+    }
+    async function markDone(id){ 
+      await repoDoneAppt(id); 
+      await render(); // Re-render table, calendar, and date filter (Done appointments will be removed from calendar)
+    }
+    
+    function openProcedurePage(appointmentId, petId) {
+      // Store appointment and pet info for procedure page
+      sessionStorage.setItem('procedureAppointmentId', appointmentId);
+      sessionStorage.setItem('procedurePetId', petId);
+      window.location.href = 'procedure.html';
+    }
+    async function delAppt(id){ 
+      if(confirm('Delete appointment?')){ 
+        await repoDeleteAppt(id); 
+        await render(); // Re-render table, calendar, and date filter
+      } 
+    }
+
+    document.getElementById('addBtn')?.addEventListener('click',openForm);
+
+    async function openForm(){
+      // Hide calendar when opening create appointment modal
+      const calendarSection = document.getElementById('calendarSection');
+      if (calendarSection) {
+        calendarSection.style.display = 'none';
+      }
+      
+      const pets=await repoListPets();
+      let users=await repoListUsers();
+      // Ensure users is always an array
+      if (!Array.isArray(users)) {
+        if (users && typeof users === 'object') {
+          if (users.content && Array.isArray(users.content)) {
+            users = users.content;
+          } else if (users.data && Array.isArray(users.data)) {
+            users = users.data;
+          } else if (users.users && Array.isArray(users.users)) {
+            users = users.users;
+          } else {
+            console.error('Unexpected users response format:', users);
+            users = [];
+          }
+        } else {
+          users = [];
+        }
+      }
+      const vets=(users||[]).filter(u=> (u.role||'').toLowerCase()==='vet');
+      modalRoot.innerHTML=`
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
+          <div class="bg-white rounded-2xl w-full max-w-3xl p-10 shadow-2xl transform transition-all">
+            <div class="flex items-center justify-between mb-8">
+              <h3 class="text-2xl font-semibold text-gray-800">Create Appointment</h3>
+              <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="grid grid-cols-2 gap-6">
+              <label class="block col-span-2">
+                <span class="text-sm font-medium text-gray-700 mb-2 block">Pet</span>
+                <select id="f_pet" class="w-full border-2 border-gray-300 rounded-lg p-3.5 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
+                  ${pets.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}
+                </select>
+              </label>
+              <label class="block col-span-2">
+                <span class="text-sm font-medium text-gray-700 mb-2 block">Owner</span>
+                <input id="f_owner" class="w-full border-2 border-gray-300 rounded-lg p-3.5 bg-gray-50 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" readonly>
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium text-gray-700 mb-2 block">Date</span>
+                <input id="f_date" type="date" class="w-full border-2 border-gray-300 rounded-lg p-3.5 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" required>
+              </label>
+              <label class="block">
+                <span class="text-sm font-medium text-gray-700 mb-2 block">Time Slot</span>
+                <select id="f_timeSlot" class="w-full border-2 border-gray-300 rounded-lg p-3.5 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" disabled>
+                  <option value="">Select a date first</option>
+                </select>
+              </label>
+              <label class="block col-span-2">
+                <span class="text-sm font-medium text-gray-700 mb-2 block">Assign Vet <span class="text-red-500">*</span></span>
+                <select id="f_vet" class="w-full border-2 border-gray-300 rounded-lg p-3.5 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" required>
+                  <option value="">-- Select Veterinarian --</option>
+                  ${vets.map(v=>`<option>${v.name||v.fullName||v.username||''}</option>`).join('')}
+                </select>
+              </label>
+              <div class="col-span-2">
+                <p class="text-xs text-gray-500 mt-1">Up to 5 patients every 30 minutes (8:00 AM – 9:30 PM).</p>
+              </div>
+            </div>
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end gap-3">
+              <button class="px-6 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="closeModal()">Cancel</button>
+              <button class="px-6 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white font-medium hover:bg-[#158a8a] shadow-md hover:shadow-lg transition-all duration-200" onclick="saveAppt()">Create Appointment</button>
+            </div>
+          </div>
+        </div>`;
+      const petSel=document.getElementById('f_pet');
+      const ownerInp=document.getElementById('f_owner');
+      async function syncOwner(){ 
+        const owner = await ownerForPet(Number(petSel.value));
+        ownerInp.value = owner;
+      }
+      petSel.addEventListener('change', syncOwner); 
+      syncOwner();
+
+      const dateInput = document.getElementById('f_date');
+      const timeSelect = document.getElementById('f_timeSlot');
+      async function refreshSlots(){
+        const date = dateInput.value;
+        if(!date){
+          timeSelect.innerHTML = `<option value="">Select a date first</option>`;
+          timeSelect.disabled = true;
+          return;
+        }
+        // Don't highlight calendar when selecting date in form
+        // Calendar will update after appointment is saved
+        timeSelect.disabled = true;
+        timeSelect.innerHTML = `<option value="">Loading slots...</option>`;
+        try{
+          const dayAppts = await Api.appts.listByDate(date);
+          const counts = {};
+          (dayAppts||[]).forEach(appt=>{
+            const key = (appt.time || '').slice(0,5);
+            if(!key) return;
+            counts[key] = (counts[key]||0)+1;
+          });
+          timeSelect.innerHTML = SLOT_TIMES.map(slot=>{
+            const used = counts[slot] || 0;
+            const remaining = Math.max(0, 5 - used);
+            const disabled = remaining===0 ? 'disabled' : '';
+            return `<option value="${slot}" ${disabled}>${formatSlotLabel(slot)} — ${remaining} slot${remaining===1?'':'s'} left</option>`;
+          }).join('');
+          timeSelect.disabled = false;
+        }catch(err){
+          console.error(err);
+          timeSelect.innerHTML = `<option value="">Unable to load slots</option>`;
+        }
+      }
+      dateInput.addEventListener('change', refreshSlots);
+      // keyboard submit
+      const wrap=document.querySelector('.fixed.inset-0');
+      wrap.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); saveAppt(); } if(e.key==='Escape'){ e.preventDefault(); closeModal(); }});
+    }
+    function closeModal(){ 
+      modalRoot.innerHTML=''; 
+      // Show calendar again when modal is closed
+      const calendarSection = document.getElementById('calendarSection');
+      if (calendarSection) {
+        calendarSection.style.display = '';
+      }
+    }
+    async function saveAppt(){
+      const petId=Number(document.getElementById('f_pet').value);
+      const date=document.getElementById('f_date').value;
+      let time=document.getElementById('f_timeSlot').value;
+      const vet=document.getElementById('f_vet').value.trim();
+      
+      if(!petId || Number.isNaN(petId)){ alert('Please select a pet.'); return; }
+      if(!date||!time){alert('Date and time required');return;}
+      if(!vet){alert('Veterinarian must be assigned');return;}
+      
+      try{
+        // Backend now expects a DTO with petId instead of a full Pet object.
+        const appt = await repoCreateAppt({petId,date,time,vet});
+        if(appt && appt.code){
+          alert(`Appointment created successfully!\nAppointment Code: ${appt.code}`);
+        }
+        closeModal(); 
+        await render(); // Re-render table, calendar, and date filter with new appointment
+      } catch(err){
+        let raw = err && (err.message || err.toString()) || 'Failed to create appointment';
+        // Clean up noisy technical prefixes like "400 Bad Request —" or raw JSON bodies
+        raw = raw.replace(/^\s*\d{3}\s+[A-Za-z ]+[\s–-]+/,'').trim();
+        try{
+          // If the remaining string is JSON, extract "message" or "error"
+          const maybeJson = JSON.parse(raw);
+          if(maybeJson && typeof maybeJson === 'object'){
+            raw = maybeJson.message || maybeJson.error || raw;
+          }
+        }catch(_){/* not JSON, ignore */}
+        // Friendly final message
+        alert(raw || 'The veterinarian already has an appointment in that time slot. Please choose another time.');
+      }
+    }
+
+    // Initialize calendar and render appointments on page load
+    // Ensure FullCalendar is loaded before initializing
+    function initCalendarAndRender() {
+      console.log('Checking FullCalendar availability...', typeof FullCalendar);
+      
+      // Wait for FullCalendar to be available (with max retries)
+      const fcAvailable = typeof FullCalendar !== 'undefined' && typeof FullCalendar.Calendar !== 'undefined';
+      const fcGlobalAvailable = typeof window.FullCalendar !== 'undefined' && typeof window.FullCalendar.Calendar !== 'undefined';
+      
+      if (!fcAvailable && !fcGlobalAvailable) {
+        console.warn('FullCalendar not loaded yet, retrying...');
+        // Retry up to 20 times (4 seconds total)
+        if (!window._calendarRetryCount) window._calendarRetryCount = 0;
+        if (window._calendarRetryCount < 20) {
+          window._calendarRetryCount++;
+          setTimeout(initCalendarAndRender, 200);
+          return;
+        } else {
+          console.error('FullCalendar failed to load after multiple retries');
+          if (calendarContainer) {
+            calendarContainer.innerHTML = '<div class="p-4 text-red-600 text-center">Calendar library failed to load.<br>Please check your internet connection and refresh the page.<br><br>If the problem persists, the CDN may be blocked.</div>';
+          }
+          return;
+        }
+      }
+      
+      console.log('FullCalendar is available, initializing calendar...');
+      ensureAppointmentsCalendar();
+      
+      // Wait a bit for calendar to initialize, then render appointments
+      setTimeout(() => {
+        if (appointmentsCalendar) {
+          console.log('Calendar initialized successfully, loading appointments...');
+          render();
+        } else {
+          console.error('Calendar failed to initialize after ensureAppointmentsCalendar call');
+          // Try one more time
+          setTimeout(() => {
+            ensureAppointmentsCalendar();
+            if (appointmentsCalendar) {
+              render();
+            }
+          }, 500);
+        }
+      }, 100);
+    }
+    
+    // Start initialization - wait for window load to ensure all scripts are loaded
+    window.addEventListener('load', function() {
+      console.log('Window loaded, starting calendar initialization...');
+      window._calendarRetryCount = 0; // Reset retry counter
+      setTimeout(initCalendarAndRender, 100);
+    });
+    
+    // Also try immediately if window is already loaded
+    if (document.readyState === 'complete') {
+      window._calendarRetryCount = 0;
+      setTimeout(initCalendarAndRender, 200);
+    }
+  </script>
+</body>
+</html>

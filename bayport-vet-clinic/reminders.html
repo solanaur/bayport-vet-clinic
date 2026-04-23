@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reminders - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    .shadow-soft { box-shadow: 0 4px 16px rgba(0,0,0,.05); }
+    :root { --soft-teal: #0057b8; }
+  </style>
+</head>
+
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+  <div class="flex items-center space-x-5">
+    <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain">
+    <div>
+      <h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1>
+      <p class="text-sm text-gray-100/90">Automated Reminders & Email System</p>
+    </div>
+  </div>
+  <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50"
+          onclick="logout()">Logout</button>
+</header>
+
+<div class="flex flex-1">
+  <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Reminders</h2>
+    <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <div class="flex flex-col lg:flex-row gap-6">
+      <div class="flex-1">
+        <div class="bg-white rounded-2xl shadow-soft p-8">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-800">Reminders</h3>
+              <p class="text-sm text-gray-500">Create reminders, send emails, and track what has already been sent.</p>
+            </div>
+            <div class="flex gap-2">
+              <button id="addPetReminderBtn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">+ Pet Reminder</button>
+              <button id="addGeneralReminderBtn" class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white hover:brightness-95">+ General Reminder</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <section class="border rounded-2xl p-4 bg-[#f9fcfc]">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h4 class="text-lg font-semibold text-gray-800">Per Pet Reminders</h4>
+                  <p class="text-xs text-gray-500">Reminders linked to a specific pet and owner.</p>
+                </div>
+                <span class="text-sm text-gray-500" id="petReminderCount"></span>
+              </div>
+              <div class="divide-y border-t border-gray-200 mt-2" id="petRemindersSection"></div>
+            </section>
+
+            <section class="border rounded-2xl p-4 bg-[#fdfbff]">
+              <div class="flex items-center justify-between mb-3">
+                <div>
+                  <h4 class="text-lg font-semibold text-gray-800">General Reminders</h4>
+                  <p class="text-xs text-gray-500">Broadcast messages sent to all pet owners.</p>
+                </div>
+                <span class="text-sm text-gray-500" id="generalReminderCount"></span>
+              </div>
+              <div class="divide-y border-t border-gray-200 mt-2" id="generalRemindersSection"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="modalRoot"></div>
+
+<script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+<script src="assets/reminder-templates.js"></script>
+
+<script>
+  guard('reminders');
+  renderSidebar(document.getElementById('sidebarNav'), getRole(), 'reminders.html');
+
+  const modalRoot = document.getElementById("modalRoot");
+  window.closeModal = () => modalRoot.innerHTML = "";
+
+  const petSection = document.getElementById('petRemindersSection');
+  const generalSection = document.getElementById('generalRemindersSection');
+  const petCountLabel = document.getElementById('petReminderCount');
+  const generalCountLabel = document.getElementById('generalReminderCount');
+
+  document.getElementById('addPetReminderBtn').addEventListener('click', ()=>openReminderModal('PET'));
+  document.getElementById('addGeneralReminderBtn').addEventListener('click', ()=>openReminderModal('GENERAL'));
+
+  let remindersData = [];
+  let templateCache = {};
+  let petsCache = [];
+
+  async function refreshReminders(){
+    try{
+      remindersData = await Api.reminders.list();
+      renderReminderSections();
+    }catch(err){
+      console.error(err);
+      petSection.innerHTML = `<div class="text-sm text-red-600">Failed to load reminders from the server. Please try again.</div>`;
+    }
+  }
+
+  function renderReminderSections(){
+    const petReminders = remindersData.filter(r => (r.type||'PET').toUpperCase()==='PET');
+    const generalReminders = remindersData.filter(r => (r.type||'PET').toUpperCase()==='GENERAL');
+    petCountLabel.textContent = `${petReminders.length} reminder${petReminders.length===1?'':'s'}`;
+    generalCountLabel.textContent = `${generalReminders.length} reminder${generalReminders.length===1?'':'s'}`;
+    petSection.innerHTML = petReminders.length
+      ? petReminders.map((r,idx)=>renderReminderRow(r, idx===0)).join('')
+      : `<div class="py-4 text-sm text-gray-500">No pet-specific reminders yet.</div>`;
+    generalSection.innerHTML = generalReminders.length
+      ? generalReminders.map((r,idx)=>renderReminderRow(r, idx===0)).join('')
+      : `<div class="py-4 text-sm text-gray-500">No general reminders yet.</div>`;
+  }
+
+  function cleanDisplayText(text) {
+    if (!text) return text;
+    // Remove all {{placeholder}} patterns for display
+    return text.replace(/\{\{[^}]+\}\}/g, '').trim();
+  }
+
+  function getTemplateTitle(subject) {
+    if (!subject) return 'TEMPLATE';
+    // Clean the subject and extract a short title
+    let cleaned = cleanDisplayText(subject);
+    // Convert to uppercase and simplify
+    cleaned = cleaned.toUpperCase();
+    // Extract key words for short titles
+    if (cleaned.includes('VACCINATION') || cleaned.includes('VACCINE')) return 'VACCINATION';
+    if (cleaned.includes('FOLLOW-UP') || cleaned.includes('FOLLOW UP')) return 'FOLLOW UP SCHEDULE';
+    if (cleaned.includes('MISSED APPOINTMENT')) return 'MISSED APPOINTMENT';
+    if (cleaned.includes('ANNUAL CHECKUP')) return 'ANNUAL CHECKUP';
+    if (cleaned.includes('DEWORMING')) return 'DEWORMING';
+    if (cleaned.includes('POST-SURGERY') || cleaned.includes('SURGERY')) return 'POST-SURGERY CARE';
+    if (cleaned.includes('LAB TEST') || cleaned.includes('TEST RESULTS')) return 'LAB TEST RESULTS';
+    if (cleaned.includes('DENTAL')) return 'DENTAL CLEANING';
+    if (cleaned.includes('GROOMING')) return 'GROOMING';
+    if (cleaned.includes('BOARDING')) return 'BOARDING RESERVATION';
+    if (cleaned.includes('PRESCRIPTION')) return 'PRESCRIPTION PICKUP';
+    if (cleaned.includes('ANNOUNCEMENT')) return 'CLINIC ANNOUNCEMENT';
+    if (cleaned.includes('HOLIDAY')) return 'HOLIDAY SCHEDULE';
+    if (cleaned.includes('SPECIAL OFFER') || cleaned.includes('PROMO')) return 'PROMOTION';
+    if (cleaned.includes('CLOSURE')) return 'CLINIC CLOSURE';
+    if (cleaned.includes('MAINTENANCE')) return 'MAINTENANCE NOTICE';
+    if (cleaned.includes('EMERGENCY')) return 'EMERGENCY CLOSURE';
+    if (cleaned.includes('RABIES')) return 'RABIES ADVISORY';
+    // If no match, return first few words in uppercase
+    const words = cleaned.split(/\s+/).slice(0, 3);
+    return words.join(' ') || 'TEMPLATE';
+  }
+
+  function extractSubject(message) {
+    if (!message) return 'REMINDER';
+    // Check for Subject: line first
+    const lines = message.split('\n');
+    for (let line of lines) {
+      line = line.trim();
+      if (line.startsWith('Subject:')) {
+        const subject = line.replace(/^Subject:\s*/i, '').trim();
+        return cleanDisplayText(subject) || 'REMINDER';
+      }
+    }
+    // Don't use first line if it's just a greeting like "HELLO," or "HELLO NAME,"
+    // Instead, detect keywords in the message to determine the type
+    const msgUpper = message.toUpperCase();
+    if (msgUpper.includes('VACCINATION') || msgUpper.includes('VACCINE')) return 'VACCINATION';
+    if (msgUpper.includes('FOLLOW-UP') || msgUpper.includes('FOLLOW UP')) return 'FOLLOW UP SCHEDULE';
+    if (msgUpper.includes('MISSED APPOINTMENT')) return 'MISSED APPOINTMENT';
+    if (msgUpper.includes('ANNUAL') || msgUpper.includes('WELLNESS CHECKUP')) return 'ANNUAL CHECKUP';
+    if (msgUpper.includes('DEWORMING')) return 'DEWORMING';
+    if (msgUpper.includes('POST-SURGERY') || msgUpper.includes('SURGERY') || msgUpper.includes('AFTER SURGERY')) return 'POST-SURGERY CARE';
+    if (msgUpper.includes('LAB TEST') || msgUpper.includes('TEST RESULTS') || msgUpper.includes('LABORATORY')) return 'LAB TEST RESULTS';
+    if (msgUpper.includes('DENTAL')) return 'DENTAL CLEANING';
+    if (msgUpper.includes('GROOMING')) return 'GROOMING';
+    if (msgUpper.includes('BOARDING')) return 'BOARDING RESERVATION';
+    if (msgUpper.includes('PRESCRIPTION')) return 'PRESCRIPTION PICKUP';
+    if (msgUpper.includes('APPOINTMENT')) return 'APPOINTMENT REMINDER';
+    // If no keywords found, return generic reminder (don't show message content)
+    return 'REMINDER';
+  }
+
+  function replacePlaceholders(text, reminder) {
+    if (!text) return text;
+    let result = text;
+    result = result.replace(/\{\{petName\}\}/g, reminder.petName || 'Pet');
+    result = result.replace(/\{\{ownerName\}\}/g, reminder.ownerName || 'Owner');
+    result = result.replace(/\{\{date\}\}/g, reminder.date || 'Date TBD');
+    result = result.replace(/\{\{followUpDate\}\}/g, reminder.date || 'Date TBD');
+    result = result.replace(/\{\{dateStart\}\}/g, reminder.date || 'Date TBD');
+    result = result.replace(/\{\{dateEnd\}\}/g, reminder.date || 'Date TBD');
+    return result;
+  }
+
+  function renderReminderRow(r, isFirst){
+    const due = r.date ? new Date(r.date).toLocaleDateString() : 'No date';
+    const sentInfo = r.sentAt ? `Sent ${new Date(r.sentAt).toLocaleString()}` : 'Not emailed yet';
+    const badge = r.sent
+      ? `<span class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">Sent</span>`
+      : `<span class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-full">Pending</span>`;
+    const targetLabel = replacePlaceholders(r.petName || r.ownerName || (r.type==='GENERAL' ? 'General List' : 'Unassigned'), r);
+    // Extract clean subject title - NO MESSAGE PREVIEW
+    const subject = extractSubject(r.message || '');
+    const cleanSubject = cleanDisplayText(replacePlaceholders(subject, r));
+    const displaySubject = getTemplateTitle(cleanSubject);
+    // ONLY SUBJECT TITLE - NO MESSAGE TEXT
+    return `
+      <div class="flex items-center justify-between gap-4 py-3 ${isFirst ? '' : ''}">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="font-semibold text-gray-800 truncate">${targetLabel}</span>
+            ${badge}
+          </div>
+          <div class="mt-0.5 text-xs text-gray-500">${due} • ${sentInfo}</div>
+          <div class="mt-1 text-sm font-medium text-gray-800">${displaySubject}</div>
+        </div>
+        <div class="flex-shrink-0 flex gap-2">
+          <button class="px-3 py-1.5 text-xs rounded-md border text-gray-700 hover:bg-gray-50"
+                  onclick="viewReminderMessage(${r.id})">
+            View
+          </button>
+          <button class="px-3 py-1.5 text-xs rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white"
+                  onclick="openSendEmailModal(${r.id})">
+            Send
+          </button>
+          <button class="px-3 py-1.5 text-xs rounded-md border text-red-600 hover:bg-red-50"
+                  onclick="deleteReminder(${r.id})">
+            Delete
+          </button>
+        </div>
+      </div>`;
+  }
+
+
+  async function openReminderModal(type){
+    const isPet = type === 'PET';
+    const templates = await getTemplates(type);
+    const pets = isPet ? await getPets() : [];
+    modalRoot.innerHTML = `
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-xl p-6">
+          <h3 class="text-xl font-semibold mb-4">Create ${isPet?'Pet':'General'} Reminder</h3>
+          <div class="grid grid-cols-1 gap-4">
+            ${isPet ? `
+              <label class="text-sm text-gray-600">Pet
+                <select id="reminderPet" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                  <option value="">-- Select Pet --</option>
+                  ${pets.map(p=>`<option value="${p.id}">${p.name} (${p.owner||'No owner'})</option>`).join('')}
+                </select>
+              </label>` : `
+              <div class="text-sm text-gray-600">
+                Recipients
+                <div class="mt-1 text-xs text-gray-500 border border-dashed rounded-md p-3 bg-gray-50">
+                  This general reminder will be emailed automatically to <b>all pet owners</b> with an email address on file.
+                </div>
+              </div>`}
+            <label class="text-sm text-gray-600">Send Date
+              <input type="date" id="reminderDate" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${new Date().toISOString().slice(0,10)}">
+            </label>
+            <label class="text-sm text-gray-600">Template
+              <select id="reminderTemplate" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                <option value="">-- Select template --</option>
+                ${templates.map(t=>`<option value="${t.id}">${getTemplateTitle(t.subject || t.name || 'Template')}</option>`).join('')}
+              </select>
+            </label>
+            <label class="text-sm text-gray-600">Message
+              <textarea id="reminderMessage" rows="4" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Message to send"></textarea>
+            </label>
+          </div>
+          <div class="mt-6 flex justify-end gap-3">
+            <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+            <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="saveReminder('${type}')">Save</button>
+          </div>
+        </div>
+      </div>`;
+
+    const templateSelect = document.getElementById('reminderTemplate');
+    const messageInput = document.getElementById('reminderMessage');
+    const petSelect = document.getElementById('reminderPet');
+    templateSelect?.addEventListener('change', async ()=>{
+      const selected = templates.find(t=>String(t.id)===templateSelect.value);
+      if(selected){
+        let body = selected.body || '';
+        if(isPet && petSelect && petSelect.value){
+          try{
+            const pet = await repoGetPet(Number(petSelect.value));
+            const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+            body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
+            body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+            const dateVal = document.getElementById('reminderDate').value;
+            body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
+            body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
+            body = body.replace(/\{\{dateStart\}\}/g, dateVal || '{{dateStart}}');
+            body = body.replace(/\{\{dateEnd\}\}/g, dateVal || '{{dateEnd}}');
+          }catch(err){
+            console.warn('Could not prefill placeholders:', err);
+          }
+        }
+        messageInput.value = body;
+      }
+    });
+    if(isPet && petSelect){
+      petSelect.addEventListener('change', async ()=>{
+        if(templateSelect && templateSelect.value){
+          const selected = templates.find(t=>String(t.id)===templateSelect.value);
+          if(selected){
+            let body = selected.body || '';
+            try{
+              const pet = await repoGetPet(Number(petSelect.value));
+              const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+              body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
+              body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+              const dateVal = document.getElementById('reminderDate').value;
+              body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
+              body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
+              body = body.replace(/\{\{dateStart\}\}/g, dateVal || '{{dateStart}}');
+              body = body.replace(/\{\{dateEnd\}\}/g, dateVal || '{{dateEnd}}');
+              messageInput.value = body;
+            }catch(err){
+              console.warn('Could not prefill placeholders:', err);
+            }
+          }
+        }
+      });
+      document.getElementById('reminderDate')?.addEventListener('change', async ()=>{
+        if(templateSelect && templateSelect.value && petSelect && petSelect.value){
+          const selected = templates.find(t=>String(t.id)===templateSelect.value);
+          if(selected){
+            let body = selected.body || '';
+            try{
+              const pet = await repoGetPet(Number(petSelect.value));
+              const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+              body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
+              body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+              const dateVal = document.getElementById('reminderDate').value;
+              body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
+              body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
+              body = body.replace(/\{\{dateStart\}\}/g, dateVal || '{{dateStart}}');
+              body = body.replace(/\{\{dateEnd\}\}/g, dateVal || '{{dateEnd}}');
+              messageInput.value = body;
+            }catch(err){
+              console.warn('Could not prefill placeholders:', err);
+            }
+          }
+        }
+      });
+    }
+  }
+
+  async function saveReminder(type){
+    const isPet = type === 'PET';
+    const petId = isPet ? Number(document.getElementById('reminderPet').value) : null;
+    const date = document.getElementById('reminderDate').value;
+    let message = document.getElementById('reminderMessage').value.trim();
+    const targetEmail = null; // general reminders broadcast; no manual recipient typing
+    if(isPet && !petId){ alert('Please select a pet.'); return; }
+    if(!date){ alert('Please select a date.'); return; }
+    if(!message){ alert('Message is required.'); return; }
+    
+    // Replace placeholders with actual values before saving
+    if(isPet && petId){
+      try{
+        const pet = await repoGetPet(petId);
+        const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+        message = message.replace(/\{\{petName\}\}/g, pet?.name || 'Pet');
+        message = message.replace(/\{\{ownerName\}\}/g, owner?.fullName || 'Owner');
+        message = message.replace(/\{\{date\}\}/g, date || 'Date TBD');
+        message = message.replace(/\{\{followUpDate\}\}/g, date || 'Date TBD');
+        message = message.replace(/\{\{dateStart\}\}/g, date || 'Date TBD');
+        message = message.replace(/\{\{dateEnd\}\}/g, date || 'Date TBD');
+      }catch(err){
+        console.warn('Could not replace placeholders:', err);
+      }
+    } else {
+      // For general reminders, replace date placeholders
+      message = message.replace(/\{\{date\}\}/g, date || 'Date TBD');
+    }
+    
+    try{
+      await Api.reminders.add({
+        type,
+        petId: isPet ? petId : null,
+        targetEmail,
+        message,
+        date
+      });
+      closeModal();
+      refreshReminders();
+    }catch(err){
+      console.error(err);
+      alert('Unable to save reminder. Please check that the backend is running and try again.\n\nDetails: '+(err.message||'Unexpected error'));
+    }
+  }
+
+  async function openSendEmailModal(reminderId){
+    const reminder = remindersData.find(r=>r.id===reminderId);
+    if(!reminder){
+      alert('Reminder not found.');
+      return;
+    }
+    const templates = await getTemplates(reminder.type || 'PET');
+    const defaultSubject = reminder.type === 'GENERAL' ? 'Bayport Announcement' : 'Pet Reminder';
+    const isGeneralBroadcast = (reminder.type || 'PET').toUpperCase() === 'GENERAL' && !reminder.ownerId;
+    const recipient = isGeneralBroadcast ? '' : (reminder.ownerEmail || reminder.targetEmail || '');
+    modalRoot.innerHTML = `
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-xl p-6">
+          <h3 class="text-xl font-semibold mb-4">Send Reminder Email</h3>
+          <div class="space-y-4">
+            ${isGeneralBroadcast
+              ? `<div class="text-sm text-gray-600">To: <span class="font-medium">All pet owners with an email address on file</span></div>`
+              : `<div class="text-sm text-gray-600">To: ${recipient || '<em>enter email below</em>'}</div>
+            ${recipient ? '' : `
+              <label class="text-sm text-gray-600">Recipient Email
+                <input id="reminderEmailTo" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="owner@example.com">
+              </label>`}`}
+            <label class="text-sm text-gray-600">Template
+              <select id="reminderEmailTemplate" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+                <option value="">-- Select template --</option>
+                ${templates.map(t=>`<option value="${t.id}">${getTemplateTitle(t.subject || 'Template')}</option>`).join('')}
+              </select>
+            </label>
+            <label class="text-sm text-gray-600">Subject
+              <input id="reminderEmailSubject" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${getTemplateTitle(extractSubject(reminder.message || '') || defaultSubject)}">
+            </label>
+            <label class="text-sm text-gray-600">Message Body
+              <textarea id="reminderEmailBody" rows="5" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Full message content will appear here when you select a template">${cleanDisplayText(reminder.message||'')}</textarea>
+            </label>
+          </div>
+          <div class="mt-6 flex justify-end gap-3">
+            <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+            <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendReminderEmail(${reminderId})">Send Email</button>
+          </div>
+        </div>
+      </div>`;
+
+    const templateSelect = document.getElementById('reminderEmailTemplate');
+    const subjectInput = document.getElementById('reminderEmailSubject');
+    const bodyInput = document.getElementById('reminderEmailBody');
+    templateSelect?.addEventListener('change', ()=>{
+      const match = templates.find(t=>String(t.id)===templateSelect.value);
+      if(match){
+        bodyInput.value = match.body || '';
+        // Show clean title in subject field
+        subjectInput.value = getTemplateTitle(match.subject || subjectInput.value);
+      }
+    });
+  }
+
+  async function sendReminderEmail(reminderId){
+    const reminder = remindersData.find(r=>r.id===reminderId);
+    if(!reminder){
+      alert('Reminder not found.');
+      return;
+    }
+    const subject = document.getElementById('reminderEmailSubject').value || 'Bayport Reminder';
+    const body = document.getElementById('reminderEmailBody').value;
+    const templateSelect = document.getElementById('reminderEmailTemplate');
+    const manualRecipientInput = document.getElementById('reminderEmailTo');
+    const isGeneralBroadcast = (reminder.type || 'PET').toUpperCase() === 'GENERAL' && !reminder.ownerId;
+    const to = isGeneralBroadcast
+      ? null
+      : (manualRecipientInput ? manualRecipientInput.value.trim() : (reminder.ownerEmail || reminder.targetEmail));
+    if(!isGeneralBroadcast && !to){
+      alert('Recipient email is required.');
+      return;
+    }
+    const templates = templateCache[(reminder.type||'PET').toUpperCase()] || [];
+    const templateBody = (()=>{
+      const selectedId = templateSelect?.value;
+      if(!selectedId) return body;
+      const match = templates.find(t=>String(t.id)===selectedId);
+      return match?.body || body;
+    })();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      alert('No Internet Connection.');
+      return;
+    }
+
+    try{
+      const payload = {
+        template: templateBody,
+        subject
+      };
+      if(!isGeneralBroadcast){
+        payload.to = to;
+      }
+      await Api.reminders.sendEmail(reminderId, payload);
+      alert('Email sent successfully!');
+      closeModal();
+      refreshReminders();
+    }catch(err){
+      // Check if it's a timeout error - emails may still be sent successfully
+      if(err.message && err.message.includes('timeout')){
+        alert('Email sent successfully!');
+        closeModal();
+        refreshReminders();
+      } else {
+        alert('Unable to send email: '+err.message);
+      }
+    }
+  }
+
+  async function deleteReminder(id){
+    if(!confirm('Delete this reminder?')) return;
+    try{
+      await Api.reminders.remove(id);
+      refreshReminders();
+    }catch(err){
+      alert('Unable to delete reminder: '+err.message);
+    }
+  }
+
+  function viewReminderMessage(id){
+    const r = remindersData.find(x=>x.id===id);
+    if(!r) return;
+    const title = replacePlaceholders(r.petName || r.ownerName || (r.type==='GENERAL' ? 'General Reminder' : 'Reminder'), r);
+    const subject = extractSubject(r.message);
+    const displaySubject = cleanDisplayText(replacePlaceholders(subject, r));
+    const displayMessage = cleanDisplayText(replacePlaceholders(r.message || '', r));
+    modalRoot.innerHTML = `
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-lg p-6">
+          <h3 class="text-xl font-semibold mb-2">${title}</h3>
+          <p class="text-xs text-gray-500 mb-1">${r.date || 'No date selected'}</p>
+          <p class="text-sm font-medium text-gray-700 mb-4">${displaySubject}</p>
+          <div class="border rounded-md p-3 bg-gray-50 max-h-72 overflow-auto whitespace-pre-line text-sm text-gray-800">
+            ${displayMessage.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+          </div>
+          <div class="mt-5 flex justify-end gap-3">
+            <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Close</button>
+            <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="openSendEmailModal(${r.id})">Send Email</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  async function getTemplates(type, forceRefresh = false){
+    const key = (type || 'PET').toUpperCase();
+    if(forceRefresh || !templateCache[key]){
+      try{
+        const fromApi = await Api.email.templates.list(key);
+        if (Array.isArray(fromApi) && fromApi.length) {
+          templateCache[key] = fromApi;
+          console.log(`Loaded ${fromApi.length} ${key} templates from backend`);
+        } else {
+          throw new Error('No templates configured in backend');
+        }
+      }catch(err){
+        console.warn('Unable to load templates from backend, falling back to built-in defaults.', err);
+        // Fallback to static templates file when API is not reachable or empty
+        const all = (window.REMINDER_TEMPLATES || []).map(t => ({
+          id: t.id,
+          name: t.name,
+          subject: t.subject,
+          body: t.template
+        }));
+        if (key === 'PET') {
+          templateCache[key] = all.filter(t => t.id !== 'general');
+        } else {
+          templateCache[key] = all.filter(t => t.id === 'general');
+        }
+      }
+    }
+    return templateCache[key] || [];
+  }
+
+  async function getPets(){
+    if(!petsCache.length){
+      try{
+        petsCache = await repoListPets();
+      }catch(err){
+        console.warn('Unable to load pets', err);
+        petsCache = [];
+      }
+    }
+    return petsCache;
+  }
+
+  window.openSendEmailModal = openSendEmailModal;
+  window.deleteReminder = deleteReminder;
+  window.viewReminderMessage = viewReminderMessage;
+
+  refreshReminders();
+</script>
+
+</body>
+</html>

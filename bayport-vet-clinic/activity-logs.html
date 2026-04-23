@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Activity Logs - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex flex-col sm:flex-row items-center justify-between px-4 sm:px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-3 sm:space-x-5 mb-2 sm:mb-0"><img src="assets/logo.png" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-lg sm:text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-xs sm:text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-4 sm:px-5 py-2 rounded-md font-semibold hover:bg-gray-50 text-sm sm:text-base" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1 flex-col lg:flex-row">
+    <aside class="w-full lg:w-72 bg-white border-r border-gray-200 p-4 lg:p-6 shadow-soft flex-shrink-0">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Activity Logs</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-4 lg:p-8 min-w-0">
+      <div class="bg-white rounded-2xl shadow-soft p-4 lg:p-8 w-full">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h3 class="text-xl lg:text-2xl font-semibold text-gray-800">Recent Activity Log</h3>
+          <div class="flex flex-wrap gap-2">
+            <button id="selectAllBtn" class="bg-gray-500 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-gray-600 text-sm lg:text-base hidden">Select All</button>
+            <button id="deleteSelectedBtn" class="bg-red-600 text-white px-3 lg:px-4 py-2 rounded-md hover:bg-red-700 text-sm lg:text-base hidden">Delete Selected</button>
+            <button id="refreshBtn" class="bg-[var(--soft-teal)] text-white px-4 lg:px-5 py-2 lg:py-3 rounded-md hover:brightness-95 text-sm lg:text-base">Refresh</button>
+          </div>
+        </div>
+        
+        <!-- Tab Navigation -->
+        <div id="tabContainer" class="border-b border-gray-200 mb-6 flex flex-wrap gap-2 overflow-x-auto">
+          <!-- Tabs will be dynamically generated here -->
+        </div>
+        
+        <!-- Content Area -->
+        <div id="activityLogsContainer" class="space-y-2 max-h-[calc(100vh-300px)] lg:max-h-[600px] overflow-y-auto w-full">
+          <!-- Logs will be displayed here based on selected tab -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/deploy-env.js"></script>
+
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('activity-logs');
+    const role = getRole();
+    if (role !== 'admin') {
+      location.href = 'dashboard.html';
+    }
+    renderSidebar(document.getElementById('sidebarNav'), role, 'activity-logs.html');
+
+    const container = document.getElementById('activityLogsContainer');
+    const tabContainer = document.getElementById('tabContainer');
+    const refreshBtn = document.getElementById('refreshBtn');
+    let allLogsData = {};
+    let activeTab = null;
+
+    function formatTimestamp(timestamp) {
+      if (!timestamp) return 'N/A';
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function renderLogItem(log, logType, logId) {
+      const timestamp = log.timestamp || log.ts;
+      const username = log.username || 'System';
+      const message = log.message || log.details || log.action || '';
+      const entity = log.entityName || '';
+      const entityId = log.entityId || '';
+      const id = log.id || logId;
+      
+      return `
+        <div class="p-3 bg-gray-50 rounded-md border border-gray-100 flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 group hover:bg-gray-100" data-log-id="${id}" data-log-type="${logType}">
+          <div class="flex items-start gap-3 flex-1 min-w-0">
+            <input type="checkbox" class="log-checkbox w-4 h-4 text-[var(--soft-teal)] border-gray-300 rounded focus:ring-[var(--soft-teal)] mt-1 flex-shrink-0" data-log-id="${id}" data-log-type="${logType}">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-800 break-words">${message}</div>
+              ${entity ? `<div class="text-xs text-gray-500 mt-1 break-words">Entity: ${entity}${entityId ? ` (ID: ${entityId})` : ''}</div>` : ''}
+              <div class="text-xs text-gray-400 mt-1">User: ${username}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 sm:ml-4 flex-shrink-0">
+            <div class="text-xs text-gray-400 whitespace-nowrap">${formatTimestamp(timestamp)}</div>
+            <button onclick="deleteLog('${logType}', ${id})" class="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 text-red-600 hover:text-red-800 text-sm px-2 py-1 rounded transition" title="Delete log">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTabContent(tabKey) {
+      if (!allLogsData[tabKey] || allLogsData[tabKey].length === 0) {
+        container.innerHTML = '<div class="text-center text-gray-500 py-8">No logs found in this category.</div>';
+        updateDeleteButtonVisibility();
+        return;
+      }
+      
+      container.innerHTML = allLogsData[tabKey].map((log, idx) => 
+        renderLogItem(log, tabKey, log.id || idx)
+      ).join('');
+      updateDeleteButtonVisibility();
+    }
+
+    function renderTabs() {
+      const tabs = [];
+      
+      // Audit Log tabs
+      if (allLogsData['CREATE'] && allLogsData['CREATE'].length > 0) {
+        tabs.push({ key: 'CREATE', label: 'Create', count: allLogsData['CREATE'].length });
+      }
+      if (allLogsData['UPDATE'] && allLogsData['UPDATE'].length > 0) {
+        tabs.push({ key: 'UPDATE', label: 'Update', count: allLogsData['UPDATE'].length });
+      }
+      if (allLogsData['DELETE'] && allLogsData['DELETE'].length > 0) {
+        tabs.push({ key: 'DELETE', label: 'Delete', count: allLogsData['DELETE'].length });
+      }
+      if (allLogsData['AUTHENTICATION'] && allLogsData['AUTHENTICATION'].length > 0) {
+        tabs.push({ key: 'AUTHENTICATION', label: 'Authentication', count: allLogsData['AUTHENTICATION'].length });
+      }
+      if (allLogsData['SECURITY'] && allLogsData['SECURITY'].length > 0) {
+        tabs.push({ key: 'SECURITY', label: 'Security', count: allLogsData['SECURITY'].length });
+      }
+      if (allLogsData['OTHER'] && allLogsData['OTHER'].length > 0) {
+        tabs.push({ key: 'OTHER', label: 'Other', count: allLogsData['OTHER'].length });
+      }
+      
+      // Operation Log tabs
+      if (allLogsData['PET_OPERATIONS'] && allLogsData['PET_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'PET_OPERATIONS', label: 'Pets', count: allLogsData['PET_OPERATIONS'].length });
+      }
+      if (allLogsData['APPOINTMENT_OPERATIONS'] && allLogsData['APPOINTMENT_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'APPOINTMENT_OPERATIONS', label: 'Appointments', count: allLogsData['APPOINTMENT_OPERATIONS'].length });
+      }
+      if (allLogsData['PRESCRIPTION_OPERATIONS'] && allLogsData['PRESCRIPTION_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'PRESCRIPTION_OPERATIONS', label: 'Prescriptions', count: allLogsData['PRESCRIPTION_OPERATIONS'].length });
+      }
+      if (allLogsData['OTHER_OPERATIONS'] && allLogsData['OTHER_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'OTHER_OPERATIONS', label: 'Other', count: allLogsData['OTHER_OPERATIONS'].length });
+      }
+      
+      // Data Access Log tabs
+      Object.keys(allLogsData).forEach(key => {
+        if (key.startsWith('DATA_ACCESS_') && allLogsData[key] && allLogsData[key].length > 0) {
+          tabs.push({ key: key, label: key.replace('DATA_ACCESS_', ''), count: allLogsData[key].length });
+        }
+      });
+      
+      if (tabs.length === 0) {
+        tabContainer.innerHTML = '';
+        container.innerHTML = '<div class="text-center text-gray-500 py-8">No activity logs found.</div>';
+        return;
+      }
+      
+      updateTabButtons();
+      
+      // Set first tab as active if none selected (but don't call switchTab to avoid recursion)
+      if (!activeTab && tabs.length > 0) {
+        activeTab = tabs[0].key;
+        updateTabButtons();
+        renderTabContent(activeTab);
+      } else if (activeTab) {
+        updateTabButtons();
+        renderTabContent(activeTab);
+      }
+    }
+
+    function updateTabButtons() {
+      const tabs = [];
+      if (allLogsData['CREATE'] && allLogsData['CREATE'].length > 0) {
+        tabs.push({ key: 'CREATE', label: 'Create', count: allLogsData['CREATE'].length });
+      }
+      if (allLogsData['UPDATE'] && allLogsData['UPDATE'].length > 0) {
+        tabs.push({ key: 'UPDATE', label: 'Update', count: allLogsData['UPDATE'].length });
+      }
+      if (allLogsData['DELETE'] && allLogsData['DELETE'].length > 0) {
+        tabs.push({ key: 'DELETE', label: 'Delete', count: allLogsData['DELETE'].length });
+      }
+      if (allLogsData['AUTHENTICATION'] && allLogsData['AUTHENTICATION'].length > 0) {
+        tabs.push({ key: 'AUTHENTICATION', label: 'Authentication', count: allLogsData['AUTHENTICATION'].length });
+      }
+      if (allLogsData['SECURITY'] && allLogsData['SECURITY'].length > 0) {
+        tabs.push({ key: 'SECURITY', label: 'Security', count: allLogsData['SECURITY'].length });
+      }
+      if (allLogsData['OTHER'] && allLogsData['OTHER'].length > 0) {
+        tabs.push({ key: 'OTHER', label: 'Other', count: allLogsData['OTHER'].length });
+      }
+      if (allLogsData['PET_OPERATIONS'] && allLogsData['PET_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'PET_OPERATIONS', label: 'Pets', count: allLogsData['PET_OPERATIONS'].length });
+      }
+      if (allLogsData['APPOINTMENT_OPERATIONS'] && allLogsData['APPOINTMENT_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'APPOINTMENT_OPERATIONS', label: 'Appointments', count: allLogsData['APPOINTMENT_OPERATIONS'].length });
+      }
+      if (allLogsData['PRESCRIPTION_OPERATIONS'] && allLogsData['PRESCRIPTION_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'PRESCRIPTION_OPERATIONS', label: 'Prescriptions', count: allLogsData['PRESCRIPTION_OPERATIONS'].length });
+      }
+      if (allLogsData['OTHER_OPERATIONS'] && allLogsData['OTHER_OPERATIONS'].length > 0) {
+        tabs.push({ key: 'OTHER_OPERATIONS', label: 'Other', count: allLogsData['OTHER_OPERATIONS'].length });
+      }
+      Object.keys(allLogsData).forEach(key => {
+        if (key.startsWith('DATA_ACCESS_') && allLogsData[key] && allLogsData[key].length > 0) {
+          tabs.push({ key: key, label: key.replace('DATA_ACCESS_', ''), count: allLogsData[key].length });
+        }
+      });
+      
+      tabContainer.innerHTML = tabs.map(tab => `
+        <button 
+          onclick="switchTab('${tab.key}')" 
+          class="px-3 lg:px-4 py-2 rounded-t-lg font-medium transition text-sm lg:text-base whitespace-nowrap ${activeTab === tab.key ? 'bg-[var(--soft-teal)] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+        >
+          ${tab.label} (${tab.count})
+        </button>
+      `).join('');
+    }
+
+    window.switchTab = function(tabKey) {
+      activeTab = tabKey;
+      updateTabButtons();
+      renderTabContent(tabKey);
+    };
+
+    window.deleteLog = async function(logType, logId) {
+      if (!confirm('Are you sure you want to delete this log entry?')) return;
+      
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        let endpoint = '';
+        
+        // Determine endpoint based on log type
+        if (logType === 'CREATE' || logType === 'UPDATE' || logType === 'DELETE' || 
+            logType === 'AUTHENTICATION' || logType === 'SECURITY' || logType === 'OTHER') {
+          // Audit log
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/${logId}`;
+        } else if (logType.includes('OPERATIONS') || logType === 'PET_OPERATIONS' || 
+                   logType === 'APPOINTMENT_OPERATIONS' || logType === 'PRESCRIPTION_OPERATIONS' || 
+                   logType === 'OTHER_OPERATIONS') {
+          // Operation log
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/operations/${logId}`;
+        } else if (logType.startsWith('DATA_ACCESS_')) {
+          // Data access log
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/data-access/${logId}`;
+        } else {
+          // Default to audit log
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/${logId}`;
+        }
+        
+        const response = await fetch(endpoint, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Remove from local data
+          if (allLogsData[logType]) {
+            allLogsData[logType] = allLogsData[logType].filter(log => {
+              const id = log.id || 0;
+              return id !== logId;
+            });
+          }
+          // Reload logs after deletion
+          loadActivityLogs();
+        } else {
+          const errorText = await response.text();
+          alert('Failed to delete log entry: ' + errorText);
+        }
+      } catch (err) {
+        console.error('Error deleting log:', err);
+        alert('Error deleting log entry: ' + err.message);
+      }
+    };
+
+    async function loadActivityLogs() {
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        const response = await fetch(`${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/organized?page=0&size=1000`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('Access denied. Admin access required.');
+          }
+          const errorText = await response.text();
+          throw new Error(`Failed to load activity logs: ${response.status} ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        // Organize all logs by type
+        allLogsData = {};
+        
+        // Audit Logs
+        if (data.auditLogsByType) {
+          Object.keys(data.auditLogsByType).forEach(type => {
+            allLogsData[type] = data.auditLogsByType[type];
+          });
+        }
+        
+        // Operation Logs
+        if (data.operationLogsByType) {
+          Object.keys(data.operationLogsByType).forEach(type => {
+            allLogsData[type] = data.operationLogsByType[type];
+          });
+        }
+        
+        // Data Access Logs
+        if (data.dataAccessLogsByType) {
+          Object.keys(data.dataAccessLogsByType).forEach(operation => {
+            allLogsData[`DATA_ACCESS_${operation}`] = data.dataAccessLogsByType[operation];
+          });
+        }
+        
+        renderTabs();
+      } catch (err) {
+        console.error('Error loading activity logs:', err);
+        container.innerHTML = `<div class="text-center text-red-500 py-8">Error loading activity logs: ${err.message}</div>`;
+      }
+    }
+
+    refreshBtn.onclick = loadActivityLogs;
+    
+    // Multi-select functionality
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    let isSelectAllMode = false;
+    
+    selectAllBtn.onclick = function() {
+      isSelectAllMode = !isSelectAllMode;
+      const checkboxes = container.querySelectorAll('.log-checkbox');
+      checkboxes.forEach(cb => {
+        cb.checked = isSelectAllMode;
+      });
+      selectAllBtn.textContent = isSelectAllMode ? 'Deselect All' : 'Select All';
+      updateDeleteButtonVisibility();
+    };
+    
+    deleteSelectedBtn.onclick = async function() {
+      const checkboxes = container.querySelectorAll('.log-checkbox:checked');
+      if (checkboxes.length === 0) {
+        alert('Please select at least one log to delete.');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to delete ${checkboxes.length} log entry(ies)?`)) {
+        return;
+      }
+      
+      const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+      const deletePromises = [];
+      
+      for (const checkbox of checkboxes) {
+        const logId = parseInt(checkbox.dataset.logId);
+        const logType = checkbox.dataset.logType;
+        
+        let endpoint = '';
+        if (logType === 'CREATE' || logType === 'UPDATE' || logType === 'DELETE' || 
+            logType === 'AUTHENTICATION' || logType === 'SECURITY' || logType === 'OTHER') {
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/${logId}`;
+        } else if (logType.includes('OPERATIONS') || logType === 'PET_OPERATIONS' || 
+                   logType === 'APPOINTMENT_OPERATIONS' || logType === 'PRESCRIPTION_OPERATIONS' || 
+                   logType === 'OTHER_OPERATIONS') {
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/operations/${logId}`;
+        } else if (logType.startsWith('DATA_ACCESS_')) {
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/data-access/${logId}`;
+        } else {
+          endpoint = `${window.API_BASE || 'http://localhost:8080/api'}/admin/audit-logs/${logId}`;
+        }
+        
+        deletePromises.push(
+          fetch(endpoint, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': token ? `Bearer ${token}` : '',
+              'Content-Type': 'application/json'
+            }
+          })
+        );
+      }
+      
+      try {
+        await Promise.all(deletePromises);
+        // Reload logs after deletion
+        loadActivityLogs();
+        isSelectAllMode = false;
+        selectAllBtn.textContent = 'Select All';
+      } catch (err) {
+        console.error('Error deleting logs:', err);
+        alert('Error deleting some log entries. Please refresh and try again.');
+      }
+    };
+    
+    function updateDeleteButtonVisibility() {
+      const checkboxes = container.querySelectorAll('.log-checkbox');
+      const checkedCount = container.querySelectorAll('.log-checkbox:checked').length;
+      
+      if (checkboxes.length > 0) {
+        selectAllBtn.classList.remove('hidden');
+        deleteSelectedBtn.classList.remove('hidden');
+        if (checkedCount > 0) {
+          deleteSelectedBtn.textContent = `Delete Selected (${checkedCount})`;
+        } else {
+          deleteSelectedBtn.textContent = 'Delete Selected';
+        }
+      } else {
+        selectAllBtn.classList.add('hidden');
+        deleteSelectedBtn.classList.add('hidden');
+      }
+    }
+    
+    // Add event listeners to checkboxes
+    container.addEventListener('change', function(e) {
+      if (e.target.classList.contains('log-checkbox')) {
+        updateDeleteButtonVisibility();
+      }
+    });
+    
+    // Initial load
+    loadActivityLogs();
+  </script>
+</body>
+</html>

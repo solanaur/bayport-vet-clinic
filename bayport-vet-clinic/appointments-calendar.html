@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Appointments Calendar - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css' rel='stylesheet' />
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js'></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    :root { --soft-teal:#0057b8; }
+    .fc-event { cursor: pointer; }
+    .fc-daygrid-day-number { cursor: pointer; }
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+  <h1 class="text-2xl font-semibold">Appointments Calendar</h1>
+  <button onclick="location.href='dashboard.html'"
+    class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md">
+    Back to Dashboard
+  </button>
+</header>
+
+<div class="flex flex-1">
+  <aside class="w-72 bg-white border-r p-6 shadow-soft">
+    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Calendar</h2>
+    <nav id="sidebarNav" class="flex flex-col gap-2"></nav>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <div class="bg-white rounded-2xl shadow-soft p-8 mb-6">
+      <h3 class="text-2xl font-semibold text-gray-800 mb-4">Appointments Calendar</h3>
+      <p class="text-gray-600 text-sm mb-4">Click on a date to view appointments for that day. Dates with appointments are highlighted.</p>
+      <div id='calendar'></div>
+    </div>
+    
+    <!-- Appointments list for selected date -->
+    <div id="appointmentsList" class="bg-white rounded-2xl shadow-soft p-8 hidden">
+      <h3 class="text-2xl font-semibold text-gray-800 mb-4">Appointments for <span id="selectedDate"></span></h3>
+      <div id="appointmentsContent"></div>
+    </div>
+  </main>
+</div>
+
+<script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+<script>
+guard('appointments');
+renderSidebar(document.getElementById('sidebarNav'), getRole(), 'appointments-calendar.html');
+
+let selectedDate = null;
+
+document.addEventListener('DOMContentLoaded', async function() {
+    // Fetch all appointments to mark dates
+    const allAppointments = await Api.appts.list();
+    
+    // Get dates with appointments
+    const datesWithAppointments = new Set();
+    allAppointments.forEach(apt => {
+        if (apt.date) {
+            datesWithAppointments.add(apt.date);
+        }
+    });
+
+    // Create calendar events
+    const events = allAppointments.map(apt => ({
+        title: `${apt.owner || 'Unknown'} - ${apt.pet?.name || 'Unknown Pet'}`,
+        start: apt.date,
+        backgroundColor: getStatusColor(apt.status),
+        textColor: "white",
+        borderColor: getStatusColor(apt.status),
+        extendedProps: apt
+    }));
+
+    const calendarEl = document.getElementById('calendar');
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        fixedWeekCount: false,
+        height: 800,
+        eventDisplay: "block",
+        events,
+        dayCellClassNames: function(arg) {
+            const dateStr = arg.date.toISOString().split('T')[0];
+            if (datesWithAppointments.has(dateStr)) {
+                return ['has-appointments'];
+            }
+            return [];
+        },
+        dateClick: async function(info) {
+            selectedDate = info.dateStr;
+            await loadAppointmentsForDate(selectedDate);
+        },
+        eventClick: async function(info) {
+            selectedDate = info.event.startStr.split('T')[0];
+            await loadAppointmentsForDate(selectedDate);
+        }
+    });
+
+    calendar.render();
+    
+    // Add CSS for dates with appointments
+    const style = document.createElement('style');
+    style.textContent = `
+        .has-appointments {
+            background-color: rgba(0,87,184,0.08) !important;
+            font-weight: 600;
+        }
+        .has-appointments .fc-daygrid-day-number {
+            color: var(--soft-teal);
+        }
+    `;
+    document.head.appendChild(style);
+});
+
+async function loadAppointmentsForDate(date) {
+    try {
+        const appointments = await Api.appts.listByDate(date);
+        const listDiv = document.getElementById('appointmentsList');
+        const contentDiv = document.getElementById('appointmentsContent');
+        const dateSpan = document.getElementById('selectedDate');
+        
+        dateSpan.textContent = new Date(date).toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        if (appointments.length === 0) {
+            contentDiv.innerHTML = '<p class="text-gray-500">No appointments scheduled for this date.</p>';
+        } else {
+            contentDiv.innerHTML = `
+                <div class="space-y-4">
+                    ${appointments.map(apt => `
+                        <div class="border rounded-lg p-4 hover:bg-gray-50">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="font-semibold text-lg text-gray-800 mb-2">
+                                        ${apt.owner || 'Unknown Owner'} - ${apt.pet?.name || 'Unknown Pet'}
+                                    </div>
+                                    <div class="text-sm text-gray-600 space-y-1">
+                                        <div><strong>Time:</strong> ${apt.time || 'N/A'}</div>
+                                        <div><strong>Vet:</strong> ${apt.vet || 'Unassigned'}</div>
+                                        <div><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${getStatusBadgeClass(apt.status)}">${apt.status || 'Pending'}</span></div>
+                                        ${apt.code ? `<div><strong>Code:</strong> ${apt.code}</div>` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        listDiv.classList.remove('hidden');
+        listDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (err) {
+        console.error('Error loading appointments:', err);
+        alert('Failed to load appointments for this date.');
+    }
+}
+
+function getStatusColor(status) {
+    switch (status?.toLowerCase()) {
+        case 'done': return '#10b981'; // green
+        case 'approved by vet': return '#3b82f6'; // blue
+        case 'pending': return '#f59e0b'; // amber
+        case 'cancelled': return '#ef4444'; // red
+        default: return '#0057b8'; // bayport blue
+    }
+}
+
+function getStatusBadgeClass(status) {
+    switch (status?.toLowerCase()) {
+        case 'done': return 'bg-green-100 text-green-800';
+        case 'approved by vet': return 'bg-blue-100 text-blue-800';
+        case 'pending': return 'bg-amber-100 text-amber-800';
+        case 'cancelled': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+    }
+}
+</script>
+</body>
+</html>
+

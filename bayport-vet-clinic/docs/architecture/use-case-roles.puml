@@ -1,0 +1,70 @@
+@startuml Bayport_Role_Module_Access
+title Bayport Veterinary Clinic — modules by role\n(source: assets/app.js CONFIG)
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+left to right direction
+
+actor "Admin" as ADMIN #LightBlue
+actor "Front Office" as FRONT #Plum
+actor "Veterinarian" as VET #Pink
+
+rectangle "Application modules (sidebar)" {
+  usecase "Login / Logout" as UC_LOGIN
+  usecase "Dashboard" as UC_DASH
+  usecase "Pet Records" as UC_PETS
+  usecase "Appointments" as UC_APPT
+  usecase "Prescriptions" as UC_RX
+  usecase "Point of Sale" as UC_POS
+  usecase "Billing" as UC_BILL
+  usecase "Reminders" as UC_REM
+  usecase "Inventory" as UC_INV
+  usecase "Reports" as UC_REP
+  usecase "Settings" as UC_SET
+  usecase "Activity Logs" as UC_LOG
+  usecase "Recycle Bin" as UC_BIN
+  usecase "Manage Users" as UC_USERS
+}
+
+ADMIN --> UC_LOGIN
+ADMIN --> UC_DASH
+ADMIN --> UC_PETS
+ADMIN --> UC_APPT
+ADMIN --> UC_RX
+ADMIN --> UC_POS
+ADMIN --> UC_BILL
+ADMIN --> UC_REM
+ADMIN --> UC_INV
+ADMIN --> UC_REP
+ADMIN --> UC_SET
+ADMIN --> UC_LOG
+ADMIN --> UC_BIN
+ADMIN --> UC_USERS
+
+FRONT --> UC_LOGIN
+FRONT --> UC_DASH
+FRONT --> UC_PETS
+FRONT --> UC_APPT
+FRONT --> UC_RX
+FRONT --> UC_POS
+FRONT --> UC_BILL
+FRONT --> UC_REM
+FRONT --> UC_INV
+
+VET --> UC_LOGIN
+VET --> UC_DASH
+VET --> UC_PETS
+VET --> UC_APPT
+VET --> UC_RX
+
+note right of UC_LOGIN
+  All roles authenticate; Login/Logout
+  applies to every account.
+end note
+
+note bottom of FRONT
+  **front_office** — legacy
+  receptionist / pharmacist
+  use the same module list.
+end note
+
+@enduml

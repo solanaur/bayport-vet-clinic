@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Reminders Calendar - Bayport</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js'></script>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  body { font-family: 'Poppins', sans-serif; }
+  :root { --soft-teal:#0057b8; }
+</style>
+</head>
+
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+  <h1 class="text-2xl font-semibold">Reminders Calendar</h1>
+  <button onclick="location.href='dashboard.html'"
+    class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md">
+    Back to Dashboard
+  </button>
+</header>
+
+<div class="flex flex-1">
+  <aside class="w-72 bg-white border-r p-6 shadow-soft">
+    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Calendar</h2>
+    <nav id="sidebarNav" class="flex flex-col gap-2"></nav>
+  </aside>
+
+  <main class="flex-1 p-8">
+    <div id='calendar'></div>
+  </main>
+</div>
+
+<script src="assets/deploy-env.js"></script>
+
+<script src="assets/api.js"></script>
+<script src="assets/app.js"></script>
+<script src="assets/reminder-templates.js"></script>
+<script>
+window.USE_API = true;
+window.API_BASE = window.API_BASE || window.BAYPORT_API_BASE || (window.location.protocol === "file:" ? "http://localhost:8080/api" : window.location.origin + "/api");
+
+// Use the same permissions as the main reminders page
+guard("reminders");
+renderSidebar(document.getElementById("sidebarNav"), getRole(), "reminders-calendar.html");
+
+document.addEventListener('DOMContentLoaded', async function() {
+    try{
+      const reminders = await Api.reminders.list();
+      const sent = (reminders || []).filter(r => r.sent && r.date);
+
+      const events = sent.map(r => ({
+        title: (r.petName || r.ownerName || 'General').toString().substring(0, 22),
+        start: r.date,
+        backgroundColor: "#0057b8",
+        textColor: "white",
+        borderColor: "#0057b8",
+        extendedProps: r
+      }));
+
+      const calendarEl = document.getElementById('calendar');
+      if (typeof FullCalendar === 'undefined' || !calendarEl) {
+        console.warn('FullCalendar not available or calendar element missing; skipping sent-emails calendar render.');
+        return;
+      }
+      const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        fixedWeekCount: false,
+        height: 800,
+        eventDisplay: "block",
+        events,
+        eventClick: function(info) {
+          const r = info.event.extendedProps;
+          alert(
+            `Reminder\n\n` +
+            `For: ${r.petName || r.ownerName || "General reminder"}\n` +
+            `Message: ${r.message}\n` +
+            `Date: ${r.date}`
+          );
+        }
+      });
+
+      calendar.render();
+    }catch(err){
+      console.error('Failed to load sent reminders for calendar', err);
+      alert('Unable to load sent reminders calendar. Please try again later.');
+    }
+});
+</script>
+
+</body>
+</html>

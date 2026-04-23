@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recycle Bin - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Recycle Bin</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-8">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-2xl font-semibold text-gray-800">Deleted Items</h3>
+          <button id="refreshBtn" class="bg-[var(--soft-teal)] text-white px-5 py-3 rounded-md hover:brightness-95">Refresh</button>
+        </div>
+        
+        <div id="recycleBinContainer" class="space-y-6">
+          <!-- Deleted items will be displayed here -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="assets/deploy-env.js"></script>
+
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('recycle-bin');
+    const role = getRole();
+    if (role !== 'admin') {
+      location.href = 'dashboard.html';
+    }
+    renderSidebar(document.getElementById('sidebarNav'), role, 'recycle-bin.html');
+
+    const container = document.getElementById('recycleBinContainer');
+    const refreshBtn = document.getElementById('refreshBtn');
+
+    function formatTimestamp(timestamp) {
+      if (!timestamp) return 'N/A';
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    async function loadRecycleBin() {
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        const response = await fetch(`${window.API_BASE || 'http://localhost:8080/api'}/admin/recycle-bin`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to load recycle bin');
+        }
+        
+        const data = await response.json();
+        
+        let html = '';
+        
+        if (data.pets && data.pets.length > 0) {
+          html += `
+            <div class="border border-gray-200 rounded-xl p-6">
+              <h4 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Deleted Pets (${data.pets.length})</h4>
+              <div class="space-y-2">
+                ${data.pets.map(pet => `
+                  <div class="p-3 bg-gray-50 rounded-md border border-gray-100 flex justify-between items-center">
+                    <div class="flex-1">
+                      <div class="text-sm font-medium text-gray-800">${pet.name || 'Unknown'} - ${pet.owner || 'Unknown Owner'}</div>
+                      <div class="text-xs text-gray-500 mt-1">Deleted by: ${pet.deletedBy || 'System'} | ${formatTimestamp(pet.deletedAt)}</div>
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                      <button class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700" onclick="restorePet(${pet.id})">Restore</button>
+                      <button class="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700" onclick="permanentlyDeletePet(${pet.id})">Delete Permanently</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }
+        
+        if (!html) {
+          html = '<div class="text-center text-gray-500 py-8">Recycle bin is empty.</div>';
+        }
+        
+        container.innerHTML = html;
+      } catch (err) {
+        console.error('Error loading recycle bin:', err);
+        container.innerHTML = `<div class="text-center text-red-500 py-8">Error loading recycle bin: ${err.message}</div>`;
+      }
+    }
+
+    async function restorePet(id) {
+      if (!confirm('Are you sure you want to restore this pet?')) return;
+      
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        const response = await fetch(`${window.API_BASE}/admin/recycle-bin/pets/${id}/restore`, {
+          method: 'POST',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          alert('Pet restored successfully!');
+          loadRecycleBin();
+        } else {
+          const result = await response.json();
+          alert('Failed to restore: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Error restoring pet: ' + err.message);
+      }
+    }
+
+    async function permanentlyDeletePet(id) {
+      if (!confirm('Are you sure you want to permanently delete this pet? This action cannot be undone.')) return;
+      
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
+        const response = await fetch(`${window.API_BASE}/admin/recycle-bin/pets/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          alert('Pet permanently deleted!');
+          loadRecycleBin();
+        } else {
+          const result = await response.json();
+          alert('Failed to delete: ' + (result.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Error deleting pet: ' + err.message);
+      }
+    }
+
+    refreshBtn.onclick = loadRecycleBin;
+    
+    // Initial load
+    loadRecycleBin();
+  </script>
+</body>
+</html>
+

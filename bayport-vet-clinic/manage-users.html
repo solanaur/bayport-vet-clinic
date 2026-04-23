@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manage Users - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Manage Users</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-8">
+        <div class="flex items-center justify-between mb-6">
+          <h3 class="text-2xl font-semibold text-gray-800">Users</h3>
+          <button id="addBtn" class="bg-[var(--soft-teal)] text-white px-5 py-3 rounded-md hover:brightness-95">Add User</button>
+        </div>
+        <table class="w-full border-collapse">
+          <thead><tr class="text-left text-gray-600 border-b"><th class="py-3">Name</th><th class="py-3">Username</th><th class="py-3">Email</th><th class="py-3">Password</th><th class="py-3">Role</th><th class="py-3">Actions</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('manage-users');
+    const role=getRole(); if(role!=='admin') location.href='dashboard.html';
+    renderSidebar(document.getElementById('sidebarNav'), role, 'manage-users.html');
+
+    const rows=document.getElementById('rows');
+    const modalRoot=document.getElementById('modalRoot');
+
+    const passwordVisibility = {}; // Track password visibility per user
+    const passwordCache = {}; // Cache passwords per user
+
+    async function render(){
+      try {
+        console.log('Loading users...');
+        let users;
+        try {
+          users = await repoListUsers();
+        } catch (err) {
+          console.error('Error fetching users:', err);
+          rows.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error loading users: ${err.message}. Please refresh the page.</td></tr>`;
+          return;
+        }
+        console.log('Users response type:', typeof users);
+        console.log('Users response:', JSON.stringify(users, null, 2));
+        console.log('Is array?', Array.isArray(users));
+        
+        // Ensure users is an array
+        let usersArray = [];
+        if (Array.isArray(users)) {
+          usersArray = users;
+          console.log('Users is already an array, length:', usersArray.length);
+        } else if (users && typeof users === 'object') {
+          // If it's an object but not an array, try to extract array from common response formats
+          if (users.content && Array.isArray(users.content)) {
+            usersArray = users.content;
+          } else if (users.data && Array.isArray(users.data)) {
+            usersArray = users.data;
+          } else if (users.users && Array.isArray(users.users)) {
+            usersArray = users.users;
+          } else {
+            console.error('Unexpected users response format:', users);
+            usersArray = [];
+          }
+        } else if (users === null || users === undefined) {
+          console.warn('Users response is null or undefined');
+          usersArray = [];
+        } else {
+          console.error('Unexpected users response type:', typeof users, users);
+          usersArray = [];
+        }
+        console.log('Users array length:', usersArray.length);
+        console.log('Users array:', usersArray);
+        if (usersArray.length === 0) {
+          rows.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No users found. Click "Add User" to create one.</td></tr>';
+          return;
+        }
+        rows.innerHTML=usersArray.map(u=>{
+        const userId = u.id;
+        const isVisible = passwordVisibility[userId] || false;
+        const cachedPassword = passwordCache[userId] || '****';
+        return `
+        <tr class="border-b">
+          <td class="py-3">${u.name || ''}</td>
+          <td class="py-3 font-mono text-sm">${u.username || ''}</td>
+          <td class="py-3">${u.email || ''}</td>
+          <td class="py-3">
+            <div class="flex items-center gap-2">
+              <span class="font-mono text-sm">${isVisible ? cachedPassword : '****'}</span>
+              <button class="text-blue-600 hover:text-blue-800" onclick="togglePassword(${userId})" title="${isVisible ? 'Hide' : 'Show'} password">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  ${isVisible ? 
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>' :
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>'
+                  }
+                </svg>
+              </button>
+            </div>
+          </td>
+          <td class="py-3 capitalize">${u.role || ''}</td>
+          <td class="py-3 flex gap-2">
+            <button class="px-3 py-2 border rounded-md text-green-600 hover:bg-green-50" onclick="editCredentials(${u.id}, '${(u.name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${(u.email || '').replace(/'/g, "\\'")}')">Edit Credentials</button>
+            <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="del(${u.id})">Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+      } catch (err) {
+        console.error('Error loading users:', err);
+        rows.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error loading users: ${err.message}</td></tr>`;
+      }
+    }
+    
+    async function togglePassword(userId){
+      if(!passwordCache[userId]){
+      try{
+          const response = await fetch(`${window.API_BASE}/users/${userId}/password`, {
+            headers: {'Authorization': `Bearer ${localStorage.getItem('token')}`}
+          });
+          if(response.ok){
+        const result = await response.json();
+            passwordCache[userId] = result.password || 'Not set';
+        } else {
+            passwordCache[userId] = 'Not available';
+        }
+      } catch(err){
+          console.error('Error fetching password:', err);
+          passwordCache[userId] = 'Error loading';
+      }
+      }
+      passwordVisibility[userId] = !passwordVisibility[userId];
+      render();
+    }
+    async function del(id){ await repoDeleteUser(id); render(); }
+    
+    async function editCredentials(userId, userName, currentUsername, currentEmail){
+      let otpSent = false;
+      modalRoot.innerHTML=`
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <h3 class="text-xl font-semibold mb-4">Edit Credentials - ${userName}</h3>
+          <div id="editFormFields">
+            <p class="text-sm text-gray-600 mb-4">An OTP will be sent to the user's email for verification.</p>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendEditOtp(${userId})">Send OTP</button>
+            </div>
+          </div>
+          <div id="editOtpVerificationFields" class="hidden">
+            <p class="text-sm text-gray-600 mb-3">OTP has been sent to the user's email</p>
+            <label class="text-sm text-gray-600 block mb-3">Enter OTP Code <span class="text-red-500">*</span>
+              <input id="edit_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="4-digit code" maxlength="4" required>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Username
+              <input id="edit_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentUsername}" placeholder="Leave empty to keep current">
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Email
+              <input id="edit_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentEmail}" placeholder="Leave empty to keep current">
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Password
+              <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current (min 6 characters)">
+            </label>
+            <label class="text-sm text-gray-600 block mb-4">Confirm Password
+              <input id="edit_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter new password">
+            </label>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+              <button class="px-4 py-2 border rounded-md text-[var(--soft-teal)]" onclick="resendEditOtp(${userId})">Resend OTP</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndUpdateCredentials(${userId})">Verify & Update</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+      
+      window.sendEditOtp = async function(userId){
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+          alert('No Internet Connection.');
+          return;
+        }
+        try{
+          const response = await fetch(`${window.API_BASE}/users/${userId}/send-edit-otp`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`}
+          });
+          const result = await response.json();
+          if(response.ok){
+            document.getElementById('editFormFields').classList.add('hidden');
+            document.getElementById('editOtpVerificationFields').classList.remove('hidden');
+          } else {
+            alert('Failed to send OTP: ' + (result.error || 'Unknown error'));
+          }
+        } catch(err){
+          alert('Error sending OTP: ' + err.message);
+        }
+      };
+      
+      window.resendEditOtp = async function(userId){
+        await window.sendEditOtp(userId);
+      };
+      
+      window.verifyOtpAndUpdateCredentials = async function(userId){
+        const otp = document.getElementById('edit_otp').value.trim();
+        const username = document.getElementById('edit_username').value.trim();
+        const email = document.getElementById('edit_email').value.trim();
+        const password = document.getElementById('edit_password').value;
+        const passwordConfirm = document.getElementById('edit_password_confirm').value;
+        
+        if(!otp || otp.length !== 4){
+          alert('Please enter the 4-digit OTP code');
+          return;
+        }
+        
+        const updateData = {otp};
+        if(username && username !== currentUsername) updateData.username = username;
+        if(email && email !== currentEmail) updateData.email = email;
+        if(password || passwordConfirm){
+          if(!password){ alert('Please enter a new password.'); return; }
+          if(!passwordConfirm){ alert('Please confirm the new password.'); return; }
+          if(password !== passwordConfirm){ alert('Passwords do not match.'); return; }
+          if(password.length < 6){ alert('Password must be at least 6 characters.'); return; }
+          updateData.password = password;
+        }
+        
+        if(Object.keys(updateData).length === 1){
+          alert('Please provide at least one field to update');
+          return;
+        }
+        
+        try{
+          const response = await fetch(`${window.API_BASE}/users/${userId}/edit-credentials`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('token')}`},
+            body: JSON.stringify(updateData)
+          });
+          const result = await response.json();
+          if(response.ok){
+            alert('Credentials updated successfully!');
+            closeModal();
+            render();
+          } else {
+            alert('Failed to update credentials: ' + (result.error || 'Unknown error'));
+          }
+        } catch(err){
+          alert('Error updating credentials: ' + err.message);
+        }
+      };
+    }
+
+    let otpSent = false;
+    let userEmail = '';
+    
+    document.getElementById('addBtn').onclick=()=>{
+      otpSent = false;
+      userEmail = '';
+      modalRoot.innerHTML=`
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
+          <h3 class="text-xl font-semibold mb-4">Add User</h3>
+          <div id="userFormFields">
+            <label class="text-sm text-gray-600 block mb-3">Name <span class="text-red-500">*</span>
+              <input id="f_name" class="w-full border border-gray-300 rounded-md p-3 mt-1" required>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Username <span class="text-red-500">*</span>
+              <input id="f_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="e.g. dr.andrea" required>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Email Address <span class="text-red-500">*</span>
+              <input id="f_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="user@example.com" required>
+              <p class="text-xs text-gray-500 mt-1">Required for OTP verification and MFA</p>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Password <span class="text-red-500">*</span>
+              <input id="f_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Minimum 6 characters" required>
+              <p class="text-xs text-gray-500 mt-1">User will set their own password after first login</p>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Confirm Password <span class="text-red-500">*</span>
+              <input id="f_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter password" required>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Role <span class="text-red-500">*</span>
+              <select id="f_role" class="w-full border border-gray-300 rounded-md p-3 mt-1" required>
+                <option value="">-- Select Role --</option>
+                <option value="admin">Admin</option>
+                <option value="vet">Vet</option>
+                <option value="front_office">Front Office (reception + pharmacy)</option>
+              </select>
+            </label>
+            <p class="text-xs text-gray-500 mb-4">An OTP will be sent to the email address for account verification.</p>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendOtpForUser()">Send OTP</button>
+            </div>
+          </div>
+          <div id="otpVerificationFields" class="hidden">
+            <p class="text-sm text-gray-600 mb-3">OTP has been sent to <strong id="otpEmailDisplay"></strong></p>
+            <label class="text-sm text-gray-600 block mb-3">Enter OTP Code <span class="text-red-500">*</span>
+              <input id="f_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="4-digit code" maxlength="4" required>
+            </label>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+              <button class="px-4 py-2 border rounded-md text-[var(--soft-teal)]" onclick="resendOtp()">Resend OTP</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndCreateUser()">Verify & Create</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    };
+    function closeModal(){ modalRoot.innerHTML=''; otpSent = false; userEmail = ''; }
+    
+    async function sendOtpForUser(){
+      const email = document.getElementById('f_email').value.trim();
+      if(!email){alert('Email is required');return;}
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){alert('Please enter a valid email address');return;}
+
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        alert('No Internet Connection.');
+        return;
+      }
+
+      try{
+        const response = await fetch(`${window.API_BASE}/users/send-otp`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({email})
+        });
+        const result = await response.json();
+        if(response.ok){
+          otpSent = true;
+          userEmail = email;
+          document.getElementById('userFormFields').classList.add('hidden');
+          document.getElementById('otpVerificationFields').classList.remove('hidden');
+          document.getElementById('otpEmailDisplay').textContent = email;
+        } else {
+          alert('Failed to send OTP: ' + (result.error || 'Unknown error'));
+        }
+      } catch(err){
+        alert('Error sending OTP: ' + err.message);
+      }
+    }
+    
+    async function resendOtp(){
+      if(!userEmail) return;
+      await sendOtpForUser();
+    }
+    
+    async function verifyOtpAndCreateUser(){
+      const name=document.getElementById('f_name').value.trim();
+      const username=document.getElementById('f_username').value.trim();
+      const email=document.getElementById('f_email').value.trim();
+      const password=document.getElementById('f_password').value;
+      const passwordConfirm=document.getElementById('f_password_confirm').value;
+      const r=document.getElementById('f_role').value;
+      const otp=document.getElementById('f_otp').value.trim();
+      
+      if(!name){alert('Name required');return;}
+      if(!username){alert('Username required');return;}
+      if(!email){alert('Email required');return;}
+      if(!password || password.length < 6){alert('Password must be at least 6 characters');return;}
+      if(!passwordConfirm){alert('Please retype the password to confirm');return;}
+      if(password !== passwordConfirm){alert('Passwords do not match. Please re-enter.');return;}
+      if(!r){alert('Role required');return;}
+      if(!otp || otp.length !== 4){alert('Please enter the 4-digit OTP code');return;}
+      
+      try{
+        const response = await fetch(`${window.API_BASE}/users/verify-otp-create`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name, username, email, password, role: r, otp})
+        });
+        const result = await response.json();
+        if(response.ok){
+          alert('User created successfully!');
+          closeModal();
+          render();
+        } else {
+          alert('Failed to create user: ' + (result.error || 'Unknown error'));
+        }
+      } catch(err){
+        alert('Error creating user: ' + err.message);
+      }
+    }
+    
+    // Legacy function for backward compatibility (not used in new flow)
+    async function saveUser(){
+      alert('Please use the new OTP-based user creation flow. Click "Add User" and follow the OTP verification steps.');
+    }
+    
+    // Test API connection on page load
+    window.addEventListener('load', async () => {
+      console.log('Page loaded, testing API connection...');
+      try {
+        const token = localStorage.getItem('token') || localStorage.getItem('jwt') || '';
+        const testResponse = await fetch(`${window.API_BASE || 'http://localhost:8080/api'}/users`, {
+          method: 'GET',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
+        console.log('Direct API test - Status:', testResponse.status);
+        console.log('Direct API test - OK:', testResponse.ok);
+        const testData = await testResponse.text();
+        console.log('Direct API test - Response text length:', testData.length);
+        console.log('Direct API test - Response text (first 500 chars):', testData.substring(0, 500));
+        try {
+          const parsed = JSON.parse(testData);
+          console.log('Direct API test - Parsed type:', typeof parsed);
+          console.log('Direct API test - Is array?', Array.isArray(parsed));
+          console.log('Direct API test - Length:', Array.isArray(parsed) ? parsed.length : 'N/A');
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            console.log('Direct API test - First user:', parsed[0]);
+          }
+        } catch (e) {
+          console.error('Direct API test - Parse error:', e);
+        }
+      } catch (err) {
+        console.error('Direct API test - Fetch error:', err);
+      }
+    });
+    
+    // Initial render on page load
+    render();
+    
+    // Also try to render after a short delay in case API isn't ready
+    setTimeout(() => {
+      console.log('Delayed render attempt...');
+      render();
+    }, 1000);
+  </script>
+</body>
+</html>

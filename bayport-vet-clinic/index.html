@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bayport Veterinary Clinic</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    :root{--soft-teal:#0057b8}
+  </style>
+</head>
+<body class="min-h-screen bg-[#f6f9f9] flex flex-col">
+  <!-- Header -->
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5">
+      <img src="assets/logo.png" alt="Bayport Veterinary Clinic Logo" class="w-16 h-16 rounded-lg bg-white p-1 object-contain">
+      <div>
+        <h1 class="text-2xl font-semibold leading-tight">Bayport Veterinary Clinic</h1>
+        <p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p>
+      </div>
+    </div>
+    <span class="text-sm text-gray-100/90">Bayport Veterinary Clinic • 322 Quirino Avenue, Brgy. Don Galo, Parañaque City • 0968 633 2940</span>
+  </header>
+
+  <!-- Main -->
+<main class="flex-1 flex items-center justify-center p-6 bg-cover bg-center bg-no-repeat" 
+      style="background-image: linear-gradient(rgba(0,87,184,0.25), rgba(0,87,184,0.25)), url('assets/bg-signin.png?v=2');">
+    <div class="w-full max-w-5xl bg-white rounded-2xl shadow-soft p-10 grid md:grid-cols-2 gap-10">
+      <!-- Left: Role selection -->
+      <div>
+        <h2 class="text-3xl font-semibold text-gray-800 mb-2">Welcome to Bayport</h2>
+        <p class="text-gray-600 mb-6 text-lg">Select a role, then sign in with that role’s credentials.</p>
+
+        <div id="roleButtons" class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <button data-role="admin" class="role-btn px-5 py-4 border border-gray-300 rounded-lg text-lg text-gray-700 hover:bg-[var(--soft-teal)] hover:text-white">Admin</button>
+          <button data-role="vet" class="role-btn px-5 py-4 border border-gray-300 rounded-lg text-lg text-gray-700 hover:bg-[var(--soft-teal)] hover:text-white">Vet</button>
+          <button data-role="front_office" class="role-btn px-5 py-4 border border-gray-300 rounded-lg text-lg text-gray-700 hover:bg-[var(--soft-teal)] hover:text-white" title="Reception, pharmacy &amp; check-in">Front Office</button>
+        </div>
+        <p class="text-xs text-gray-500 mb-4">Front Office covers reception, pharmacy counter, register checkout, and inventory.</p>
+        
+ 
+        <div class="rounded-xl bg-[#f7fbfb] border border-gray-200 p-4 text-sm text-gray-700">
+          <div class="font-semibold mb-2"><center>"Pawsitively the Best!"</center></div>
+        </div>
+      </div>
+
+      <!-- Right: Login form -->
+      <div class="border-l border-gray-200 pl-10">
+        <h3 class="text-2xl font-semibold text-gray-800 mb-5">Sign In</h3>
+
+        <div class="mb-3">
+          <label class="text-sm text-gray-600">Selected Role</label>
+          <input id="selectedRole" class="w-full border border-gray-300 rounded-md p-3 mt-1 bg-gray-50 text-gray-700" placeholder="Pick a role on the left" readonly>
+        </div>
+
+        <div class="mb-3">
+          <label class="text-sm text-gray-600">Username</label>
+          <input id="username" type="text" autocomplete="username"
+                 class="w-full border border-gray-300 rounded-md p-3 mt-1 text-lg focus:outline-none focus:ring-2 focus:ring-[var(--soft-teal)]">
+        </div>
+
+        <div class="mb-5">
+          <label class="text-sm text-gray-600">Password</label>
+          <div class="flex gap-2">
+            <input id="password" type="password" autocomplete="current-password"
+                   class="flex-1 border border-gray-300 rounded-md p-3 mt-1 text-lg focus:outline-none focus:ring-2 focus:ring-[var(--soft-teal)]">
+            <button id="togglePw" class="mt-1 px-3 border rounded-md text-gray-700 hover:bg-gray-50">Show</button>
+          </div>
+        </div>
+
+        <div id="errorBox" class="hidden mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm"></div>
+
+        <div id="otpSection" class="hidden mb-4">
+          <label class="text-sm text-gray-600">Enter OTP Code (4 digits)</label>
+          <input id="otpCode" type="text" maxlength="4" pattern="[0-9]{4}"
+                 class="w-full border border-gray-300 rounded-md p-3 mt-1 text-lg focus:outline-none focus:ring-2 focus:ring-[var(--soft-teal)]"
+                 placeholder="0000">
+          <p class="text-xs text-gray-500 mt-1">A 4-digit code has been sent to your registered email.</p>
+          <div class="mt-3 flex items-start">
+            <input type="checkbox" id="tosCheckbox" class="mt-1 mr-2">
+            <label for="tosCheckbox" class="text-sm text-gray-600">
+              I accept the <a href="#" id="tosLink" class="text-[var(--soft-teal)] underline hover:text-[var(--soft-teal)]/80">Terms and Conditions</a>
+            </label>
+          </div>
+        </div>
+
+        <!-- TOS Modal -->
+        <div id="tosModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-2xl font-semibold text-gray-800">Terms and Conditions</h3>
+              <button id="closeTosModal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div id="tosContent" class="text-sm text-gray-700 space-y-4 whitespace-pre-line"></div>
+            <div class="mt-6 flex justify-end">
+              <button id="acceptTosInModal" class="bg-[var(--soft-teal)] text-white px-6 py-2 rounded-md hover:brightness-95">Accept</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-4">
+          <button id="loginBtn" class="bg-[var(--soft-teal)] hover:brightness-90 text-white px-8 py-3 rounded-md text-lg shadow">Log In</button>
+          <button id="clearBtn" class="border border-gray-300 px-8 py-3 rounded-md text-lg text-gray-700 hover:bg-gray-50">Clear</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    // UI wiring for role selection and login
+    const roleBtns = document.querySelectorAll('.role-btn');
+    const selectedRoleInput = document.getElementById('selectedRole');
+    const errorBox = document.getElementById('errorBox');
+    const togglePw = document.getElementById('togglePw');
+    let selectedRole = null;
+
+    roleBtns.forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        roleBtns.forEach(b=>b.classList.remove('ring-2','ring-[var(--soft-teal)]','bg-[var(--soft-teal)]','text-white'));
+        e.currentTarget.classList.add('ring-2','ring-[var(--soft-teal)]','bg-[var(--soft-teal)]','text-white');
+        selectedRole = e.currentTarget.dataset.role;
+        selectedRoleInput.value = selectedRole.toUpperCase();
+        errorBox.classList.add('hidden');
+      });
+    });
+
+    togglePw.addEventListener('click', ()=>{
+      const p = document.getElementById('password');
+      p.type = p.type === 'password' ? 'text' : 'password';
+      togglePw.textContent = p.type === 'password' ? 'Show' : 'Hide';
+    });
+
+    document.getElementById('clearBtn').onclick = ()=>{
+      document.getElementById('username').value='';
+      document.getElementById('password').value='';
+      otpCodeInput.value='';
+      tosCheckbox.checked = false;
+      document.getElementById('username').disabled = false;
+      document.getElementById('password').disabled = false;
+      otpSection.classList.add('hidden');
+      mfaUsername = null;
+      errorBox.classList.add('hidden');
+    };
+
+    const loginBtn = document.getElementById('loginBtn');
+    const otpSection = document.getElementById('otpSection');
+    const otpCodeInput = document.getElementById('otpCode');
+    let mfaUsername = null;
+
+    async function doLogin(){
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+      const otp = otpCodeInput.value.trim();
+      
+      loginBtn.disabled = true;
+      const originalText = loginBtn.textContent;
+      loginBtn.textContent = 'Signing in...';
+      
+      let res;
+      if (otp && mfaUsername) {
+        // Check if TOS is accepted
+        if (!tosCheckbox.checked) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = originalText;
+          errorBox.textContent = "Please accept the Terms and Conditions to continue.";
+          errorBox.classList.remove('hidden');
+          errorBox.classList.remove('bg-blue-50', 'border-blue-200', 'text-blue-700');
+          errorBox.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+          return;
+        }
+        
+        // Verify OTP
+        try {
+          const payload = await Api.auth.verifyMfa(mfaUsername, otp);
+          if (payload.status === "TOS_REQUIRED") {
+            res = { ok: false, msg: "TOS_REQUIRED", username: payload.username, currentVersion: payload.currentVersion };
+          } else if (payload.role) {
+            res = { ok: true, payload: payload };
+          } else {
+            res = { ok: false, msg: "Invalid OTP code. Please try again." };
+          }
+        } catch (err) {
+          res = { ok: false, msg: err.message || "Invalid OTP code. Please try again." };
+        }
+      } else {
+        res = await window.tryLogin(u, p, selectedRole);
+      }
+      
+      loginBtn.disabled = false;
+      loginBtn.textContent = originalText;
+      
+      if(res.ok){
+        if (res.payload) {
+          // Handle successful MFA verification
+          localStorage.setItem("role", res.payload.role);
+          localStorage.setItem("userDisplayName", res.payload.name);
+          localStorage.setItem("username", res.payload.username);
+          localStorage.setItem("userId", res.payload.id);
+          if (res.payload.token) {
+            localStorage.setItem("token", res.payload.token);
+            localStorage.setItem("jwt", res.payload.token);
+          }
+        }
+        location.href = 'dashboard.html';
+      } else if(res.msg === "MFA_REQUIRED"){
+        mfaUsername = res.username;
+        otpSection.classList.remove('hidden');
+        document.getElementById('username').disabled = true;
+        document.getElementById('password').disabled = true;
+        otpCodeInput.focus();
+        errorBox.textContent = "OTP code has been sent to your email. Please enter the 4-digit code.";
+        errorBox.classList.remove('hidden');
+        errorBox.classList.remove('bg-red-50', 'border-red-200', 'text-red-700');
+        errorBox.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
+      } else if(res.msg === "TOS_REQUIRED"){
+        errorBox.textContent = "Please accept the Terms and Conditions to continue.";
+        errorBox.classList.remove('hidden');
+        errorBox.classList.remove('bg-blue-50', 'border-blue-200', 'text-blue-700');
+        errorBox.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+        // TODO: Show TOS acceptance modal
+      } else{
+        errorBox.textContent = res.msg;
+        errorBox.classList.remove('hidden');
+        errorBox.classList.remove('bg-blue-50', 'border-blue-200', 'text-blue-700');
+        errorBox.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+        otpSection.classList.add('hidden');
+        mfaUsername = null;
+      }
+    }
+    document.getElementById('loginBtn').onclick = doLogin;
+    // Enter to login on inputs
+    document.addEventListener('keydown', (e)=>{
+      if(e.key==='Enter'){
+        e.preventDefault();
+        doLogin();
+      }
+    });
+    
+    // Only allow numbers in OTP input
+    otpCodeInput.addEventListener('input', (e)=>{
+      e.target.value = e.target.value.replace(/\D/g, '');
+    });
+
+    // TOS Modal handling
+    const tosModal = document.getElementById('tosModal');
+    const tosLink = document.getElementById('tosLink');
+    const closeTosModal = document.getElementById('closeTosModal');
+    const acceptTosInModal = document.getElementById('acceptTosInModal');
+    const tosCheckbox = document.getElementById('tosCheckbox');
+    const tosContent = document.getElementById('tosContent');
+
+    const termsAndConditions = `Terms and Conditions for System Use
+
+Bayport Veterinary Clinic – Veterinary Clinic Management System (VCMS)
+
+
+1. Acceptance of Terms
+
+By creating an account and accessing the Bayport Veterinary Clinic's Veterinary Clinic Management System (VCMS), you acknowledge that you have read, understood, and agreed to comply with these Terms and Conditions.
+If you do not agree, you must not proceed with the account registration or system use.
+
+2. Authorized Use Only
+
+The VCMS is intended solely for authorized personnel of Bayport Veterinary Clinic (e.g., Admin, Veterinarian, Staff).
+You agree to:
+- Use the system only for legitimate clinic-related activities
+- Avoid unauthorized access, modification, or misuse of clinic data
+- Follow all system usage policies provided by Bayport administrators
+Unauthorized access or misuse may result in account suspension or legal action.
+
+3. Accuracy of Information
+
+Users are responsible for ensuring all information entered into the system—including pet records, client details, treatments, billing, and appointments—is accurate and truthful.
+Providing false or misleading information may result in restricted access or account termination.
+
+4. Account Security and Login Verification
+
+To protect sensitive data within Bayport Veterinary Clinic:
+- You must keep your password and login credentials confidential.
+- Sharing accounts is strictly prohibited.
+- The system uses Multi-Factor Authentication (MFA) for security. This includes:
+  * OTP verification during new account creation
+  * OTP verification every time a user logs in
+- Users must enter the OTP sent to their registered email to successfully access their account.
+- Suspicious login behavior may result in temporary account lockout.
+
+5. Data Privacy and Confidentiality
+
+By using the Bayport VCMS, you agree to protect and maintain the confidentiality of:
+- Pet medical records
+- Client personal and contact information
+- Treatment, appointment, and billing information
+You must not share or distribute any confidential data outside of authorized clinic operations.
+All access to data is monitored and logged for security purposes.
+
+6. Activity Monitoring and Audit Logs
+
+For accountability and transparency, the system automatically records:
+- User activities (create, update, delete actions)
+- Data access logs (when a user views or retrieves information)
+- Login attempts and MFA verification events
+Bayport administrators may review these logs at any time for auditing or security investigations.
+
+7. Proper Use of System Features
+
+Users agree to use system features responsibly, including:
+- Creating or updating client and pet records
+- Managing veterinary appointments
+- Modifying treatments, vaccinations, and medical details
+- Sending communication such as reminders or notifications
+Users must not disrupt or manipulate the system in any unauthorized way.
+
+8. Prohibited Actions
+
+You are strictly prohibited from:
+- Bypassing or attempting to disable security features
+- Accessing modules or data outside your assigned role
+- Unauthorized deletion or alteration of records
+- Installing or executing unapproved software or scripts within the system
+Any violation may result in immediate account suspension or removal.
+
+9. System Availability and Backup
+
+The Bayport VCMS operates in both:
+- Offline mode (local desktop use for daily operations), and
+- Online mode (for email notifications and cloud backup functionality)
+To avoid data loss, administrators must ensure regular backups.
+Bayport Veterinary Clinic is not responsible for data loss caused by:
+- Hardware or device failure
+- Network interruptions
+- Unauthorized tampering
+
+10. Updates to Terms and Conditions
+
+Bayport Veterinary Clinic may revise these Terms at any time.
+If updates are made:
+- Users will be shown the updated Terms during their next login
+- Users must accept the new Terms to continue using the system
+- Failure to accept new Terms will restrict system access.
+
+11. User Responsibilities
+
+By accepting these Terms, you confirm that:
+- You understand your assigned system role and permissions
+- You are responsible for any actions performed under your account
+- You will report technical issues or suspicious activity to Bayport admins immediately
+
+12. Acceptance
+      
+By creating an account or continuing to use the Bayport Veterinary Clinic Management System, you acknowledge that you fully accept and agree to follow these Terms and Conditions.`;
+
+    tosContent.textContent = termsAndConditions;
+
+    tosLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      tosModal.classList.remove('hidden');
+    });
+
+    closeTosModal.addEventListener('click', () => {
+      tosModal.classList.add('hidden');
+    });
+
+    acceptTosInModal.addEventListener('click', () => {
+      tosCheckbox.checked = true;
+      tosModal.classList.add('hidden');
+    });
+
+    // Close modal when clicking outside
+    tosModal.addEventListener('click', (e) => {
+      if (e.target === tosModal) {
+        tosModal.classList.add('hidden');
+      }
+    });
+  </script>
+</body>
+</html>

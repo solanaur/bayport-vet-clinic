@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Checkout - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --pos-brand: #0d9488;
+      --pos-border: #e2e8f0;
+      --pos-ink: #334155;
+    }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+      font-size: 15px;
+      color: var(--pos-ink);
+      background: #f8fafc;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .pos-field {
+      height: 2.75rem;
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid var(--pos-border);
+      background: #fff;
+      padding: 0 0.875rem;
+      font-size: 0.9375rem;
+      color: #1e293b;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .pos-field:focus {
+      outline: none;
+      border-color: var(--pos-brand);
+      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    }
+    .pos-field::placeholder { color: #94a3b8; }
+    details.pos-min > summary { list-style: none; }
+    details.pos-min > summary::-webkit-details-marker { display: none; }
+    details.pos-min > summary::marker { display: none; }
+    details.pos-acc > summary { list-style: none; }
+    details.pos-acc > summary::-webkit-details-marker { display: none; }
+    details.pos-acc > summary::marker { display: none; }
+    details.pos-acc .acc-chev {
+      color: #94a3b8;
+      font-size: 0.65rem;
+      transition: transform 0.15s ease;
+    }
+    details.pos-acc[open] .acc-chev { transform: rotate(180deg); color: var(--pos-brand); }
+    .pos-tile {
+      min-height: 4.25rem;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      padding: 0.75rem;
+      text-align: left;
+      transition: border-color 0.12s, box-shadow 0.12s;
+    }
+    .pos-tile:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <!-- Step 1: calm entry (skip with ?quick=1 or after first visit this session) -->
+  <div id="posWelcome" class="min-h-screen flex flex-col items-center justify-center p-8 bg-slate-100/90">
+    <div class="w-full max-w-md rounded-2xl bg-white border border-slate-200/80 shadow-sm px-10 py-12 text-center">
+      <img src="assets/logo.png" class="w-14 h-14 mx-auto rounded-xl border border-slate-100 mb-6" alt="">
+      <h1 class="text-2xl font-semibold text-slate-800 tracking-tight">Checkout</h1>
+      <p class="text-slate-500 text-sm mt-2 mb-8 leading-relaxed">Add items, then complete payment on the next screen.</p>
+      <button type="button" id="btnPosStart" class="w-full py-3 rounded-xl bg-teal-600 text-white text-[15px] font-medium hover:bg-teal-700 transition-colors">Start sale</button>
+      <button type="button" id="btnPosToday" class="mt-4 text-sm text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline">Today&rsquo;s sales only</button>
+      <p class="mt-8 text-xs text-slate-400"><a href="dashboard.html" class="text-slate-500 hover:text-slate-700">← Back to dashboard</a></p>
+    </div>
+  </div>
+
+  <div id="posWorkspace" class="hidden flex flex-col min-h-screen">
+  <header class="shrink-0 border-b border-slate-200/90 bg-white">
+    <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <img src="assets/logo.png" class="w-9 h-9 rounded-lg border border-slate-100 shrink-0" alt="">
+        <div class="min-w-0">
+          <h1 class="text-base font-semibold text-slate-800 truncate">Checkout</h1>
+          <p class="text-xs text-slate-400" id="posOperatorName">—</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="dashboard.html" class="lg:hidden text-sm text-slate-500 hover:text-slate-800">Menu</a>
+        <span class="text-sm tabular-nums text-slate-500 hidden sm:inline" id="posClock">—</span>
+        <button type="button" class="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" onclick="logout()">Log out</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="posToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[92%] px-4 py-3 rounded-xl shadow-lg text-sm font-medium hidden pointer-events-none"></div>
+  <div id="posPreviewModal" class="fixed inset-0 bg-slate-900/30 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl border border-slate-200">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <h3 class="font-medium text-slate-800">Receipt preview</h3>
+        <button type="button" id="closePosPreviewBtn" class="text-sm text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-50">Close</button>
+      </div>
+      <iframe id="posPreviewFrame" class="w-full flex-1"></iframe>
+    </div>
+  </div>
+
+  <div id="posHistoryModal" class="fixed inset-0 bg-slate-900/30 hidden items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[min(85vh,520px)] flex flex-col shadow-xl border border-slate-200">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <h3 class="font-medium text-slate-800">Today&rsquo;s sales</h3>
+        <button type="button" id="closePosHistoryBtn" class="text-sm text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-50">Close</button>
+      </div>
+      <div class="flex justify-end px-3 py-2 border-b border-slate-50">
+        <button type="button" id="btnRefreshHistory" class="text-sm text-teal-700 font-medium hover:underline">Refresh</button>
+      </div>
+      <div id="posHistoryBody" class="text-sm overflow-y-auto flex-1 p-4 text-slate-600 min-h-[140px] leading-relaxed">
+        <p class="text-slate-400 py-8 text-center text-sm">Loading&hellip;</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
+    <aside class="hidden lg:flex w-44 shrink-0 flex-col border-r border-slate-200 bg-white p-3">
+      <p class="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Navigate</p>
+      <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
+    </aside>
+
+    <div class="flex flex-1 min-h-0 min-w-0 flex-col lg:flex-row">
+      <div class="flex-1 min-h-0 min-w-0 p-5 lg:p-8 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200/80">
+        <details class="pos-min mb-6 rounded-xl border border-slate-200 bg-white open:shadow-sm" open>
+          <summary class="px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer select-none">Patient &amp; payment</summary>
+          <div class="px-4 pb-4 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs text-slate-500 mb-1" for="petSearch">Search</label>
+              <input id="petSearch" type="search" autocomplete="off" class="pos-field" placeholder="Pet or owner"/>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1" for="petSel">Patient</label>
+              <select id="petSel" class="pos-field font-medium"></select>
+            </div>
+            <div>
+              <label class="block text-xs text-slate-500 mb-1" for="paySel">Payment</label>
+              <select id="paySel" class="pos-field">
+                <option>Cash</option><option>Card</option><option>GCash</option><option>Bank transfer</option>
+              </select>
+            </div>
+          </div>
+        </details>
+
+        <details id="rxFold" class="pos-min hidden mb-6 rounded-xl border border-amber-100 bg-amber-50/40">
+          <summary class="px-4 py-3 text-sm font-medium text-amber-900/90 cursor-pointer select-none">Prescriptions for this patient</summary>
+          <div class="px-4 pb-4 space-y-3">
+            <div id="rxList" class="space-y-1 max-h-32 overflow-y-auto"></div>
+            <button type="button" id="importRxBtn" class="text-sm font-medium text-amber-950 bg-amber-200/80 hover:bg-amber-200 px-4 py-2 rounded-lg">Add selected to sale</button>
+          </div>
+        </details>
+
+        <div class="flex flex-wrap items-center gap-3 mb-4">
+          <div class="inline-flex rounded-full border border-slate-200 bg-slate-50/80 p-1">
+            <button type="button" id="tabProc" class="px-4 py-1.5 text-sm font-medium rounded-full transition-colors">Services</button>
+            <button type="button" id="tabShop" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-500 transition-colors">Retail</button>
+          </div>
+          <button type="button" id="btnRefreshStock" class="text-sm text-slate-400 hover:text-slate-700 ml-auto">Reload catalog</button>
+        </div>
+
+        <div class="flex gap-3 mb-4">
+          <div class="flex-1 min-w-0">
+            <label class="sr-only" for="mainSearch">Search catalog</label>
+            <input id="mainSearch" type="search" class="pos-field" placeholder="Search by name or SKU"/>
+          </div>
+          <div class="w-20 shrink-0">
+            <label class="sr-only" for="lineQty">Qty</label>
+            <input id="lineQty" type="number" min="1" value="1" class="pos-field text-center tabular-nums font-medium px-1" title="Quantity per add"/>
+          </div>
+        </div>
+
+        <div id="itemList" class="min-h-[200px] max-h-[min(50vh,480px)] overflow-y-auto rounded-xl border border-slate-200 bg-white">
+          <p class="p-16 text-center text-slate-400 text-sm">Loading&hellip;</p>
+        </div>
+      </div>
+
+      <aside class="w-full lg:w-[380px] shrink-0 flex flex-col min-h-0 bg-white p-5 lg:p-8 border-t lg:border-t-0 lg:border-l border-slate-200/80">
+        <div class="flex items-baseline justify-between gap-2 mb-3">
+          <h2 class="text-sm font-medium text-slate-800">This sale</h2>
+          <button type="button" id="btnClearCart" class="text-xs text-slate-400 hover:text-red-600">Clear</button>
+        </div>
+        <div id="cartBody" class="flex-1 min-h-[8rem] max-h-[min(36vh,320px)] text-sm border border-slate-200 rounded-xl bg-slate-50/50 overflow-y-auto mb-6"></div>
+
+        <div class="flex justify-between items-end py-4 border-t border-slate-100">
+          <span class="text-sm text-slate-500">Total</span>
+          <span class="text-2xl font-semibold tabular-nums text-slate-900">₱<span id="cartTotal">0.00</span></span>
+        </div>
+
+        <div id="cashTenderBlock" class="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 mb-3">
+          <label class="block text-xs text-slate-500" for="tenderInp">Cash received</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm tabular-nums">₱</span>
+            <input id="tenderInp" type="number" min="0" step="0.01" placeholder="0.00" class="pos-field pl-8 tabular-nums"/>
+          </div>
+          <details class="pos-min text-sm">
+            <summary class="cursor-pointer text-slate-400 hover:text-slate-600 select-none text-xs">Quick amounts</summary>
+            <div class="grid grid-cols-3 gap-2 mt-3">
+              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="100">+100</button>
+              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="500">+500</button>
+              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="1000">+1000</button>
+              <button type="button" id="tenderExactBtn" class="col-span-3 py-2 rounded-lg text-xs font-medium bg-slate-800 text-white hover:bg-slate-700">Exact total</button>
+            </div>
+          </details>
+          <div class="flex justify-between text-sm pt-2 border-t border-slate-200/80">
+            <span class="text-slate-500">Change</span>
+            <span id="changeDisplay" class="font-medium tabular-nums text-slate-400">₱0.00</span>
+          </div>
+        </div>
+        <p id="nonCashHint" class="hidden text-sm text-slate-500 mb-4">Non-cash: customer pays the amount due.</p>
+
+        <details class="pos-min mb-4 text-sm border border-slate-100 rounded-xl px-3 py-2">
+          <summary class="cursor-pointer text-slate-500 select-none text-xs">After payment (prescriptions)</summary>
+          <label class="flex gap-2 items-start mt-3 text-slate-600 cursor-pointer">
+            <input type="checkbox" id="fulfillRx" class="mt-1 rounded border-slate-300 text-teal-600 focus:ring-teal-500"/>
+            <span>Mark imported prescriptions as dispensed</span>
+          </label>
+        </details>
+
+        <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-medium text-white bg-teal-600 hover:bg-teal-700 transition-colors">
+          Complete payment
+        </button>
+        <button type="button" id="btnOpenHistoryModal" class="w-full mt-4 text-sm text-slate-400 hover:text-slate-700 py-2">
+          Today&rsquo;s sales
+        </button>
+      </aside>
+    </div>
+  </div>
+  </div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>
+    window.USE_API = true;
+    window.API_BASE = window.API_BASE || window.BAYPORT_API_BASE || (window.location.protocol === "file:" ? "http://localhost:8080/api" : window.location.origin + "/api");
+  </script>
+  <script src="assets/api.js"></script>
+  <script src="assets/thermal-receipt.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard("pos");
+    const role = getRole();
+    renderSidebar(document.getElementById("sidebarNav"), role, "pos.html");
+
+    const POS_SK = "bayport_pos_show_workspace";
+    function revealPosWorkspace() {
+      const w = document.getElementById("posWelcome");
+      const ws = document.getElementById("posWorkspace");
+      if (w) w.classList.add("hidden");
+      if (ws) ws.classList.remove("hidden");
+      try {
+        sessionStorage.setItem(POS_SK, "1");
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    function maybeSkipWelcome() {
+      const q = new URLSearchParams(location.search).get("quick");
+      if (q === "1") {
+        revealPosWorkspace();
+        return;
+      }
+      try {
+        if (sessionStorage.getItem(POS_SK) === "1") revealPosWorkspace();
+      } catch (e) {
+        /* ignore */
+      }
+    }
+    document.getElementById("btnPosStart").addEventListener("click", revealPosWorkspace);
+    document.getElementById("btnPosToday").addEventListener("click", () => {
+      revealPosWorkspace();
+      setTimeout(openHistoryModal, 80);
+    });
+    maybeSkipWelcome();
+
+    function openHistoryModal() {
+      const m = document.getElementById("posHistoryModal");
+      if (!m) return;
+      m.classList.remove("hidden");
+      m.classList.add("flex");
+      loadPosHistory();
+    }
+    function closeHistoryModal() {
+      const m = document.getElementById("posHistoryModal");
+      if (!m) return;
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    }
+    document.getElementById("btnOpenHistoryModal").addEventListener("click", openHistoryModal);
+    document.getElementById("closePosHistoryBtn").addEventListener("click", closeHistoryModal);
+    document.getElementById("posHistoryModal").addEventListener("click", (e) => {
+      if (e.target && e.target.id === "posHistoryModal") closeHistoryModal();
+    });
+
+    (function posHeaderClock() {
+      const clockEl = document.getElementById("posClock");
+      const opEl = document.getElementById("posOperatorName");
+      if (opEl && typeof getUserName === "function") {
+        const n = getUserName();
+        opEl.textContent = n && String(n).trim() ? n : "Signed in";
+      }
+      function tick() {
+        if (!clockEl) return;
+        clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+
+    let inventory = [];
+    let procedureRows = [];
+    let petsCache = [];
+    let cart = [];
+    let openRx = [];
+    const rxSelected = new Set();
+    let activeTab = "procedures";
+
+    function money(n) {
+      return formatPrice(n);
+    }
+
+    function formatPosDateTime(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (!Number.isNaN(d.getTime())) {
+        return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+      }
+      return String(iso).replace("T", " ").slice(0, 19);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function petDisplayLine(p) {
+      const name = (p.name || "").trim();
+      const owner = (p.owner || "").trim();
+      return owner ? `${name} — ${owner}` : name;
+    }
+
+    function sortPetsForSelect(arr) {
+      return [...(arr || [])].sort((a, b) => {
+        const c = (a.owner || "").toLowerCase().localeCompare((b.owner || "").toLowerCase());
+        if (c !== 0) return c;
+        return (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase());
+      });
+    }
+
+    function renderPetSelect(searchText) {
+      const sel = document.getElementById("petSel");
+      if (!sel) return;
+      const prev = sel.value;
+      const q = (searchText || "").trim().toLowerCase();
+      const sorted = sortPetsForSelect(petsCache);
+      const filtered = !q
+        ? sorted
+        : sorted.filter((p) => {
+            const n = (p.name || "").toLowerCase();
+            const o = (p.owner || "").toLowerCase();
+            return n.includes(q) || o.includes(q);
+          });
+      let opts = '<option value="">Walk-in</option>';
+      for (const p of filtered) {
+        opts += `<option value="${p.id}">${escapeHtml(petDisplayLine(p))}</option>`;
+      }
+      sel.innerHTML = opts;
+      if (prev && Array.from(sel.options).some((o) => o.value === prev)) sel.value = prev;
+    }
+
+    function localDateKey(d) {
+      const x = d instanceof Date ? d : new Date();
+      if (Number.isNaN(x.getTime())) return "";
+      const y = x.getFullYear();
+      const m = String(x.getMonth() + 1).padStart(2, "0");
+      const day = String(x.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function saleOccurredDateKey(iso) {
+      if (!iso) return "";
+      const s = String(iso);
+      const part = s.includes("T") ? s.split("T")[0] : s.slice(0, 10);
+      return part.length >= 10 ? part.slice(0, 10) : part;
+    }
+
+    async function loadPosHistory() {
+      const el = document.getElementById("posHistoryBody");
+      if (!el) return;
+      el.innerHTML = '<p class="text-slate-400 py-8 text-center text-sm">Loading&hellip;</p>';
+      try {
+        const rowsAll = await Api.sales.posHistory(80);
+        const today = localDateKey(new Date());
+        const rows = (rowsAll || []).filter((r) => saleOccurredDateKey(r.occurredAt) === today);
+        if (!rows.length) {
+          el.innerHTML = '<p class="text-slate-400 py-10 text-center text-sm">No sales today.</p>';
+          return;
+        }
+        el.innerHTML = rows
+          .map((r) => {
+            const dt = formatPosDateTime(r.occurredAt);
+            const lines =
+              (r.lines || []).length > 0
+                ? (r.lines || [])
+                    .map(
+                      (l) =>
+                        `${escapeHtml(l.itemName)} ×${l.quantity} · ₱${money(l.lineTotal ?? 0)}`
+                    )
+                    .join("<br/>")
+                : "—";
+            return `<div class="border-b border-slate-100 py-3 last:border-0">
+              <div class="flex justify-between gap-2 font-medium text-slate-800 text-sm">
+                <span>#${r.saleId}</span>
+                <span class="tabular-nums text-slate-900">₱${money(r.total)}</span>
+              </div>
+              <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center justify-between gap-2">
+                <span>${escapeHtml(r.petName)} · ${dt}</span>
+                <span class="flex gap-3 shrink-0">
+                  <button type="button" class="text-xs text-teal-700 hover:underline font-medium" data-preview-sale="${r.saleId}">Preview</button>
+                  <button type="button" class="text-xs text-slate-600 hover:underline font-medium" data-print-sale="${r.saleId}">Print</button>
+                </span>
+              </div>
+              <div class="mt-2 text-xs leading-relaxed text-slate-500">${lines}</div>
+            </div>`;
+          })
+          .join("");
+      } catch (e) {
+        el.innerHTML = `<p class="text-red-600 py-2 text-center text-xs font-medium">${escapeHtml((e.message || "Error").slice(0, 120))}</p>`;
+      }
+    }
+
+    function isServiceItem(i) {
+      return (i.category || "").toUpperCase() === "SERVICE";
+    }
+
+    function showToast(msg, isError) {
+      const el = document.getElementById("posToast");
+      el.textContent = msg;
+      el.classList.remove("hidden", "bg-emerald-700", "text-white", "bg-rose-700");
+      el.classList.add(isError ? "bg-rose-700" : "bg-emerald-700", "text-white");
+      el.classList.remove("pointer-events-none");
+      clearTimeout(showToast._t);
+      showToast._t = setTimeout(() => el.classList.add("hidden", "pointer-events-none"), isError ? 8000 : 4500);
+    }
+
+    function buildReceiptHtml(receipt) {
+      const clinic = typeof getClinicSettings === "function" ? getClinicSettings() || {} : {};
+      if (window.BayportThermalReceipt && typeof BayportThermalReceipt.buildHtml === "function") {
+        return BayportThermalReceipt.buildHtml(receipt || {}, clinic);
+      }
+      return "<!DOCTYPE html><html><body><pre>Receipt unavailable</pre></body></html>";
+    }
+
+    /** Plain text for ESC/POS agents or custom print services — same source as thermal HTML. */
+    function buildReceiptPlainText(receipt) {
+      const clinic = typeof getClinicSettings === "function" ? getClinicSettings() || {} : {};
+      if (window.BayportThermalReceipt && typeof BayportThermalReceipt.buildPlainText === "function") {
+        return BayportThermalReceipt.buildPlainText(receipt || {}, clinic);
+      }
+      return "";
+    }
+    window.buildPosReceiptPlainText = buildReceiptPlainText;
+    window.buildPosReceiptHtml = buildReceiptHtml;
+
+    async function printReceiptBySaleId(saleId, silent) {
+      const bridge = window.desktopBridge;
+      const receipt = await Api.sales.receipt(saleId);
+      const preferredPrinter = getPreferredReceiptPrinter?.() || "";
+      const html = buildReceiptHtml(receipt || {});
+      if (!bridge?.printReceipt) {
+        await queueCloudPrint(html, preferredPrinter || "");
+        showToast("Receipt queued for cloud print agent.");
+        return;
+      }
+      const result = await bridge.printReceipt({
+        html,
+        silent: !!silent,
+        deviceName: preferredPrinter || undefined,
+      });
+      if (!result || !result.ok) {
+        await queueCloudPrint(html, preferredPrinter || "");
+        throw new Error("Local print failed; receipt queued to cloud print agent.");
+      }
+    }
+
+    async function previewReceiptBySaleId(saleId) {
+      const receipt = await Api.sales.receipt(saleId);
+      const html = buildReceiptHtml(receipt || {});
+      const modal = document.getElementById("posPreviewModal");
+      const frame = document.getElementById("posPreviewFrame");
+      frame.srcdoc = html;
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function filteredProcedures() {
+      const q = (document.getElementById("mainSearch").value || "").trim().toLowerCase();
+      return procedureRows.filter((r) => {
+        if (!q) return true;
+        return (
+          (r.name || "").toLowerCase().includes(q) ||
+          (r.section || "").toLowerCase().includes(q) ||
+          (r.sku || "").toLowerCase().includes(q)
+        );
+      });
+    }
+
+    function filteredStock() {
+      const q = (document.getElementById("mainSearch").value || "").trim().toLowerCase();
+      return inventory.filter((i) => !isServiceItem(i)).filter((i) => {
+        if (!q) return true;
+        return (i.name || "").toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q);
+      });
+    }
+
+    function renderItemList() {
+      const el = document.getElementById("itemList");
+      if (activeTab === "procedures") {
+        const list = filteredProcedures().sort((a, b) => (a.section + a.name).localeCompare(b.section + b.name));
+        if (!list.length) {
+          el.innerHTML = '<p class="p-12 text-center text-slate-400 text-sm">No matches.</p>';
+          return;
+        }
+        const bySec = new Map();
+        for (const r of list) {
+          if (!bySec.has(r.section)) bySec.set(r.section, []);
+          bySec.get(r.section).push(r);
+        }
+        const sections = [...bySec.keys()].sort((a, b) => String(a).localeCompare(String(b)));
+        const parts = [];
+        for (const section of sections) {
+          const rows = bySec.get(section);
+          const secSafe = String(section).replace(/</g, "");
+          const rowHtml = rows
+            .map((r) => {
+              const priceLabel = r.customPrice ? "Quote" : "₱" + money(r.unitPrice);
+              const safe = String(r.name).replace(/</g, "");
+              return `<div class="flex items-center gap-3 px-4 py-3 hover:bg-slate-50/80 transition-colors border-b border-slate-100 last:border-0">
+              <div class="min-w-0 flex-1 cursor-pointer pos-add-proc" data-sku="${r.sku}" data-custom="${r.customPrice ? "1" : ""}">
+                <p class="text-sm font-medium text-slate-800">${safe}</p>
+                <p class="text-xs text-slate-400 font-mono tabular-nums mt-0.5">${r.sku}</p>
+              </div>
+              <span class="text-sm font-medium tabular-nums text-slate-700 shrink-0">${priceLabel}</span>
+              <button type="button" aria-label="Add ${safe}" class="pos-add-proc w-9 h-9 rounded-lg text-white text-lg font-medium flex items-center justify-center shrink-0 bg-teal-600 hover:bg-teal-700" data-sku="${r.sku}" data-custom="${r.customPrice ? "1" : ""}">+</button>
+            </div>`;
+            })
+            .join("");
+          parts.push(`<details class="pos-acc border-b border-slate-100 last:border-b-0">
+            <summary class="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 bg-slate-50 text-sm font-medium text-slate-800 hover:bg-slate-100/80">
+              <span>${secSafe}</span>
+              <span class="flex items-center gap-2 text-xs text-slate-500">
+                <span class="tabular-nums">${rows.length}</span>
+                <span class="acc-chev">▼</span>
+              </span>
+            </summary>
+            <div class="bg-white">${rowHtml}</div>
+          </details>`);
+        }
+        el.innerHTML = parts.join("");
+      } else {
+        const list = filteredStock().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        if (!list.length) {
+          el.innerHTML = '<p class="p-12 text-center text-slate-400 text-sm">No matches.</p>';
+          return;
+        }
+        const byCat = new Map();
+        for (const i of list) {
+          const raw = (i.category && String(i.category).trim()) || "";
+          const cat = raw || "Products";
+          if (!byCat.has(cat)) byCat.set(cat, []);
+          byCat.get(cat).push(i);
+        }
+        const cats = [...byCat.keys()].sort((a, b) => a.localeCompare(b));
+        const parts = [];
+        for (const cat of cats) {
+          const items = byCat.get(cat);
+          const catSafe = String(cat).replace(/</g, "");
+          const tiles = items
+            .map((i) => {
+              const safe = String(i.name || "").replace(/</g, "");
+              const skuEsc = escapeHtml(String(i.sku || "—"));
+              const p = i.unitPrice != null && i.unitPrice !== "" ? "₱" + money(Number(i.unitPrice)) : "—";
+              return `<button type="button" class="pos-tile pos-add-stock text-left flex flex-col justify-between min-h-[5rem]" data-id="${i.id}">
+                <span class="text-sm font-medium text-slate-800 leading-snug line-clamp-2">${safe}</span>
+                <span class="text-base font-semibold tabular-nums text-teal-700 mt-2">${p}</span>
+                <span class="text-[10px] text-slate-400 font-mono mt-1 truncate">${skuEsc}</span>
+              </button>`;
+            })
+            .join("");
+          parts.push(
+            `<div class="mb-5 px-1"><h3 class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">${catSafe}</h3>` +
+              `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${tiles}</div></div>`
+          );
+        }
+        el.innerHTML = parts.join("");
+      }
+    }
+
+    function setTab(which) {
+      activeTab = which;
+      const on = "px-4 py-1.5 text-sm font-medium rounded-full bg-white text-slate-900 shadow-sm border border-slate-200/80";
+      const off = "px-4 py-1.5 text-sm font-medium rounded-full text-slate-500 hover:text-slate-800";
+      document.getElementById("tabProc").className = which === "procedures" ? on : off;
+      document.getElementById("tabShop").className = which === "shop" ? on : off;
+      renderItemList();
+    }
+
+    function cartKey(line) {
+      return line.kind === "sku" ? "s:" + line.sku : "i:" + line.id;
+    }
+
+    function addProcedureLine(sku, customPrice) {
+      const qty = Math.max(1, parseInt(document.getElementById("lineQty").value, 10) || 1);
+      const row = procedureRows.find((r) => r.sku === sku);
+      if (!row) return;
+      const unit = customPrice ? null : Number(row.unitPrice || 0);
+      const key = "s:" + sku;
+      const existing = cart.find((l) => cartKey(l) === key);
+      if (existing) existing.qty += qty;
+      else
+        cart.push({
+          kind: "sku",
+          sku,
+          name: row.name + " (" + row.section + ")",
+          unitPrice: unit,
+          qty,
+          needsPrice: !!customPrice,
+        });
+      renderCart();
+    }
+
+    function addStockLine(id) {
+      const qty = Math.max(1, parseInt(document.getElementById("lineQty").value, 10) || 1);
+      const item = inventory.find((i) => i.id === id);
+      if (!item) {
+        showToast("Refresh the product list.", true);
+        return;
+      }
+      const unit = item.unitPrice != null && item.unitPrice !== "" ? Number(item.unitPrice) : 0;
+      const key = "i:" + id;
+      const existing = cart.find((l) => cartKey(l) === key);
+      if (existing) existing.qty += qty;
+      else cart.push({ kind: "id", id, name: item.name, unitPrice: unit, qty, needsPrice: false });
+      renderCart();
+    }
+
+    function getCartTotalNumber() {
+      const el = document.getElementById("cartBody");
+      let t = 0;
+      cart.forEach((l, i) => {
+        let u = Number(l.unitPrice || 0);
+        if (l.needsPrice) {
+          const input = el && el.querySelector(`.cart-price-inp[data-idx="${i}"]`);
+          u = input ? Math.max(0, parseFloat(input.value) || 0) : 0;
+        }
+        t += u * l.qty;
+      });
+      return t;
+    }
+
+    function updateTenderChange() {
+      const pay = document.getElementById("paySel").value;
+      const tenderInp = document.getElementById("tenderInp");
+      const changeEl = document.getElementById("changeDisplay");
+      const cashBlock = document.getElementById("cashTenderBlock");
+      const nonCash = document.getElementById("nonCashHint");
+      if (!tenderInp || !changeEl || !cashBlock || !nonCash) return;
+      const total = getCartTotalNumber();
+      if (pay !== "Cash") {
+        cashBlock.classList.add("hidden");
+        nonCash.classList.remove("hidden");
+        return;
+      }
+      cashBlock.classList.remove("hidden");
+      nonCash.classList.add("hidden");
+      const tender = Math.max(0, parseFloat(tenderInp.value) || 0);
+      const ch = Math.round((tender - total) * 100) / 100;
+      if (ch >= -0.001) {
+        changeEl.textContent = "₱" + money(Math.max(0, ch));
+        changeEl.className = "font-medium tabular-nums text-teal-700 text-sm";
+      } else {
+        changeEl.textContent = "₱" + money(Math.abs(ch)) + " short";
+        changeEl.className = "font-medium tabular-nums text-red-600 text-sm";
+      }
+    }
+
+    function renderCart() {
+      const el = document.getElementById("cartBody");
+      if (cart.length === 0) {
+        el.innerHTML = '<div class="py-12 text-center text-sm text-slate-400">No items yet.</div>';
+        document.getElementById("cartTotal").textContent = "0.00";
+        updateTenderChange();
+        return;
+      }
+        el.innerHTML =
+        `<div class="divide-y divide-slate-100">` +
+        cart
+          .map((line, idx) => {
+            const unit = Number(line.unitPrice || 0);
+            const sub = unit * line.qty;
+            const priceRow = line.needsPrice
+              ? `<label class="block mt-2 text-xs text-slate-500">Amount (₱)
+                 <input type="number" min="0" step="0.01" data-idx="${idx}" class="cart-price-inp pos-field mt-1" placeholder="Required" value="${unit > 0 ? unit : ""}"/>
+               </label>`
+              : `<p class="text-xs text-slate-400 mt-1 tabular-nums">₱${money(unit)} × ${line.qty}</p>`;
+            return `<div class="px-4 py-3 hover:bg-white/80 transition-colors">
+            <div class="flex justify-between gap-2 items-start">
+              <p class="text-sm font-medium text-slate-800 leading-snug flex-1">${String(line.name).replace(/</g, "")}</p>
+              <button type="button" class="cart-remove shrink-0 text-xs text-slate-400 hover:text-red-600 font-medium" data-idx="${idx}" aria-label="Remove">Remove</button>
+            </div>
+            ${priceRow}
+            <p class="text-right text-sm font-medium cart-line-total tabular-nums mt-2 text-slate-900" data-idx="${idx}">₱${money(line.needsPrice ? 0 : sub)}</p>
+          </div>`;
+          })
+          .join("") +
+        `</div>`;
+
+      function recalcTotals() {
+        let t = 0;
+        cart.forEach((l, i) => {
+          let u = Number(l.unitPrice || 0);
+          if (l.needsPrice) {
+            const input = el.querySelector(`.cart-price-inp[data-idx="${i}"]`);
+            u = input ? Math.max(0, parseFloat(input.value) || 0) : 0;
+          }
+          t += u * l.qty;
+          const subEl = el.querySelector(`.cart-line-total[data-idx="${i}"]`);
+          if (subEl) subEl.textContent = "₱" + money(u * l.qty);
+        });
+        document.getElementById("cartTotal").textContent = money(t);
+        updateTenderChange();
+      }
+
+      el.querySelectorAll(".cart-remove").forEach((btn) => {
+        btn.onclick = () => {
+          cart.splice(Number(btn.dataset.idx), 1);
+          renderCart();
+        };
+      });
+      el.querySelectorAll(".cart-price-inp").forEach((inp) => {
+        inp.oninput = () => {
+          const idx = Number(inp.dataset.idx);
+          if (cart[idx] && cart[idx].needsPrice) cart[idx].unitPrice = Math.max(0, parseFloat(inp.value) || 0);
+          recalcTotals();
+        };
+      });
+      recalcTotals();
+    }
+
+    document.getElementById("paySel").addEventListener("change", updateTenderChange);
+    document.getElementById("tenderInp").addEventListener("input", updateTenderChange);
+    document.querySelectorAll(".tender-quick").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const add = Number(btn.getAttribute("data-add")) || 0;
+        const inp = document.getElementById("tenderInp");
+        const cur = parseFloat(inp.value) || 0;
+        inp.value = String(cur + add);
+        updateTenderChange();
+      });
+    });
+    document.getElementById("tenderExactBtn").addEventListener("click", () => {
+      document.getElementById("tenderInp").value = String(getCartTotalNumber());
+      updateTenderChange();
+    });
+    document.getElementById("btnClearCart").addEventListener("click", () => {
+      if (!cart.length) return;
+      if (!window.confirm("Clear all lines in this sale?")) return;
+      cart = [];
+      rxSelected.clear();
+      renderCart();
+    });
+
+    function isHistoryModalOpen() {
+      const m = document.getElementById("posHistoryModal");
+      return m && m.classList.contains("flex");
+    }
+
+    document.getElementById("itemList").addEventListener("click", (e) => {
+      const p = e.target.closest(".pos-add-proc");
+      if (p) {
+        e.preventDefault();
+        addProcedureLine(p.getAttribute("data-sku"), p.getAttribute("data-custom") === "1");
+        return;
+      }
+      const s = e.target.closest(".pos-add-stock");
+      if (s) {
+        e.preventDefault();
+        addStockLine(Number(s.getAttribute("data-id")));
+      }
+    });
+
+    document.getElementById("mainSearch").addEventListener("input", renderItemList);
+    document.getElementById("tabProc").onclick = () => setTab("procedures");
+    document.getElementById("tabShop").onclick = () => setTab("shop");
+
+    function findInventoryByDrugName(drug) {
+      const d = (drug || "").trim().toLowerCase();
+      if (!d) return null;
+      const stock = inventory.filter((i) => !isServiceItem(i));
+      const exact = stock.find((i) => (i.name || "").toLowerCase() === d);
+      if (exact) return exact;
+      return stock.find((i) => {
+        const n = (i.name || "").toLowerCase();
+        return d.includes(n) || n.includes(d);
+      }) || null;
+    }
+
+    async function loadPets() {
+      try {
+        const pets = await repoListPets();
+        petsCache = Array.isArray(pets) ? pets : [];
+        const searchEl = document.getElementById("petSearch");
+        renderPetSelect(searchEl ? searchEl.value : "");
+      } catch (e) {
+        petsCache = [];
+        renderPetSelect("");
+        showToast("Unable to load patients.", true);
+      }
+    }
+
+    async function loadRxForPet() {
+      const petId = document.getElementById("petSel").value;
+      const fold = document.getElementById("rxFold");
+      const list = document.getElementById("rxList");
+      rxSelected.clear();
+      if (!petId) {
+        if (fold) fold.classList.add("hidden");
+        openRx = [];
+        return;
+      }
+      const all = await Api.rx.list();
+      openRx = (all || []).filter((r) => String(r.petId) === String(petId) && !r.dispensed && !r.archived);
+      if (!openRx.length) {
+        if (fold) fold.classList.add("hidden");
+        return;
+      }
+      if (fold) fold.classList.remove("hidden");
+      list.innerHTML = openRx
+        .map((r) => {
+          const drug = escapeHtml(r.drug || "Medication");
+          return `<label class="flex gap-2 p-2.5 bg-white rounded-md border border-slate-200 items-start cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" class="rx-pick mt-0.5 rounded border-slate-300" data-rx-id="${r.id}" data-drug="${(r.drug || "").replace(/"/g, "&quot;")}"/>
+            <span class="font-semibold text-slate-900 text-sm">${drug}</span>
+          </label>`;
+        })
+        .join("");
+    }
+
+    document.getElementById("petSearch").addEventListener("input", () => {
+      renderPetSelect(document.getElementById("petSearch").value);
+    });
+    document.getElementById("petSel").addEventListener("change", () => {
+      loadRxForPet();
+    });
+
+    document.getElementById("importRxBtn").onclick = () => {
+      const checks = document.querySelectorAll(".rx-pick:checked");
+      if (!checks.length) {
+        showToast("Select a prescription line.", true);
+        return;
+      }
+      let added = 0;
+      checks.forEach((ch) => {
+        const inv = findInventoryByDrugName(ch.getAttribute("data-drug"));
+        if (!inv) return;
+        const existing = cart.find((l) => l.kind === "id" && l.id === inv.id);
+        if (existing) existing.qty += 1;
+        else cart.push({ kind: "id", id: inv.id, name: inv.name, unitPrice: Number(inv.unitPrice || 0), qty: 1, needsPrice: false });
+        added++;
+        rxSelected.add(Number(ch.getAttribute("data-rx-id")));
+      });
+      if (!added) {
+        showToast("No matching inventory item.", true);
+        return;
+      }
+      renderCart();
+    };
+
+    document.getElementById("payBtn").onclick = async () => {
+      if (!cart.length) {
+        showToast("Cart is empty.", true);
+        return;
+      }
+      for (let i = 0; i < cart.length; i++) {
+        const l = cart[i];
+        if (l.needsPrice) {
+          const inp = document.querySelector(`.cart-price-inp[data-idx="${i}"]`);
+          const v = inp ? parseFloat(inp.value) : 0;
+          if (!v || v <= 0) {
+            showToast("Enter the procedure price.", true);
+            return;
+          }
+          l.unitPrice = v;
+        } else if ((!l.unitPrice || l.unitPrice <= 0) && l.kind === "id") {
+          showToast("Set unit price in Inventory.", true);
+          return;
+        }
+      }
+      const petIdRaw = document.getElementById("petSel").value;
+      const fulfill = document.getElementById("fulfillRx").checked;
+      if (fulfill && !petIdRaw) {
+        showToast("Select a patient.", true);
+        return;
+      }
+      if (fulfill && !rxSelected.size) {
+        showToast("Import prescriptions or disable dispensing.", true);
+        return;
+      }
+      const lines = cart.map((l) => {
+        if (l.kind === "sku") {
+          const o = { sku: l.sku, quantity: l.qty };
+          const def = procedureRows.find((r) => r.sku === l.sku);
+          if (def && def.customPrice) o.unitPriceOverride = Number(l.unitPrice);
+          return o;
+        }
+        return { inventoryItemId: l.id, quantity: l.qty };
+      });
+      const totalDue = getCartTotalNumber();
+      const payMethod = document.getElementById("paySel").value;
+      if (payMethod === "Cash") {
+        const tender = parseFloat(document.getElementById("tenderInp").value) || 0;
+        if (tender + 0.001 < totalDue) {
+          showToast("Amount received must cover the total.", true);
+          return;
+        }
+      }
+      const payBtn = document.getElementById("payBtn");
+      payBtn.disabled = true;
+      try {
+        const res = await Api.pos.checkout({
+          petId: petIdRaw ? Number(petIdRaw) : null,
+          paymentMethod: document.getElementById("paySel").value,
+          lines,
+          fulfillPrescriptionIds: fulfill ? [...rxSelected] : [],
+        });
+        showToast("Sale #" + (res.saleId || "") + " · ₱" + money(res.total));
+        if (res.saleId) {
+          try {
+            await printReceiptBySaleId(res.saleId, false);
+            showToast("Payment complete. Receipt sent to printer.");
+          } catch (printErr) {
+            showToast("Payment saved. Receipt print failed: " + (printErr.message || "unknown error"), true);
+          }
+        }
+        cart = [];
+        rxSelected.clear();
+        document.getElementById("tenderInp").value = "";
+        renderCart();
+        await loadRxForPet();
+        if (isHistoryModalOpen()) await loadPosHistory();
+      } catch (e) {
+        showToast((e.message || "Checkout failed").slice(0, 200), true);
+      } finally {
+        payBtn.disabled = false;
+      }
+    };
+
+    document.getElementById("btnRefreshHistory").onclick = () => loadPosHistory();
+    document.getElementById("closePosPreviewBtn").onclick = () => {
+      const modal = document.getElementById("posPreviewModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      document.getElementById("posPreviewFrame").srcdoc = "";
+    };
+    document.getElementById("posHistoryBody").addEventListener("click", async (e) => {
+      const previewBtn = e.target.closest("[data-preview-sale]");
+      if (previewBtn) {
+        const saleId = Number(previewBtn.getAttribute("data-preview-sale"));
+        if (saleId) {
+          try {
+            await previewReceiptBySaleId(saleId);
+          } catch (err) {
+            showToast((err.message || "Unable to preview receipt").slice(0, 180), true);
+          }
+        }
+        return;
+      }
+      const btn = e.target.closest("[data-print-sale]");
+      if (!btn) return;
+      const saleId = Number(btn.getAttribute("data-print-sale"));
+      if (!saleId) return;
+      try {
+        await printReceiptBySaleId(saleId, false);
+        showToast("Receipt sent to printer.");
+      } catch (err) {
+        showToast((err.message || "Unable to print receipt").slice(0, 180), true);
+      }
+    });
+
+    async function loadInventory() {
+      try {
+        inventory = (await Api.inventory.list()) || [];
+        inventory.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        if (activeTab === "shop") renderItemList();
+      } catch (e) {
+        showToast("Unable to load inventory.", true);
+      }
+    }
+
+    document.getElementById("btnRefreshStock").onclick = () => loadInventory();
+
+    (async function init() {
+      procedureRows = typeof buildPosProcedureRows === "function" ? buildPosProcedureRows() : [];
+      document.getElementById("petSearch").value = "";
+      document.getElementById("petSel").innerHTML = '<option value="">Walk-in</option>';
+      document.getElementById("tenderInp").value = "";
+      setTab("procedures");
+      await loadInventory();
+      await loadPets();
+      updateTenderChange();
+    })();
+  </script>
+</body>
+</html>

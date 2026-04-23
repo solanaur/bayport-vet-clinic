@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pet Records - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    .shadow-card{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    :root{--soft-teal:#0057b8}
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50 transition-all duration-200" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet Records</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-6 lg:p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+          <div>
+            <h3 class="text-2xl font-semibold text-gray-800 mb-1">Pet Records</h3>
+            <p class="text-gray-600 text-sm">Add, view, edit or delete pet records. Click "View" to open the profile.</p>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="relative flex-1 min-w-[200px]">
+              <input id="petSearch" class="w-full border-2 border-gray-200 rounded-lg p-3 pl-10 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search by name or owner">
+              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <button id="printAllBtn" onclick="printAllPets()" class="px-4 py-3 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-semibold hover:bg-[var(--soft-teal)] hover:text-white shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+              </svg>
+              Print All Pets
+            </button>
+            <button id="addBtn" class="px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#1d4ed8] text-white font-semibold hover:from-[#1d4ed8] hover:to-[var(--soft-teal)] shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+              </svg>
+              Add Record
+            </button>
+          </div>
+        </div>
+
+        <!-- Filters and View Toggle -->
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-200">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="text-sm font-medium text-gray-700">Filter by Species:</span>
+            <button onclick="filterBySpecies(null)" id="filter-all" class="px-4 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm">All</button>
+            <button onclick="filterBySpecies('Canine')" id="filter-canine" class="px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">Canine</button>
+            <button onclick="filterBySpecies('Feline')" id="filter-feline" class="px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">Feline</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium text-gray-700">View:</span>
+            <button onclick="setViewMode('grid')" id="view-grid" class="px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm" title="Grid View">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+              </svg>
+            </button>
+            <button onclick="setViewMode('list')" id="view-list" class="px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="List View">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Pet Cards Grid / List View -->
+        <div id="rows" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Pet cards will be rendered here -->
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script src="assets/deploy-env.js"></script>
+<script>window.USE_API=true; window.API_BASE=window.API_BASE||window.BAYPORT_API_BASE||(window.location.protocol==="file:"?"http://localhost:8080/api":window.location.origin+"/api");</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('pet-records');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'pet-records.html');
+
+    const rows=document.getElementById('rows');
+    const q=document.getElementById('petSearch');
+    const modalRoot=document.getElementById('modalRoot');
+    let lastRawFile=null;
+    let allPets = [];
+    let selectedSpeciesFilter = null;
+    let currentViewMode = 'grid'; // 'grid' or 'list'
+    
+    // Load view mode from localStorage
+    const savedViewMode = localStorage.getItem('petRecordsViewMode');
+    if (savedViewMode === 'list' || savedViewMode === 'grid') {
+      currentViewMode = savedViewMode;
+    }
+    
+    // Make setViewMode globally accessible
+    window.setViewMode = function setViewMode(mode) {
+      currentViewMode = mode;
+      localStorage.setItem('petRecordsViewMode', mode);
+      
+      // Update button styles
+      const gridBtn = document.getElementById('view-grid');
+      const listBtn = document.getElementById('view-list');
+      if (gridBtn && listBtn) {
+        if (mode === 'grid') {
+          gridBtn.classList.remove('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+          gridBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+          listBtn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+          listBtn.classList.add('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+        } else {
+          listBtn.classList.remove('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+          listBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+          gridBtn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+          gridBtn.classList.add('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+        }
+      }
+      
+      // Re-render with new view mode
+      render();
+    };
+
+    async function render(){
+      try{
+      const term=(q.value||'').toLowerCase();
+      const pets=await repoListPets();
+        const safe = Array.isArray(pets) ? pets : [];
+        const filtered = safe.filter(p=>{
+          try{ return JSON.stringify(p).toLowerCase().includes(term); }catch{ return false; }
+        });
+        const withOwnerNames = await Promise.all(filtered.map(async p=>{
+          let ownerName = p.owner||'';
+          if(!ownerName && p.ownerId){ const o = await repoGetOwner(p.ownerId); ownerName = o? o.fullName : ''; }
+          return { ...p, _ownerName: ownerName };
+        }));
+        
+        if (filtered.length === 0) {
+          rows.innerHTML = `
+            <div class="col-span-full py-16 text-center">
+              <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+              </svg>
+              <p class="text-gray-400 text-lg font-medium mb-2">No pets found</p>
+              <p class="text-gray-300 text-sm">${term ? 'Try a different search term' : 'Add your first pet record to get started'}</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Store all pets for filtering
+        allPets = withOwnerNames;
+        
+        // Apply species filter
+        let filteredPets = withOwnerNames;
+        if (selectedSpeciesFilter) {
+          filteredPets = withOwnerNames.filter(p => (p.species || '').toLowerCase() === selectedSpeciesFilter.toLowerCase());
+        }
+        
+        if (filteredPets.length === 0) {
+          rows.innerHTML = `
+            <div class="col-span-full py-16 text-center">
+              <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+              </svg>
+              <p class="text-gray-400 text-lg font-medium mb-2">No pets found</p>
+              <p class="text-gray-300 text-sm">${selectedSpeciesFilter ? `No ${selectedSpeciesFilter} pets found` : 'Try a different search term'}</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Render based on current view mode
+        if (currentViewMode === 'list') {
+          rows.className = 'space-y-3';
+          rows.innerHTML = `
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm mb-3">
+              <div class="grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-700 uppercase tracking-wide">
+                <div class="col-span-2">Pet Name</div>
+                <div class="col-span-2">Species</div>
+                <div class="col-span-2">Breed</div>
+                <div class="col-span-2">Owner</div>
+                <div class="col-span-1 text-center">Age</div>
+                <div class="col-span-3 text-right">Actions</div>
+              </div>
+            </div>
+            ${filteredPets.map(p => {
+            const photoSrc = p.photo ? resolveAssetUrl(p.photo) : 'assets/cutie.jpg';
+            return `
+            <div class="bg-white rounded-lg border border-gray-200 hover:border-[var(--soft-teal)]/50 hover:shadow-md transition-all duration-200">
+              <div class="grid grid-cols-12 gap-4 px-6 py-5 items-center">
+                <div class="col-span-2 flex items-center gap-4">
+                  <div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-200 shadow-sm">
+                    <img src="${photoSrc}" class="w-full h-full object-cover" alt="Pet photo"
+                         onerror="this.onerror=null;this.src='assets/cutie.jpg';">
+                  </div>
+                  <div>
+                    <div class="font-semibold text-gray-800 text-base">${p.name||'Unnamed Pet'}</div>
+                  </div>
+                </div>
+                <div class="col-span-2">
+                  <span class="px-3 py-1.5 bg-[var(--soft-teal)]/10 text-[var(--soft-teal)] rounded-md text-sm font-medium">${p.species||'N/A'}</span>
+                </div>
+                <div class="col-span-2 text-base text-gray-700">${p.breed||'Unknown Breed'}</div>
+                <div class="col-span-2 text-base text-gray-700">${p._ownerName||'No Owner'}</div>
+                <div class="col-span-1 text-center text-base text-gray-600 font-medium">${p.age ? `${p.age} ${p.age === 1 ? 'yr' : 'yrs'}` : 'N/A'}</div>
+                <div class="col-span-3 flex items-center justify-end gap-2">
+                  <button onclick="viewPet(${p.id})" class="px-4 py-2 bg-[var(--soft-teal)] text-white rounded-md text-sm font-medium hover:bg-[#158a8a] shadow-sm hover:shadow transition-all duration-200 flex items-center gap-1.5" title="View">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                    </svg>
+                    View
+                  </button>
+                  <button onclick="printPetProfile(${p.id})" class="px-3 py-2 border border-blue-300 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all duration-200" title="Print Profile">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                    </svg>
+                  </button>
+                  <button onclick="openForm(${p.id})" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="Edit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                  </button>
+                  <button onclick="delPet(${p.id})" class="px-3 py-2 border border-red-200 text-red-600 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-all duration-200" title="Delete">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>`;
+          }).join('')}
+          `;
+        } else {
+          rows.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4';
+          rows.innerHTML = filteredPets.map(p=>{
+            const photoSrc = p.photo ? resolveAssetUrl(p.photo) : 'assets/cutie.jpg';
+            return `
+        <div class="bg-white rounded-xl shadow-card border border-gray-100 hover:shadow-lg hover:border-[var(--soft-teal)]/30 transition-all duration-300 overflow-hidden group">
+          <div class="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
+            <img src="${photoSrc}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Pet photo"
+                 onerror="this.onerror=null;this.src='assets/cutie.jpg';">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+            <div class="absolute top-3 right-3">
+              <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-700">${p.species||'N/A'}</span>
+            </div>
+          </div>
+          <div class="p-4">
+            <h4 class="text-lg font-bold text-gray-800 mb-1">${p.name||'Unnamed Pet'}</h4>
+            <div class="space-y-1.5 mb-3">
+              <div class="flex items-center gap-2 text-xs text-gray-600">
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
+                </svg>
+                <span class="truncate">${p.breed||'Unknown Breed'}</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-gray-600">
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                </svg>
+                <span class="truncate">${p._ownerName||'No Owner'}</span>
+              </div>
+              ${p.age ? `
+              <div class="flex items-center gap-2 text-xs text-gray-600">
+                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>${p.age} ${p.age === 1 ? 'year' : 'years'}</span>
+              </div>
+              ` : ''}
+            </div>
+            <div class="flex gap-2 pt-3 border-t border-gray-100">
+              <button onclick="viewPet(${p.id})" class="flex-1 px-3 py-2 bg-[var(--soft-teal)] text-white rounded-lg text-xs font-medium hover:bg-[#158a8a] shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                </svg>
+                View
+              </button>
+              <button onclick="printPetProfile(${p.id})" class="px-3 py-2 border-2 border-blue-300 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-50 hover:border-blue-400 transition-all duration-200" title="Print Profile">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                </svg>
+              </button>
+              <button onclick="openForm(${p.id})" class="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="Edit">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                </svg>
+              </button>
+              <button onclick="delPet(${p.id})" class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 hover:border-red-300 transition-all duration-200" title="Delete">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>`;
+          }).join('');
+        }
+      }catch(err){
+        console.error('Pet records render error', err);
+        rows.innerHTML = `<div class="col-span-full py-16 text-center"><p class="text-red-600 font-medium">Unable to load pet records from the server.</p></div>`;
+      }
+    }
+    function viewPet(id){ location.href=`pet-profile.html?id=${id}`; }
+    
+    async function printPetProfile(id) {
+      try {
+        const response = await fetch(`${window.API_BASE}/pets/${id}/pdf`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt') || ''}`
+          }
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `Pet_Profile_${id}.pdf`;
+          link.click();
+          window.URL.revokeObjectURL(url);
+        } else {
+          alert('Error generating PDF. Please try again.');
+        }
+      } catch (err) {
+        console.error('Error printing pet profile:', err);
+        alert('Error printing pet profile. Please try again.');
+      }
+    }
+    
+    async function printAllPets() {
+      try {
+        const response = await fetch(`${window.API_BASE}/pets/pdf/all`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt') || ''}`
+          }
+        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `All_Pets_Report_${new Date().toISOString().split('T')[0]}.pdf`;
+          link.click();
+          window.URL.revokeObjectURL(url);
+        } else {
+          alert('Error generating PDF. Please try again.');
+        }
+      } catch (err) {
+        console.error('Error printing all pets:', err);
+        alert('Error printing all pets. Please try again.');
+      }
+    }
+    
+    async function delPet(id){ 
+      if(confirm('Delete this pet?')){ 
+        await repoDeletePet(id); 
+        render(); 
+      } 
+    }
+
+    async function openForm(id, prefilledMicrochip){
+      try{
+      const editing = id ? await repoGetPet(id) : null;
+      const chipVal = editing?.microchip ?? prefilledMicrochip ?? '';
+      const hasChip = !!(editing?.microchip || prefilledMicrochip);
+      let currentPhoto = editing?.photo || null;
+      let currentPhotoPreview = editing?.photo ? resolveAssetUrl(editing.photo) : 'assets/cutie.jpg';
+      lastRawFile = null;
+
+      modalRoot.innerHTML=`
+        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
+          <div class="bg-white rounded-2xl w-full max-w-3xl p-6 lg:p-8 flex flex-col max-h-[90vh] shadow-2xl">
+            <div class="flex items-center justify-between mb-6">
+              <h3 class="text-2xl font-semibold text-gray-800">${editing?'Edit':'Add'} Pet</h3>
+              <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${field('name','Pet Name',editing?.name)}
+              ${selectField('species','Species',editing?.species||'',['','Canine','Feline'])}
+              <label class="text-sm font-medium text-gray-700">Breed
+                <select id="f_breed" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" ${editing?.species?'' : 'disabled'}></select>
+              </label>
+              <label id="wrap_breedOther" class="text-sm font-medium text-gray-700 hidden">Breed (Others)
+                <input id="f_breedOther" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Enter breed">
+              </label>
+              ${selectField('gender','Gender',editing?.gender||'Female',['Female','Male'])}
+              ${field('age','Age',editing?.age,'number')}
+              <div>
+                <label class="text-sm font-medium text-gray-700 block">Microchip ID
+                  <input id="f_microchip" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" value="${(chipVal || '').replace(/"/g, '&quot;')}" placeholder="Enter or scan microchip code">
+                </label>
+                <label class="flex items-center gap-2 text-xs text-gray-600 mt-2">
+                  <input type="checkbox" id="f_noMicrochip" ${hasChip ? '' : 'checked'} class="w-4 h-4 text-[var(--soft-teal)] border-gray-300 rounded focus:ring-[var(--soft-teal)]">
+                  <span>Pet does not have a microchip</span>
+                </label>
+              </div>
+              <div class="md:col-span-2 border-2 border-gray-200 rounded-lg p-4 bg-gray-50/50">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="text-sm font-medium text-gray-700">Owner</div>
+                  <select id="ownerMode" class="border-2 border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
+                    <option value="select">Select Existing</option>
+                    <option value="create">Create New</option>
+                  </select>
+                </div>
+                <div id="ownerSelect">
+                  <input id="f_ownerSearch" class="w-full border-2 border-gray-300 rounded-lg p-2.5 mb-2 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search name or phone">
+                  <div id="ownerResults" class="max-h-32 overflow-auto border-2 border-gray-200 rounded-lg"></div>
+                </div>
+                <div id="ownerCreate" class="hidden grid grid-cols-1 md:grid-cols-2 gap-3">
+                  ${field('ownerName','Full Name','')}
+                  ${field('ownerPhone','Phone','')}
+                  ${field('ownerEmail','Email','', 'email')}
+                  <label class="text-sm font-medium text-gray-700 md:col-span-2">Address<input id="f_ownerAddress" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all"></label>
+                </div>
+              </div>
+              <label class="text-sm font-medium text-gray-700 md:col-span-2">Home Address
+                <input id="f_address" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 bg-gray-50 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" value="${editing?.address??''}" readonly>
+                <span class="text-xs text-gray-500 mt-1 block">Auto-copied from owner information</span>
+              </label>
+              ${selectField('federation','Federation',editing?.federation||'N/A',['FCCI','FCPI','N/A'])}
+              <div class="col-span-1 md:col-span-2">
+                <div class="text-sm font-medium text-gray-700 mb-2">Photo</div>
+                <div class="flex items-center gap-4">
+                  <div id="photoPreview" class="w-32 h-32 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400 overflow-hidden shadow-sm">
+                    <img src="${currentPhotoPreview}" class="w-full h-full object-cover" alt="Pet photo preview"
+                         onerror="this.onerror=null;this.src='assets/cutie.jpg';">
+                  </div>
+                  <input id="photoInput" type="file" accept="image/*" class="border-2 border-gray-300 rounded-lg p-2 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
+                </div>
+              </div>
+            </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3 border-t pt-4">
+              <button class="px-5 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="closeModal()">Cancel</button>
+              <button class="px-6 py-2.5 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#158a8a] text-white font-semibold hover:from-[#158a8a] hover:to-[var(--soft-teal)] shadow-md hover:shadow-lg transition-all duration-200" onclick="savePet(${editing?.id||''})">Save</button>
+            </div>
+          </div>
+        </div>`;
+
+      function field(id,label,val='',type='text'){return `<label class="text-sm font-medium text-gray-700">${label}<input id="f_${id}" type="${type}" value="${val??''}" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all"></label>`;}
+      function selectField(id,label,selected,options){const opts=options.map(o=>`<option ${o===selected?'selected':''}>${o}</option>`).join('');return `<label class="text-sm font-medium text-gray-700">${label}<select id="f_${id}" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">${opts}</select></label>`;}
+      function gv(k){return document.getElementById('f_'+k).value;}
+
+      const photoInput=document.getElementById('photoInput');
+      const photoPreview=document.getElementById('photoPreview');
+      photoInput?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; try{ lastRawFile=f; const previewSrc = window.USE_API ? URL.createObjectURL(f) : await fileToDataURL(f); if(!window.USE_API){ currentPhoto = previewSrc; } currentPhotoPreview = previewSrc; photoPreview.innerHTML=`<img src="${currentPhotoPreview}" class="w-full h-full object-cover">`; }catch{ alert('Could not read image'); }});
+
+      const microchipInput = document.getElementById('f_microchip');
+      const noMicrochipCheckbox = document.getElementById('f_noMicrochip');
+      function syncMicrochipField(){
+        if(!microchipInput || !noMicrochipCheckbox) return;
+        const disabled = noMicrochipCheckbox.checked;
+        microchipInput.disabled = disabled;
+        if(disabled){
+          microchipInput.value = '';
+        }
+      }
+      noMicrochipCheckbox?.addEventListener('change', syncMicrochipField);
+      syncMicrochipField();
+
+      const addressInput = document.getElementById('f_address');
+      const ownerAddressInput = document.getElementById('f_ownerAddress');
+      function setHomeAddress(val){
+        if(addressInput){
+          addressInput.value = val || '';
+        }
+      }
+
+      // keyboard save/cancel
+      const wrap=document.querySelector('.fixed.inset-0');
+      function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); savePet(editing ? editing.id : undefined); } if(e.key==='Escape'){ e.preventDefault(); closeModal(); } }
+      wrap.addEventListener('keydown', onKey);
+      document.getElementById('f_name').focus();
+
+      // Species → Breed dependent dropdown
+      const speciesEl = document.getElementById('f_species');
+      const breedEl = document.getElementById('f_breed');
+      if(!speciesEl || !breedEl){ throw new Error('Form did not render correctly'); }
+      function populateBreeds(){
+        try{
+          const sp = speciesEl.value;
+          const list = (window.SPECIES_TO_BREEDS?.[sp]||[]);
+          breedEl.innerHTML = `<option value=""></option>` + list.map(b=>`<option ${editing?.breed===b?'selected':''}>${b}</option>`).join('') + `<option ${editing?.breed && !list.includes(editing.breed)?'selected':''}>Others</option>`;
+          breedEl.disabled = !sp;
+          document.getElementById('wrap_breedOther').classList.toggle('hidden', breedEl.value!=='Others');
+        }catch(err){ console.error(err); }
+      }
+      speciesEl.addEventListener('change', populateBreeds);
+      populateBreeds();
+      breedEl.addEventListener('change', ()=>{
+        document.getElementById('wrap_breedOther').classList.toggle('hidden', breedEl.value!=='Others');
+        if(breedEl.value!=='Others'){ document.getElementById('f_breedOther').value=''; }
+      });
+
+      // Owner selection/create UI
+      const ownerMode = document.getElementById('ownerMode');
+      ownerAddressInput?.addEventListener('input', ()=>{
+        if(ownerMode?.value === 'create'){
+          setHomeAddress(ownerAddressInput.value);
+        }
+      });
+      const ownerSelect = document.getElementById('ownerSelect');
+      const ownerCreate = document.getElementById('ownerCreate');
+      const ownerResults = document.getElementById('ownerResults');
+      const ownerSearch = document.getElementById('f_ownerSearch');
+      let selectedOwnerId = editing?.ownerId || null;
+
+      // Enforce 11-digit numeric phone entry at the input level
+      const ownerPhoneInput = document.getElementById('f_ownerPhone');
+      if (ownerPhoneInput) {
+        ownerPhoneInput.setAttribute('type', 'tel');
+        ownerPhoneInput.setAttribute('maxlength', '11');
+        ownerPhoneInput.addEventListener('input', (e) => {
+          const digitsOnly = (e.target.value || '').replace(/\D/g, '').slice(0, 11);
+          e.target.value = digitsOnly;
+        });
+      }
+
+      ownerMode.addEventListener('change',()=>{
+        const m = ownerMode.value;
+        ownerSelect.classList.toggle('hidden', m!=='select');
+        ownerCreate.classList.toggle('hidden', m!=='create');
+        if(m==='create'){
+          setHomeAddress(ownerAddressInput?.value||'');
+        } else {
+          syncSelectedOwnerDetails();
+        }
+      });
+      // Prefill search results
+      (async function initOwnerSection(){
+        if(selectedOwnerId){
+          const o = await repoGetOwner(selectedOwnerId);
+          if(o){
+            ownerResults.innerHTML = `<div class='p-3 text-sm bg-green-50 border-2 border-green-200 rounded-lg'>Selected: <b>${o.fullName}</b> (${o.phone})</div>`;
+            setHomeAddress(o.address||editing?.address||'');
+          }
+        } else {
+          setHomeAddress(editing?.address||'');
+        }
+        renderOwnerSearch();
+        await syncSelectedOwnerDetails();
+      })();
+
+      async function syncSelectedOwnerDetails(){
+        if(!selectedOwnerId || ownerMode.value!=='select'){
+          return;
+        }
+        try{
+          const owner = await repoGetOwner(selectedOwnerId);
+          if(owner){
+            setHomeAddress(owner.address||'');
+          }
+        }catch(err){
+          console.warn('Unable to load owner details', err);
+        }
+      }
+
+      async function renderOwnerSearch(){
+        try{
+          const term = ownerSearch.value||'';
+          const list = await repoSearchOwners(term);
+          const selected = selectedOwnerId ? await repoGetOwner(selectedOwnerId) : null;
+          const selectedRow = selected ? `<div class='p-3 text-sm bg-green-50 border-2 border-green-200 rounded-lg mb-2 flex items-center justify-between'>
+            <span>Selected: <b>${selected.fullName}</b> (${selected.phone})</span>
+            <button onclick="deleteOwner(${selected.id}, event)" class='text-red-600 hover:text-red-800 p-1' title='Delete owner'>
+              <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path>
+              </svg>
+            </button>
+          </div>` : '';
+          ownerResults.innerHTML = selectedRow + (list.map(o=>{
+            const isSelected = selectedOwnerId === o.id;
+            return `<div class='px-3 py-2.5 text-sm hover:bg-gray-50 ${isSelected ? 'bg-green-50 border-l-4 border-green-400' : ''} flex items-center justify-between group rounded-lg transition-colors' data-id='${o.id}'>
+              <span class='flex-1 cursor-pointer'>${o.fullName} — ${o.phone}${o.email ? ' — '+o.email : ''}</span>
+              <button onclick="deleteOwner(${o.id}, event)" class='text-red-600 hover:text-red-800 p-1 opacity-0 group-hover:opacity-100 transition-opacity' title='Delete owner'>
+                <svg class='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                  <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16'></path>
+                </svg>
+              </button>
+            </div>`;
+          }).join('') || `<div class='p-3 text-sm text-gray-500 text-center'>No results</div>`);
+          ownerResults.querySelectorAll('[data-id]')?.forEach(el=>{
+            const ownerRow = el;
+            const clickableArea = ownerRow.querySelector('span');
+            if (clickableArea) {
+              clickableArea.addEventListener('click',async()=>{ 
+                selectedOwnerId = Number(ownerRow.dataset.id); 
+                await renderOwnerSearch(); 
+                await syncSelectedOwnerDetails(); 
+              });
+            }
+          });
+        }catch(err){ console.error(err); alert('Owner search error: '+err.message); }
+      }
+      
+      // Delete owner function
+      window.deleteOwner = async function(ownerId, event) {
+        if (event) {
+          event.stopPropagation();
+        }
+        
+        if (!confirm('Are you sure you want to delete this owner? This will also delete all associated pets and appointments.')) {
+          return;
+        }
+        
+        try {
+          await Api.owners.remove(ownerId);
+          
+          // If this was the selected owner, clear selection
+          if (selectedOwnerId === ownerId) {
+            selectedOwnerId = null;
+          }
+          
+          // Refresh the owner list
+          await renderOwnerSearch();
+          
+          alert('Owner deleted successfully');
+        } catch (err) {
+          console.error('Error deleting owner:', err);
+          const errorMsg = err.message || 'Failed to delete owner';
+          alert('Error: ' + errorMsg);
+        }
+      };
+      ownerSearch.addEventListener('input', renderOwnerSearch);
+
+      window.closeModal=()=>modalRoot.innerHTML='';
+      window.savePet=async(editId)=>{
+        // Determine owner
+        let ownerId = selectedOwnerId;
+        let ownerName = null;
+        if(ownerMode.value==='create'){
+          const fullName = gv('ownerName').trim();
+          const phone = gv('ownerPhone').trim();
+          const email = (document.getElementById('f_ownerEmail')?.value||'').trim();
+          const address = (document.getElementById('f_ownerAddress')?.value||'').trim();
+          if(!fullName){ alert('Owner full name is required'); return; }
+          if(!phone || !validatePhone(phone)){ alert('Valid phone is required'); return; }
+          if(email && !validateEmail(email)){ alert('Email looks invalid'); return; }
+          const created = await repoAddOwner({ fullName, phone, email, address });
+          ownerId = created.id; ownerName = created.fullName;
+        } else if(!ownerId) {
+          alert('Please select an owner or choose Create New');
+          return;
+        } else {
+          const o = await repoGetOwner(ownerId); ownerName = o? o.fullName : '';
+        }
+
+        let breedValue = gv('breed');
+        if(breedValue==='Others'){ breedValue = (document.getElementById('f_breedOther').value||'').trim(); }
+        const microchipValue = noMicrochipCheckbox?.checked ? null : gv('microchip');
+        const base={
+          name:gv('name'),
+          species:gv('species'),
+          breed:breedValue,
+          gender:gv('gender'),
+          age:Number(gv('age')||0),
+          microchip:microchipValue,
+          owner:ownerName,
+          address:addressInput?.value||'',
+          federation:gv('federation')||'N/A',
+          photo: window.USE_API ? null : currentPhoto,
+          ownerId
+        };
+        let savedPetId = editId;
+        if(editId){
+          const prev=await repoGetPet(editId);
+          await repoUpdatePet({...base,id:Number(editId),procedures:prev?.procedures||[]}, window.USE_API ? lastRawFile : currentPhoto);
+        } else {
+          const created = await repoAddPet({...base,procedures:[]}, window.USE_API ? lastRawFile : currentPhoto);
+          savedPetId = created?.id ?? savedPetId;
+        }
+        closeModal(); render();
+        if(savedPetId){ viewPet(savedPetId); }
+      };
+      } catch(err){ console.error(err); alert('Error opening form: '+err.message); modalRoot.innerHTML=''; }
+    }
+
+    window.filterBySpecies = function(species) {
+      selectedSpeciesFilter = species;
+      // Update filter button styles
+      document.querySelectorAll('[id^="filter-"]').forEach(btn => {
+        btn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+        btn.classList.add('border-gray-300', 'text-gray-700');
+      });
+      const activeBtn = species === null ? document.getElementById('filter-all') : 
+                       species === 'Canine' ? document.getElementById('filter-canine') : 
+                       document.getElementById('filter-feline');
+      if (activeBtn) {
+        activeBtn.classList.remove('border-gray-300', 'text-gray-700');
+        activeBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
+      }
+      render();
+    };
+    
+    document.getElementById('addBtn').onclick=()=>openForm();
+    q.addEventListener('input',()=>render());
+    
+    // Initialize view mode buttons on page load
+    setTimeout(() => {
+      setViewMode(currentViewMode);
+    }, 100);
+    
+    render();
+    const _urlMc = new URLSearchParams(location.search).get('microchip');
+    if (_urlMc) {
+      try {
+        openForm(null, decodeURIComponent(_urlMc.trim()));
+      } catch (_) {
+        openForm(null, _urlMc.trim());
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+{
+  "name": "bayport-vet-clinic-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Electron shell for the Bayport Veterinary Clinic frontend",
+  "main": "main.js",
+  "scripts": {
+    "dev": "npx electron .",
+    "check": "npx electron --version",
+    "build-backend": "node scripts/mvnw.js clean package -DskipTests",
+    "build-runtime": "node scripts/clean-runtime.js && jlink --no-header-files --no-man-pages --strip-debug --compress=2 --add-modules java.se,jdk.unsupported --output runtime",
+    "prepackage": "npm run build-backend && npm run build-runtime",
+    "package": "electron-builder",
+    "dist": "npm run package",
+    "build:win": "npm run build-backend && npm run build-runtime && electron-builder --win",
+    "build:mac": "npm run build-backend && npm run build-runtime && electron-builder --mac dmg zip --x64 --arm64",
+    "build:all": "npm run build-backend && npm run build-runtime && electron-builder -mwl",
+    "print-agent": "node clinic-print-agent.js",
+    "verify:win": "npm run check && npm run build-backend && npm run build-runtime && electron-builder --win --publish never",
+    "verify:mac": "npm run check && npm run build-backend && electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "verify:all": "npm run check && npm run build-backend && electron-builder -mwl --publish never",
+    "predist:mac": "npm run build-backend && npm run build-runtime",
+    "dist:mac": "electron-builder --mac dmg zip --x64 --arm64",
+    "predist:all": "npm run build-backend && npm run build-runtime",
+    "dist:all": "electron-builder -mwl",
+    "desktop": "npm run build-backend && npx electron ."
+  },
+  "dependencies": {
+    "electron-log": "^5.4.3"
+  },
+  "devDependencies": {
+    "electron": "^31.2.1",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.bayport.desktop",
+    "productName": "Bayport Veterinary Clinic",
+    "asar": false,
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraFiles": [
+      {
+        "from": "../assets",
+        "to": "assets",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "..",
+        "to": ".",
+        "filter": ["**/*.html"]
+      },
+      {
+        "from": "../bayport-backend/target/bayport-backend-0.0.1-SNAPSHOT.jar",
+        "to": "bayport-backend-0.0.1-SNAPSHOT.jar"
+      },
+      {
+        "from": "runtime",
+        "to": "runtime",
+        "filter": ["**/*"]
+      }
+    ],
+    "extraResources": [
+      {
+        "from": "../assets",
+        "to": "assets",
+        "filter": ["**/*"]
+      },
+      {
+        "from": "runtime",
+        "to": "runtime",
+        "filter": ["**/*"]
+      }
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "publisherName": "Bayport Veterinary Clinic"
+    },
+    "mac": {
+      "category": "public.app-category.business",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "zip"
+      ],
+      "artifactName": "Bayport-Veterinary-Clinic-${version}-${arch}.${ext}",
+      "icon": "build/icon.icns",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "title": "Bayport Veterinary Clinic ${version}",
+      "icon": "build/icon.icns",
+      "background": null,
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 400
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}

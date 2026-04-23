@@ -1,0 +1,10 @@
+# Monorepo: static site lives under bayport-vet-clinic/
+# Netlify → set BAYPORT_API_BASE to your Koyeb API (e.g. https://xxx.koyeb.app/api)
+
+[build]
+  base = "bayport-vet-clinic"
+  command = "node scripts/write-deploy-env.js"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "20"
