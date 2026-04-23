@@ -43,9 +43,6 @@
 <script src="assets/app.js"></script>
 <script src="assets/reminder-templates.js"></script>
 <script>
-window.USE_API = true;
-window.API_BASE = window.API_BASE || window.BAYPORT_API_BASE || (window.location.protocol === "file:" ? "http://localhost:8080/api" : window.location.origin + "/api");
-
 // Use the same permissions as the main reminders page
 guard("reminders");
 renderSidebar(document.getElementById("sidebarNav"), getRole(), "reminders-calendar.html");

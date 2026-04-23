@@ -176,8 +176,10 @@
 
       async function loadNotifications() {
         try {
+          const apiBase = (window.resolveApiBase && window.resolveApiBase()) || (window.API_BASE || "").replace(/\/+$/, "");
+          if (!apiBase) return;
           const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-          const response = await fetch(`${window.API_BASE}/notifications`, {
+          const response = await fetch(`${apiBase}/notifications`, {
             headers: {
               'Authorization': token ? `Bearer ${token}` : '',
               'Content-Type': 'application/json'
@@ -213,8 +215,10 @@
 
       async function markNotificationRead(id) {
         try {
+          const apiBase = (window.resolveApiBase && window.resolveApiBase()) || (window.API_BASE || "").replace(/\/+$/, "");
+          if (!apiBase) return;
           const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-          await fetch(`${window.API_BASE}/notifications/${id}/read`, {
+          await fetch(`${apiBase}/notifications/${id}/read`, {
             method: 'POST',
             headers: {
               'Authorization': token ? `Bearer ${token}` : '',
@@ -229,8 +233,10 @@
 
       async function markAllAsRead() {
         try {
+          const apiBase = (window.resolveApiBase && window.resolveApiBase()) || (window.API_BASE || "").replace(/\/+$/, "");
+          if (!apiBase) return;
           const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-          await fetch(`${window.API_BASE}/notifications/read-all`, {
+          await fetch(`${apiBase}/notifications/read-all`, {
             method: 'POST',
             headers: {
               'Authorization': token ? `Bearer ${token}` : '',

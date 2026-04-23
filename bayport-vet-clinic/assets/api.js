@@ -1,10 +1,17 @@
 window.USE_API = window.USE_API ?? true;
 window.resolveApiBase = function resolveApiBase() {
-  if (window.API_BASE && String(window.API_BASE).trim()) return String(window.API_BASE).trim();
-  const envBase = window.BAYPORT_API_BASE || localStorage.getItem("bayport_api_base") || "";
-  if (envBase) return String(envBase).trim();
+  const envBase = (window.BAYPORT_API_BASE || localStorage.getItem("bayport_api_base") || "").trim();
+  if (envBase) return envBase;
   if (window.location.protocol === "file:") return "http://localhost:8080/api";
-  return `${window.location.origin.replace(/\/+$/, "")}/api`;
+
+  const origin = window.location.origin.replace(/\/+$/, "");
+  const sameOriginApi = `${origin}/api`;
+  const host = window.location.hostname || "";
+  const explicit = (window.API_BASE || "").trim();
+  // Do not use same-origin /api on hosted static sites (Netlify, etc.) — there is no Spring there → HTML 404.
+  if (explicit && explicit !== sameOriginApi) return explicit;
+  if (host === "localhost" || host === "127.0.0.1") return sameOriginApi;
+  return "";
 };
 window.API_BASE = window.resolveApiBase();
 const API_TIMEOUT = 12000;
@@ -25,18 +32,21 @@ function ensureApiEnabled() {
 }
 
 function buildApiUrl(path) {
-  let base = String(window.API_BASE ?? "").trim().replace(/\/+$/, "");
+  let base = String(window.resolveApiBase() ?? "").trim().replace(/\/+$/, "");
   // "http://host:8080" with no path → append /api (otherwise /pos/checkout hits wrong handler → static 404)
   if (base.length > 0 && /^https?:\/\/[^/]+$/i.test(base)) {
     base += "/api";
   }
   if (!base) {
-    base = window.resolveApiBase();
+    throw new Error(
+      "API base URL is not configured. In Netlify set BAYPORT_API_BASE to your Render API (e.g. https://your-app.onrender.com/api), redeploy, or run: localStorage.setItem(\"bayport_api_base\",\"https://…/api\") then reload.",
+    );
   }
   let p = path.startsWith("/") ? path : `/${path}`;
   if (base.endsWith("/api") && p.startsWith("/api/")) {
     p = p.slice(4);
   }
+  window.API_BASE = base;
   return base + p;
 }
 
