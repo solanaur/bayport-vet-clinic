@@ -1,0 +1,58 @@
+name: Desktop Verify
+
+on:
+  pull_request:
+    paths:
+      - "bayport-vet-clinic/desktop-shell/**"
+      - "bayport-vet-clinic/bayport-backend/**"
+      - ".github/workflows/desktop-verify.yml"
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    defaults:
+      run:
+        working-directory: bayport-vet-clinic/desktop-shell
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: bayport-vet-clinic/desktop-shell/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Verify desktop package (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run verify:mac
+
+      - name: Verify desktop package (Windows)
+        if: matrix.os == 'windows-latest'
+        run: npm run verify:win
+
+      - name: Upload build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}-artifacts
+          path: bayport-vet-clinic/desktop-shell/dist/*
+          if-no-files-found: warn

@@ -81,12 +81,33 @@ Set these environment variables on your cloud host:
 | `SPRING_DATASOURCE_URL` | `jdbc:mysql://your-db-host:3306/bayport_db` |
 | `SPRING_DATASOURCE_USERNAME` | `bayport_user` |
 | `SPRING_DATASOURCE_PASSWORD` | `your_secure_password` |
+| `JWT_SECRET` | `long-random-secret-at-least-32-bytes` |
+| `SPRING_WEB_CORS_ALLOWED_ORIGINS` | `https://desktop-api.example.com,file://` |
 
-Add your frontend URL to CORS in `application-desktop.properties`:
+Use the production profile when running in cloud:
 
-```properties
-spring.web.cors.allowed-origins=file://,http://localhost:8080,https://your-app.example.com
+```bash
+java -jar bayport-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=production
 ```
+
+---
+
+## CI/CD Desktop Releases (GitHub Actions)
+
+Two workflows are included:
+
+- `.github/workflows/desktop-verify.yml`  
+  Runs `verify:mac` on macOS and `verify:win` on Windows for pull requests.
+- `.github/workflows/desktop-release.yml`  
+  Builds installers on native runners when you push a tag like `desktop-v0.1.1`, then publishes artifacts to a GitHub Release.
+
+For signed macOS releases, set these repository secrets:
+
+- `CSC_LINK`
+- `CSC_KEY_PASSWORD`
+- `APPLE_ID`
+- `APPLE_APP_SPECIFIC_PASSWORD`
+- `APPLE_TEAM_ID`
 
 ---
 

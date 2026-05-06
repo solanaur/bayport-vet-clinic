@@ -17,8 +17,8 @@
     "build:all": "npm run build-backend && npm run build-runtime && electron-builder -mwl",
     "print-agent": "node clinic-print-agent.js",
     "verify:win": "npm run check && npm run build-backend && npm run build-runtime && electron-builder --win --publish never",
-    "verify:mac": "npm run check && npm run build-backend && electron-builder --mac dmg zip --x64 --arm64 --publish never",
-    "verify:all": "npm run check && npm run build-backend && electron-builder -mwl --publish never",
+    "verify:mac": "npm run check && npm run build-backend && npm run build-runtime && electron-builder --mac dmg zip --x64 --arm64 --publish never",
+    "verify:all": "npm run check && npm run build-backend && npm run build-runtime && electron-builder -mwl --publish never",
     "predist:mac": "npm run build-backend && npm run build-runtime",
     "dist:mac": "electron-builder --mac dmg zip --x64 --arm64",
     "predist:all": "npm run build-backend && npm run build-runtime",
@@ -35,7 +35,10 @@
   "build": {
     "appId": "com.bayport.desktop",
     "productName": "Bayport Veterinary Clinic",
-    "asar": false,
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/electron-log/**/*"
+    ],
     "files": [
       "main.js",
       "preload.js",
@@ -51,7 +54,7 @@
       {
         "from": "..",
         "to": ".",
-        "filter": ["**/*.html"]
+        "filter": ["*.html"]
       },
       {
         "from": "../bayport-backend/target/bayport-backend-0.0.1-SNAPSHOT.jar",
@@ -89,7 +92,6 @@
           ]
         }
       ],
-      "icon": "build/icon.ico",
       "publisherName": "Bayport Veterinary Clinic"
     },
     "mac": {
@@ -105,13 +107,11 @@
         "zip"
       ],
       "artifactName": "Bayport-Veterinary-Clinic-${version}-${arch}.${ext}",
-      "icon": "build/icon.icns",
       "hardenedRuntime": false,
       "gatekeeperAssess": false
     },
     "dmg": {
       "title": "Bayport Veterinary Clinic ${version}",
-      "icon": "build/icon.icns",
       "background": null,
       "contents": [
         {
