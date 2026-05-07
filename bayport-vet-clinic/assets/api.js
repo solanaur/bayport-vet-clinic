@@ -144,7 +144,7 @@ window.ApiHttp = async function apiHttp(
 
 window.Api = {
   token() {
-    return localStorage.getItem("jwt") || null;
+    return localStorage.getItem("jwt") || localStorage.getItem("token") || null;
   },
 
   health: {
@@ -282,6 +282,29 @@ window.Api = {
     list: () => ApiHttp("/prescriptions", { token: Api.token() }),
     get: (id) => ApiHttp(`/prescriptions/${id}`, { token: Api.token() }),
     create: (rx) => ApiHttp("/prescriptions", { method: "POST", body: rx, token: Api.token() }),
+    downloadPdf: async (id, groupKey) => {
+      const token = Api.token();
+      const response = await fetch(
+        buildApiUrl(`/prescriptions/${id}/pdf?group=${encodeURIComponent(groupKey || "")}`),
+        {
+          method: "GET",
+          headers: {
+            Accept: "application/pdf",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        },
+      );
+      if (!response.ok) {
+        throw new Error(`PDF generation failed (${response.status})`);
+      }
+      return response.blob();
+    },
+    email: (id, groupKey, payload) =>
+      ApiHttp(`/prescriptions/${id}/email?group=${encodeURIComponent(groupKey || "")}`, {
+        method: "POST",
+        body: payload || {},
+        token: Api.token(),
+      }),
     update: (rx) => ApiHttp(`/prescriptions/${rx.id}`, { method: "PUT", body: rx, token: Api.token() }),
     remove: (id) => ApiHttp(`/prescriptions/${id}`, { method: "DELETE", token: Api.token() }),
     dispense: (id) => ApiHttp(`/prescriptions/${id}/dispense`, { method: "POST", token: Api.token() }),

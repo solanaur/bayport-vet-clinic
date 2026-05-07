@@ -43,8 +43,8 @@
             </select>
           </div>
           <button id="refreshBtn" class="border rounded-md px-4 py-2 hover:bg-gray-50">Refresh</button>
+          <button id="openPosBtn" class="border border-emerald-600 text-emerald-700 rounded-md px-4 py-2 hover:bg-emerald-50 font-semibold">Open Cashier POS</button>
           <button id="newBtn" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 hover:brightness-95">New Billing</button>
-          <p class="text-xs text-gray-500">Default printer is managed in <span class="font-semibold">Settings</span>.</p>
         </div>
 
         <div class="overflow-x-auto mt-5">
@@ -269,6 +269,7 @@
     document.getElementById('searchInp').addEventListener('input', renderRows);
     document.getElementById('statusSel').addEventListener('change', renderRows);
     document.getElementById('refreshBtn').onclick = loadBilling;
+    document.getElementById('openPosBtn').onclick = () => { location.href = 'pos.html'; };
     const modal = document.getElementById('newBillModal');
     function openNewModal() {
       document.getElementById('billPet').value = '';

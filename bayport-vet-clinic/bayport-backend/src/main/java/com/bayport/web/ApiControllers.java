@@ -6,6 +6,7 @@ import com.bayport.dto.ReportSummary;
 import com.bayport.entity.*;
 import com.bayport.service.PdfService;
 import com.bayport.service.BayportService;
+import com.bayport.service.EmailService;
 import com.bayport.service.PosService;
 import com.bayport.service.ReportService;
 import com.bayport.storage.FileStorageService;
@@ -31,6 +32,8 @@ public class ApiControllers {
     private final FileStorageService fileStorageService;
     private final com.bayport.auth.MfaService mfaService;
     private final com.bayport.repository.UserRepository userRepository;
+    private final com.bayport.repository.OwnerRepository ownerRepository;
+    private final EmailService emailService;
     private final PosService posService;
 
     public ApiControllers(
@@ -40,6 +43,8 @@ public class ApiControllers {
             @Value("${bayport.upload-dir:uploads}") String uploadDir,
             com.bayport.auth.MfaService mfaService,
             com.bayport.repository.UserRepository userRepository,
+            com.bayport.repository.OwnerRepository ownerRepository,
+            EmailService emailService,
             PosService posService,
             FileStorageService fileStorageService
     ) {
@@ -49,6 +54,8 @@ public class ApiControllers {
         this.uploadDir = (uploadDir == null || uploadDir.isBlank()) ? "uploads" : uploadDir;
         this.mfaService = mfaService;
         this.userRepository = userRepository;
+        this.ownerRepository = ownerRepository;
+        this.emailService = emailService;
         this.posService = posService;
         this.fileStorageService = fileStorageService;
     }
@@ -631,36 +638,7 @@ public class ApiControllers {
                                                           @RequestParam(name = "group", required = false) String groupKey) {
         return bayportService.getPrescriptionById(id)
                 .map(firstPrescription -> {
-                    List<Prescription> prescriptions;
-                    if (groupKey != null && !groupKey.isBlank()) {
-                        // Fetch all prescriptions in the group (same pet, date, prescriber)
-                        String[] parts = groupKey.split("_");
-                        if (parts.length >= 3) {
-                            Long petId = Long.parseLong(parts[0]);
-                            String date = parts[1];
-                            String prescriber = parts[2];
-                            prescriptions = bayportService.getAllPrescriptions().stream()
-                                    .filter(p -> p.getPetId() != null && p.getPetId().equals(petId))
-                                    .filter(p -> p.getDate() != null && p.getDate().toString().equals(date))
-                                    .filter(p -> prescriber.equals(p.getPrescriber()))
-                                    .collect(java.util.stream.Collectors.toList());
-                        } else {
-                            prescriptions = java.util.Collections.singletonList(firstPrescription);
-                        }
-                    } else {
-                        // Single prescription - try to find group automatically
-                        prescriptions = bayportService.getAllPrescriptions().stream()
-                                .filter(p -> p.getPetId() != null && p.getPetId().equals(firstPrescription.getPetId()))
-                                .filter(p -> p.getDate() != null && firstPrescription.getDate() != null && 
-                                           p.getDate().equals(firstPrescription.getDate()))
-                                .filter(p -> firstPrescription.getPrescriber() != null && 
-                                           firstPrescription.getPrescriber().equals(p.getPrescriber()))
-                                .collect(java.util.stream.Collectors.toList());
-                        if (prescriptions.isEmpty()) {
-                            prescriptions = java.util.Collections.singletonList(firstPrescription);
-                        }
-                    }
-                    
+                    List<Prescription> prescriptions = resolvePrescriptionGroup(firstPrescription, groupKey);
                     byte[] pdf = pdfService.buildPrescriptionPdf(prescriptions);
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -668,6 +646,91 @@ public class ApiControllers {
                             .body(pdf);
                 })
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/prescriptions/{id}/email")
+    public ResponseEntity<Map<String, Object>> emailPrescriptionToOwner(@PathVariable long id,
+                                                                        @RequestParam(name = "group", required = false) String groupKey,
+                                                                        @RequestBody(required = false) Map<String, String> request) {
+        return bayportService.getPrescriptionById(id)
+                .map(firstPrescription -> {
+                    List<Prescription> prescriptions = resolvePrescriptionGroup(firstPrescription, groupKey);
+                    String to = request != null ? request.get("to") : null;
+                    if (to == null || to.isBlank()) {
+                        if (firstPrescription.getPetId() != null) {
+                            to = bayportService.getPetById(firstPrescription.getPetId())
+                                    .flatMap(p -> p.getOwnerId() == null ? Optional.empty() : ownerRepository.findById(p.getOwnerId()))
+                                    .map(Owner::getEmail)
+                                    .orElse(null);
+                        }
+                    }
+                    if (to == null || to.isBlank()) {
+                        throw new IllegalArgumentException("Owner email is not available for this prescription.");
+                    }
+                    String subject = (request != null && request.get("subject") != null && !request.get("subject").isBlank())
+                            ? request.get("subject")
+                            : "Prescription for " + Optional.ofNullable(firstPrescription.getPet()).orElse("your pet");
+                    String body = (request != null && request.get("message") != null && !request.get("message").isBlank())
+                            ? request.get("message")
+                            : buildPrescriptionEmailBody(prescriptions);
+                    emailService.sendEmail(to, subject, body);
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("status", "sent");
+                    response.put("to", to);
+                    response.put("count", prescriptions.size());
+                    return ResponseEntity.ok(response);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    private List<Prescription> resolvePrescriptionGroup(Prescription firstPrescription, String groupKey) {
+        if (groupKey != null && !groupKey.isBlank()) {
+            String[] parts = groupKey.split("_");
+            if (parts.length >= 3) {
+                Long petId = Long.parseLong(parts[0]);
+                String date = parts[1];
+                String prescriber = parts[2];
+                List<Prescription> grouped = bayportService.getAllPrescriptions().stream()
+                        .filter(p -> p.getPetId() != null && p.getPetId().equals(petId))
+                        .filter(p -> p.getDate() != null && p.getDate().toString().equals(date))
+                        .filter(p -> prescriber.equals(p.getPrescriber()))
+                        .collect(java.util.stream.Collectors.toList());
+                if (!grouped.isEmpty()) {
+                    return grouped;
+                }
+            }
+        }
+        List<Prescription> grouped = bayportService.getAllPrescriptions().stream()
+                .filter(p -> p.getPetId() != null && p.getPetId().equals(firstPrescription.getPetId()))
+                .filter(p -> p.getDate() != null && firstPrescription.getDate() != null &&
+                        p.getDate().equals(firstPrescription.getDate()))
+                .filter(p -> firstPrescription.getPrescriber() != null &&
+                        firstPrescription.getPrescriber().equals(p.getPrescriber()))
+                .collect(java.util.stream.Collectors.toList());
+        return grouped.isEmpty() ? java.util.Collections.singletonList(firstPrescription) : grouped;
+    }
+
+    private String buildPrescriptionEmailBody(List<Prescription> prescriptions) {
+        Prescription first = prescriptions.get(0);
+        StringBuilder body = new StringBuilder();
+        body.append("Hello ").append(Optional.ofNullable(first.getOwner()).orElse("Pet Owner")).append(",\n\n");
+        body.append("Please see your pet prescription details below:\n\n");
+        body.append("Pet: ").append(Optional.ofNullable(first.getPet()).orElse("N/A")).append("\n");
+        body.append("Date: ").append(first.getDate() != null ? first.getDate().toString() : "N/A").append("\n");
+        body.append("Prescriber: ").append(Optional.ofNullable(first.getPrescriber()).orElse("N/A")).append("\n\n");
+        body.append("Medicines:\n");
+        for (Prescription p : prescriptions) {
+            body.append("- ").append(Optional.ofNullable(p.getDrug()).orElse("N/A"));
+            if (p.getDosage() != null && !p.getDosage().isBlank()) {
+                body.append(" | Dosage: ").append(p.getDosage());
+            }
+            if (p.getDirections() != null && !p.getDirections().isBlank()) {
+                body.append(" | Instructions: ").append(p.getDirections());
+            }
+            body.append("\n");
+        }
+        body.append("\nThank you,\nBayport Veterinary Clinic");
+        return body.toString();
     }
 
     @GetMapping(value = "/reports/summary/pdf", produces = MediaType.APPLICATION_PDF_VALUE)

@@ -20,6 +20,15 @@ public class PosLineRequest {
     /** When set, used instead of inventory unit price (e.g. agreed surgical quote). */
     private BigDecimal unitPriceOverride;
 
+    /** Optional ad-hoc line label for cashier charges from consultation/billing queue. */
+    private String customName;
+
+    /** Optional ad-hoc line amount for cashier charges from consultation/billing queue. */
+    private BigDecimal customAmount;
+
+    /** Optional billing record to mark paid after successful checkout. */
+    private Long billingRecordId;
+
     @NotNull
     @Min(1)
     private Integer quantity;
@@ -46,6 +55,30 @@ public class PosLineRequest {
 
     public void setUnitPriceOverride(BigDecimal unitPriceOverride) {
         this.unitPriceOverride = unitPriceOverride;
+    }
+
+    public String getCustomName() {
+        return customName;
+    }
+
+    public void setCustomName(String customName) {
+        this.customName = customName;
+    }
+
+    public BigDecimal getCustomAmount() {
+        return customAmount;
+    }
+
+    public void setCustomAmount(BigDecimal customAmount) {
+        this.customAmount = customAmount;
+    }
+
+    public Long getBillingRecordId() {
+        return billingRecordId;
+    }
+
+    public void setBillingRecordId(Long billingRecordId) {
+        this.billingRecordId = billingRecordId;
     }
 
     public Integer getQuantity() {

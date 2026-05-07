@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Consultations - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body{font-family:'Poppins',sans-serif}
+    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
+    :root{--soft-teal:#0057b8}
+  </style>
+</head>
+<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
+    <div class="flex items-center space-x-5">
+      <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt="">
+      <div>
+        <h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1>
+        <p class="text-sm text-gray-100/90">Consultation module</p>
+      </div>
+    </div>
+    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
+  </header>
+
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Consultations</h2>
+      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+    </aside>
+
+    <main class="flex-1 p-8">
+      <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8 max-w-6xl mx-auto">
+        <div class="mb-6 flex items-center gap-3">
+          <button id="tab_start" class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm">Start Consultation</button>
+          <button id="tab_finished" class="px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700">Finished Consultations</button>
+        </div>
+
+        <section id="start_view">
+        <div class="mb-6">
+          <h3 class="text-2xl font-semibold text-gray-800">Start Consultation</h3>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <label class="text-sm text-gray-700">Pet
+            <select id="c_pet" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+          </label>
+          <label class="text-sm text-gray-700">Consultation date
+            <input id="c_date" type="date" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+          </label>
+          <label class="text-sm text-gray-700 md:col-span-2">Diagnosis
+            <input id="c_diagnosis" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Primary diagnosis">
+          </label>
+          <label class="text-sm text-gray-700 md:col-span-2">Clinical notes
+            <textarea id="c_notes" rows="3" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Findings, treatment plan, follow-up instructions"></textarea>
+          </label>
+          <label class="text-sm text-gray-700">Procedure category
+            <select id="c_procedure_category" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+          </label>
+          <label class="text-sm text-gray-700">Service / Procedure
+            <select id="c_procedure_service" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+          </label>
+          <label class="text-sm text-gray-700 md:col-span-2">Procedure fee (PHP)
+            <input id="c_procedure_cost" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="0" readonly>
+          </label>
+          <div class="md:col-span-2">
+            <button id="add_procedure_btn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">Add Procedure</button>
+          </div>
+        </div>
+
+        <section class="border rounded-xl p-4 mb-6">
+          <h4 class="font-semibold mb-3">Procedures in this consultation</h4>
+          <div id="procedure_rows" class="space-y-2 text-sm text-gray-700"></div>
+          <div class="mt-3 text-right text-sm">
+            Procedure total: <span id="procedure_total" class="font-semibold">PHP 0.00</span>
+          </div>
+        </section>
+
+        <section class="border rounded-xl p-4">
+          <div class="flex items-center justify-between gap-3 mb-3">
+            <h4 class="font-semibold">Prescription lines</h4>
+            <button id="issue_rx_btn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">Issue Prescription</button>
+          </div>
+          <div id="line_rows" class="space-y-2 text-sm text-gray-700"></div>
+          <p class="text-xs text-gray-500 mt-2">Prescription entries are clinical records only. No inventory deduction or sale is posted here.</p>
+        </section>
+
+        <div class="mt-6 flex justify-end gap-3">
+          <button class="px-5 py-2 border rounded-md" onclick="location.href='appointments.html'">Back</button>
+          <button id="save_send_pos_btn" class="px-6 py-2 rounded-md bg-green-700 text-white">Save & Send to POS</button>
+        </div>
+        </section>
+
+        <section id="finished_view" class="hidden">
+          <div class="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-800">Finished Consultations</h3>
+            </div>
+            <button id="refresh_finished_btn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] text-sm">Refresh</button>
+          </div>
+          <div class="mb-4">
+            <input id="finished_search" class="w-full border border-gray-300 rounded-md p-3" placeholder="Search pet, diagnosis, procedure, vet...">
+          </div>
+          <div class="overflow-x-auto border rounded-xl">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50">
+                <tr class="text-left text-gray-600 border-b">
+                  <th class="py-2 px-3">Date</th>
+                  <th class="py-2 px-3">Pet</th>
+                  <th class="py-2 px-3">Diagnosis / Notes</th>
+                  <th class="py-2 px-3">Procedures</th>
+                  <th class="py-2 px-3">Prescriptions</th>
+                  <th class="py-2 px-3">Vet</th>
+                  <th class="py-2 px-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="finished_rows"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="rx_modal_root"></div>
+
+  <script src="assets/deploy-env.js"></script>
+  <script>window.USE_API=true;</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script>
+    guard('consultations');
+    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'consultations.html');
+
+    const petSelect = document.getElementById('c_pet');
+    const dateInput = document.getElementById('c_date');
+    const startView = document.getElementById('start_view');
+    const finishedView = document.getElementById('finished_view');
+    const tabStartBtn = document.getElementById('tab_start');
+    const tabFinishedBtn = document.getElementById('tab_finished');
+    const finishedRows = document.getElementById('finished_rows');
+    const finishedSearchInput = document.getElementById('finished_search');
+    const procedureCategorySelect = document.getElementById('c_procedure_category');
+    const procedureServiceSelect = document.getElementById('c_procedure_service');
+    const procedureCostInput = document.getElementById('c_procedure_cost');
+    const procedureRows = document.getElementById('procedure_rows');
+    const procedureTotalEl = document.getElementById('procedure_total');
+    const lineRows = document.getElementById('line_rows');
+    const rxModalRoot = document.getElementById('rx_modal_root');
+    const procedures = [];
+    const lines = [];
+    let inventoryItems = [];
+    let finishedConsultations = [];
+    let expandedFinishedKey = null;
+
+    dateInput.value = new Date().toISOString().slice(0, 10);
+
+    function php(v){ return `PHP ${Number(v || 0).toFixed(2)}`; }
+    function escapeHtml(v) {
+      return String(v ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function onHand(item) { return Number(item?.quantity ?? item?.stock ?? 0); }
+    function isServiceItem(item) { return String(item?.category || '').trim().toUpperCase() === 'SERVICE'; }
+    function extractDiagnosis(notes) {
+      const text = String(notes || '');
+      const m = text.match(/Diagnosis:\s*([^\n]+)/i);
+      return m ? m[1].trim() : '';
+    }
+    function extractClinicalNotes(notes) {
+      const text = String(notes || '');
+      const m = text.match(/Clinical Notes:\s*([\s\S]*)/i);
+      return m ? m[1].trim() : text.trim();
+    }
+
+    function renderLines() {
+      if (!lines.length) {
+        lineRows.innerHTML = `<div class="text-gray-400">No lines yet.</div>`;
+      } else {
+        lineRows.innerHTML = lines.map((l, idx) => `
+          <div class="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>
+              ${l.name} x${l.qty}
+              <span class="block text-xs text-gray-500">
+                ${l.dosage || 'No dosage'} • ${l.frequency || 'No frequency'} • ${l.duration || 'No duration'}
+              </span>
+              ${l.instructions ? `<span class="block text-xs text-gray-500">Instructions: ${l.instructions}</span>` : ''}
+            </span>
+            <div class="flex items-center gap-3">
+              <button onclick="removeLine(${idx})" class="text-red-600">Remove</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderProcedures() {
+      if (!procedures.length) {
+        procedureRows.innerHTML = `<div class="text-gray-400">No procedures added yet.</div>`;
+      } else {
+        procedureRows.innerHTML = procedures.map((p, idx) => `
+          <div class="flex items-center justify-between border rounded-lg px-3 py-2">
+            <span>
+              <span class="font-medium">${p.name}</span>
+              <span class="block text-xs text-gray-500">${p.category}</span>
+            </span>
+            <div class="flex items-center gap-3">
+              <span>${php(p.cost)}</span>
+              <button onclick="removeProcedure(${idx})" class="text-red-600">Remove</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      const total = procedures.reduce((sum, p) => sum + Number(p.cost || 0), 0);
+      procedureTotalEl.textContent = php(total);
+    }
+
+    function populateProcedureCategories() {
+      const catalog = window.PROCEDURE_CATALOG || {};
+      const categories = Object.keys(catalog);
+      procedureCategorySelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      const preferred = 'Consultation & Check-up';
+      if (categories.includes(preferred)) procedureCategorySelect.value = preferred;
+      populateProcedureServices();
+    }
+
+    function populateProcedureServices() {
+      const catalog = window.PROCEDURE_CATALOG || {};
+      const category = procedureCategorySelect.value;
+      const items = Array.isArray(catalog[category]) ? catalog[category] : [];
+      procedureServiceSelect.innerHTML = items.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+      syncProcedureCost();
+    }
+
+    function syncProcedureCost() {
+      const catalog = window.PROCEDURE_CATALOG || {};
+      const category = procedureCategorySelect.value;
+      const serviceName = procedureServiceSelect.value;
+      const items = Array.isArray(catalog[category]) ? catalog[category] : [];
+      const selected = items.find(i => i.name === serviceName);
+      if (!selected) {
+        procedureCostInput.value = "0";
+        procedureCostInput.readOnly = true;
+        return;
+      }
+      if (selected.customPrice) {
+        procedureCostInput.value = "";
+        procedureCostInput.readOnly = false;
+        procedureCostInput.placeholder = "Enter agreed service fee";
+      } else {
+        procedureCostInput.value = Number(selected.price || 0);
+        procedureCostInput.readOnly = true;
+        procedureCostInput.placeholder = "";
+      }
+    }
+
+    function openIssuePrescriptionModal() {
+      rxModalRoot.innerHTML = `
+        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div class="bg-white rounded-2xl w-full max-w-2xl p-6">
+            <h3 class="text-xl font-semibold mb-4">Issue Prescription</h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <select id="line_item" class="border border-gray-300 rounded-md p-3 md:col-span-3"></select>
+              <input id="line_qty" type="number" min="1" value="1" class="border border-gray-300 rounded-md p-3">
+              <input id="line_dosage" class="border border-gray-300 rounded-md p-3" placeholder="Dosage (e.g., 1 tablet)">
+              <input id="line_frequency" class="border border-gray-300 rounded-md p-3" placeholder="Frequency (e.g., BID)">
+              <input id="line_duration" class="border border-gray-300 rounded-md p-3" placeholder="Duration (e.g., 7 days)">
+              <input id="line_instructions" class="border border-gray-300 rounded-md p-3 md:col-span-3" placeholder="Instructions (e.g., after meals)">
+            </div>
+            <div class="mt-5 flex justify-end gap-3">
+              <button class="px-4 py-2 border rounded-md" onclick="closeIssuePrescriptionModal()">Cancel</button>
+              <button id="add_line_btn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white">Add Prescription Line</button>
+            </div>
+          </div>
+        </div>`;
+
+      const lineItemSelect = document.getElementById('line_item');
+      const lineQtyInput = document.getElementById('line_qty');
+      const lineDosageInput = document.getElementById('line_dosage');
+      const lineFrequencyInput = document.getElementById('line_frequency');
+      const lineDurationInput = document.getElementById('line_duration');
+      const lineInstructionsInput = document.getElementById('line_instructions');
+
+      lineItemSelect.innerHTML = `<option value="">Select inventory item</option>` + inventoryItems
+        .map(i => `<option value="${i.id}">${i.name} - ${php(i.unitPrice)} (${onHand(i)} in stock)</option>`)
+        .join('');
+
+      document.getElementById('add_line_btn').addEventListener('click', () => {
+        const id = Number(lineItemSelect.value);
+        const qty = Number(lineQtyInput.value || 1);
+        const dosage = (lineDosageInput.value || '').trim();
+        const frequency = (lineFrequencyInput.value || '').trim();
+        const duration = (lineDurationInput.value || '').trim();
+        const instructions = (lineInstructionsInput.value || '').trim();
+        if (!id || qty <= 0) return;
+        const item = inventoryItems.find(i => Number(i.id) === id);
+        if (!item) return;
+        if (qty > onHand(item)) {
+          alert('Quantity exceeds available stock.');
+          return;
+        }
+        lines.push({
+          id: item.id,
+          name: item.name,
+          qty,
+          dosage,
+          frequency,
+          duration,
+          instructions
+        });
+        closeIssuePrescriptionModal();
+        renderLines();
+      });
+    }
+
+    window.closeIssuePrescriptionModal = function closeIssuePrescriptionModal() {
+      rxModalRoot.innerHTML = '';
+    };
+
+    window.removeLine = function removeLine(idx) {
+      lines.splice(idx, 1);
+      renderLines();
+    };
+
+    window.removeProcedure = function removeProcedure(idx) {
+      procedures.splice(idx, 1);
+      renderProcedures();
+    };
+
+    function setActiveTab(tab) {
+      const isStart = tab === 'start';
+      startView.classList.toggle('hidden', !isStart);
+      finishedView.classList.toggle('hidden', isStart);
+      tabStartBtn.className = isStart
+        ? 'px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm'
+        : 'px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700';
+      tabFinishedBtn.className = isStart
+        ? 'px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700'
+        : 'px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm';
+    }
+
+    function renderFinishedConsultations() {
+      const q = (finishedSearchInput.value || '').trim().toLowerCase();
+      const list = finishedConsultations.filter(c => {
+        if (!q) return true;
+        return [
+          c.petName,
+          c.diagnosis,
+          c.clinicalNotes,
+          c.vet,
+          ...(c.procedures || []).map(p => p.name),
+          ...(c.prescriptions || []).map(r => r.drug)
+        ].join(' ').toLowerCase().includes(q);
+      });
+      finishedRows.innerHTML = list.map(c => {
+        const meds = (c.prescriptions || []).map(r => {
+          const details = [r.dosage, r.directions].filter(Boolean).join(' • ');
+          return `<div class="py-1">${escapeHtml(r.drug || '')}${details ? `<span class="text-gray-500"> (${escapeHtml(details)})</span>` : ''}</div>`;
+        }).join('') || '<span class="text-gray-400">No prescription</span>';
+        const procedureNames = (c.procedures || []).map(p => `<div class="py-1">${escapeHtml(p.name || '')} <span class="text-gray-500">(${php(p.cost || 0)})</span></div>`).join('');
+        const encodedKey = encodeURIComponent(c.key);
+        const isExpanded = expandedFinishedKey === c.key;
+        const summaryDiagnosis = c.diagnosis && c.diagnosis !== 'N/A' ? c.diagnosis : (c.clinicalNotes || 'N/A');
+        const hasRx = (c.prescriptions || []).length > 0;
+        return `
+          <tr class="border-b align-top bg-white">
+            <td class="py-3 px-3">${escapeHtml(c.date || '')}</td>
+            <td class="py-3 px-3">${escapeHtml(c.petName || '')}</td>
+            <td class="py-3 px-3">${escapeHtml(summaryDiagnosis)}</td>
+            <td class="py-3 px-3">${(c.procedures || []).length}</td>
+            <td class="py-3 px-3">${(c.prescriptions || []).length}</td>
+            <td class="py-3 px-3">${escapeHtml(c.vet || 'N/A')}</td>
+            <td class="py-3 px-3">
+              <button class="px-2 py-1 text-xs border rounded-md border-gray-300 hover:bg-gray-50" onclick="toggleFinishedDetails('${encodedKey}')">${isExpanded ? 'Collapse' : 'Expand'}</button>
+            </td>
+          </tr>
+          <tr class="${isExpanded ? '' : 'hidden'} bg-slate-50 border-b">
+            <td class="py-3 px-3" colspan="7">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-1">
+                  <div class="font-semibold text-sm mb-1">Diagnosis / Notes</div>
+                  <div class="text-sm">${escapeHtml(c.diagnosis || 'N/A')}</div>
+                  <div class="text-xs text-gray-500 whitespace-pre-line mt-1">${escapeHtml(c.clinicalNotes || '')}</div>
+                </div>
+                <div>
+                  <div class="font-semibold text-sm mb-1">Procedures</div>
+                  <div class="text-sm">${procedureNames || '<span class="text-gray-400">N/A</span>'}</div>
+                </div>
+                <div>
+                  <div class="font-semibold text-sm mb-1">Prescriptions</div>
+                  <div class="text-sm">${meds}</div>
+                </div>
+              </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button class="px-3 py-1.5 text-xs border rounded-md border-[var(--soft-teal)] text-[var(--soft-teal)]" onclick="location.href='pet-profile.html?id=${Number(c.petId)}'">Open Pet Profile</button>
+                ${hasRx ? `<button class="px-3 py-1.5 text-xs border rounded-md border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white" onclick="printFinishedPrescription('${encodedKey}')">Print Prescription (PDF)</button>` : ''}
+                ${hasRx ? `<button class="px-3 py-1.5 text-xs border rounded-md border-green-700 text-green-700 hover:bg-green-700 hover:text-white" onclick="sendFinishedPrescriptionEmail('${encodedKey}')">Send to Owner Email</button>` : ''}
+                ${!hasRx ? `<span class="text-xs text-gray-500">No prescription linked to this consultation.</span>` : ''}
+              </div>
+            </td>
+          </tr>`;
+      }).join('') || `<tr><td class="py-4 px-3 text-gray-500" colspan="7">No finished consultations found.</td></tr>`;
+    }
+
+    async function loadFinishedConsultations() {
+      const [pets, rxListRaw] = await Promise.all([repoListPets(), Api.rx.list()]);
+      const rxList = Array.isArray(rxListRaw) ? rxListRaw : [];
+      const byProcedureId = new Map();
+      const byPetDate = new Map();
+      rxList.forEach(rx => {
+        const key = Number(rx.consultationProcedureId || 0);
+        if (!key) return;
+        if (!byProcedureId.has(key)) byProcedureId.set(key, []);
+        byProcedureId.get(key).push(rx);
+      });
+      rxList.forEach(rx => {
+        const dateKey = `${Number(rx.petId || 0)}_${rx.date || ''}`;
+        if (!byPetDate.has(dateKey)) byPetDate.set(dateKey, []);
+        byPetDate.get(dateKey).push(rx);
+      });
+
+      const grouped = new Map();
+      (pets || []).forEach(pet => {
+        (pet?.procedures || []).forEach(pr => {
+          const key = `${pet.id}_${pr.performedAt || ''}_${extractDiagnosis(pr.notes || '')}_${pr.vet || ''}`;
+          if (!grouped.has(key)) {
+            grouped.set(key, {
+              key,
+              petId: pet.id,
+              petName: pet.name || '',
+              date: pr.performedAt || '',
+              diagnosis: extractDiagnosis(pr.notes || ''),
+              clinicalNotes: extractClinicalNotes(pr.notes || ''),
+              vet: pr.vet || '',
+              procedures: [],
+              prescriptions: []
+            });
+          }
+          const row = grouped.get(key);
+          row.procedures.push(pr);
+          const rxs = byProcedureId.get(Number(pr.id)) || [];
+          row.prescriptions.push(...rxs);
+        });
+      });
+
+      // Fallback: if no explicit procedure linkage matched, use same pet+date prescriptions.
+      grouped.forEach((row) => {
+        if ((row.prescriptions || []).length) return;
+        const fallbackKey = `${Number(row.petId || 0)}_${row.date || ''}`;
+        row.prescriptions = (byPetDate.get(fallbackKey) || []).slice();
+      });
+
+      grouped.forEach((row) => {
+        const unique = new Map();
+        (row.prescriptions || []).forEach(rx => {
+          if (rx && rx.id != null) unique.set(rx.id, rx);
+        });
+        row.prescriptions = Array.from(unique.values());
+        row.latestProcedureId = (row.procedures || [])
+          .reduce((m, p) => Math.max(m, Number(p?.id || 0)), 0);
+      });
+
+      finishedConsultations = Array.from(grouped.values()).sort((a, b) => {
+        const byDate = String(b.date || '').localeCompare(String(a.date || ''));
+        if (byDate !== 0) return byDate;
+        return Number(b.latestProcedureId || 0) - Number(a.latestProcedureId || 0);
+      });
+      renderFinishedConsultations();
+    }
+
+    function findFinishedConsultationByKey(key) {
+      return finishedConsultations.find(c => String(c.key) === String(key));
+    }
+
+    function toggleFinishedDetails(encodedKey) {
+      const key = decodeURIComponent(encodedKey);
+      expandedFinishedKey = expandedFinishedKey === key ? null : key;
+      renderFinishedConsultations();
+    }
+
+    async function printFinishedPrescription(key) {
+      try {
+        const decodedKey = decodeURIComponent(String(key || ''));
+        const row = findFinishedConsultationByKey(decodedKey);
+        if (!row || !row.prescriptions || !row.prescriptions.length) {
+          alert('No prescription found for this consultation.');
+          return;
+        }
+        const first = row.prescriptions[0];
+        const groupKey = `${first.petId}_${first.date}_${first.prescriber}`;
+        const blob = await Api.rx.downloadPdf(first.id, groupKey);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Prescription_${first.pet || 'Pet'}_${first.date}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) {
+        alert('Unable to print prescription: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    async function sendFinishedPrescriptionEmail(key) {
+      try {
+        const decodedKey = decodeURIComponent(String(key || ''));
+        const row = findFinishedConsultationByKey(decodedKey);
+        if (!row || !row.prescriptions || !row.prescriptions.length) {
+          alert('No prescription found for this consultation.');
+          return;
+        }
+        const first = row.prescriptions[0];
+        const groupKey = `${first.petId}_${first.date}_${first.prescriber}`;
+        const pet = await repoGetPet(row.petId);
+        const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+        const to = owner?.email || '';
+        const subject = `Prescription for ${first.pet || 'your pet'} (${first.date || ''})`;
+        try {
+          await Api.rx.email(first.id, groupKey, { to, subject });
+        } catch (primaryErr) {
+          const raw = String(primaryErr?.message || '');
+          const endpointMissing =
+            raw.includes('NoResourceFoundException') ||
+            raw.includes('No static resource') ||
+            raw.includes('(404)');
+          if (!endpointMissing) throw primaryErr;
+          const lines = (row.prescriptions || []).map(r => {
+            const details = [r.dosage, r.directions].filter(Boolean).join(' | ');
+            return `- ${r.drug || 'N/A'}${details ? ` (${details})` : ''}`;
+          }).join('\n');
+          const body = [
+            `Hello ${owner?.fullName || owner?.name || 'Pet Owner'},`,
+            '',
+            'Please see your pet prescription details below:',
+            `Pet: ${first.pet || 'N/A'}`,
+            `Date: ${first.date || 'N/A'}`,
+            `Prescriber: ${first.prescriber || 'N/A'}`,
+            '',
+            'Medicines:',
+            lines || '- N/A',
+            '',
+            'Thank you,',
+            'Bayport Veterinary Clinic'
+          ].join('\n');
+          await Api.email.send(to, subject, body);
+        }
+        alert(`Prescription email sent${owner?.email ? ` to ${owner.email}` : ''}.`);
+      } catch (err) {
+        alert('Unable to send prescription email: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    window.printFinishedPrescription = printFinishedPrescription;
+    window.sendFinishedPrescriptionEmail = sendFinishedPrescriptionEmail;
+    window.toggleFinishedDetails = toggleFinishedDetails;
+
+    async function initData() {
+      const [pets, inv] = await Promise.all([
+        repoListPets(),
+        Api.inventory.list()
+      ]);
+      const prefilledPetId = Number(sessionStorage.getItem('consultationPetId') || new URLSearchParams(location.search).get('petId') || 0);
+      sessionStorage.removeItem('consultationPetId');
+
+      petSelect.innerHTML = (pets || []).map(p => `<option value="${p.id}">${p.name} (${p.owner || 'Owner'})</option>`).join('');
+      if (prefilledPetId && (pets || []).some(p => Number(p.id) === prefilledPetId)) {
+        petSelect.value = String(prefilledPetId);
+      }
+
+      inventoryItems = (inv || []).filter(i => !isServiceItem(i) && onHand(i) > 0);
+      populateProcedureCategories();
+      renderLines();
+      renderProcedures();
+    }
+    procedureCategorySelect.addEventListener('change', populateProcedureServices);
+    procedureServiceSelect.addEventListener('change', syncProcedureCost);
+    document.getElementById('issue_rx_btn').addEventListener('click', openIssuePrescriptionModal);
+    tabStartBtn.addEventListener('click', () => setActiveTab('start'));
+    tabFinishedBtn.addEventListener('click', async () => {
+      setActiveTab('finished');
+      await loadFinishedConsultations();
+    });
+    document.getElementById('refresh_finished_btn').addEventListener('click', loadFinishedConsultations);
+    finishedSearchInput.addEventListener('input', renderFinishedConsultations);
+    document.getElementById('add_procedure_btn').addEventListener('click', () => {
+      const category = (procedureCategorySelect.value || '').trim();
+      const name = (procedureServiceSelect.value || '').trim();
+      const cost = Number(procedureCostInput.value || 0);
+      if (!name) {
+        alert('Select a service/procedure first.');
+        return;
+      }
+      const selected = ((window.PROCEDURE_CATALOG || {})[category] || []).find(i => i.name === name);
+      if (selected?.customPrice && (!cost || cost <= 0)) {
+        alert('Enter the agreed fee for this service.');
+        return;
+      }
+      procedures.push({ category, name, cost });
+      renderProcedures();
+    });
+
+    async function saveConsultationAndSendToPos() {
+      const petId = Number(petSelect.value);
+      const diagnosis = (document.getElementById('c_diagnosis').value || '').trim();
+      const notes = (document.getElementById('c_notes').value || '').trim();
+      const performedAt = dateInput.value || new Date().toISOString().slice(0, 10);
+      if (!petId) { alert('Select a pet first.'); return; }
+      if (!procedures.length) {
+        alert('Add at least one procedure for this consultation.');
+        return;
+      }
+
+      const medsSummary = lines.map(l => `${l.name} x${l.qty}`).join(', ');
+      const procedurePayloads = procedures.map(p => ({
+        performedAt,
+        name: p.name,
+        category: p.category,
+        notes: `Diagnosis: ${diagnosis || 'N/A'}\nClinical Notes: ${notes || 'N/A'}`,
+        medications: medsSummary,
+        cost: Number(p.cost || 0)
+      }));
+
+      try {
+        for (const payload of procedurePayloads) {
+          await Api.pets.addProcedure(petId, payload);
+        }
+        const refreshedPet = await repoGetPet(petId);
+        const candidateProcedures = (refreshedPet?.procedures || []).filter(p => {
+          if (!p || p.performedAt !== performedAt) return false;
+          return procedurePayloads.some(pp =>
+            pp.name === p.name &&
+            pp.category === p.category &&
+            Number(pp.cost || 0) === Number(p.cost || 0)
+          );
+        });
+        const consultationProcedureId = candidateProcedures
+          .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]?.id || null;
+
+        const prescriberName = getUserName() || localStorage.getItem('username') || 'Vet';
+        const prescriptionSaves = lines.map(line => Api.rx.create({
+          petId,
+          consultationProcedureId,
+          drug: line.name,
+          dosage: line.dosage || null,
+          directions: [line.frequency, line.duration, line.instructions].filter(Boolean).join(' | ') || null,
+          notes: `Consultation: ${diagnosis || 'N/A'}\nClinical Notes: ${notes || 'N/A'}`,
+          prescriber: prescriberName,
+          date: performedAt,
+          dispensed: false
+        }));
+        const savedPrescriptions = prescriptionSaves.length ? await Promise.all(prescriptionSaves) : [];
+
+        alert('Consultation saved. Medical history and prescriptions are synchronized (not posted to sales).');
+        procedures.splice(0, procedures.length);
+        lines.splice(0, lines.length);
+        document.getElementById('c_diagnosis').value = '';
+        document.getElementById('c_notes').value = '';
+        renderProcedures();
+        renderLines();
+        sessionStorage.setItem('posPrefillPetId', String(petId));
+        sessionStorage.setItem('posFocusPendingBilling', '1');
+        location.href = 'pos.html';
+        return;
+      } catch (err) {
+        console.error(err);
+        alert('Unable to save consultation: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    document.getElementById('save_send_pos_btn').addEventListener('click', saveConsultationAndSendToPos);
+
+    initData();
+    setActiveTab('start');
+  </script>
+</body>
+</html>

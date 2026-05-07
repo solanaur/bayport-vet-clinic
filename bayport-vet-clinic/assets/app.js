@@ -53,38 +53,33 @@ window.logout = function() {
 
 /* ===== Role & Sidebar ===== */
 const CONFIG = {
-  admin:        ["dashboard","pet-records","appointments","prescriptions","pos","billing","reminders","inventory","reports","settings","activity-logs","recycle-bin","manage-users"],
-  vet:          ["dashboard","pet-records","appointments","prescriptions"],
+  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","activity-logs","recycle-bin","settings","manage-users"],
+  vet:          ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports"],
   // Front Office = reception + pharmacy (single role for cloud scaling)
-  front_office: ["dashboard","pet-records","appointments","prescriptions","pos","billing","reminders","inventory"],
-  receptionist: ["dashboard","pet-records","appointments","prescriptions","pos","billing","reminders","inventory"],
-  pharmacist:   ["dashboard","pet-records","appointments","prescriptions","pos","billing","reminders","inventory"]
+  front_office: ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"],
+  receptionist: ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"],
+  pharmacist:   ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"]
 };
 
 const LABEL = {
   "dashboard":"Dashboard",
   "pet-records":"Pet Records",
   "appointments":"Appointments",
-  "prescriptions":"Prescriptions",
-  "billing":"Billing",
+  "consultations":"Consultations",
+  "billing":"Billing / POS",
+  "activity-logs":"Activity Logs",
+  "recycle-bin":"Recycle Bin",
   "settings":"Settings",
   "inventory":"Inventory",
   "reports":"Reports",
-  "manage-users":"Manage Users",
-  "reminders":"Reminders",
-  "activity-logs":"Activity Logs",
-  "recycle-bin":"Recycle Bin",
-  "pos":"Point of Sale"
+  "manage-users":"Users & Roles"
 };
 
 /** Shorter labels in the sidebar only (less visual noise). */
 const SIDEBAR_LABEL = {
   ...LABEL,
   "pet-records": "Pet records",
-  "activity-logs": "Activity logs",
-  "manage-users": "Users & roles",
-  "recycle-bin": "Recycle bin",
-  "pos": "POS"
+  "manage-users": "Users & roles"
 };
 
 /**
@@ -92,21 +87,20 @@ const SIDEBAR_LABEL = {
  * Reduces overwhelm for busy clinic staff.
  */
 const _SIDEBAR_FRONT_OFFICE = [
-  { label: "Daily workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "prescriptions"] },
-  { label: "More", open: false, keys: ["billing", "reminders", "inventory"] }
+  { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
+  { label: "Operations", open: true, keys: ["billing", "inventory"] }
 ];
 /** Shown as a separate emphasized block (not a normal nav row). */
 const SIDEBAR_POS_KEY = "pos";
 const SIDEBAR_GROUPS = {
   admin: [
-    { label: "Daily workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "prescriptions"] },
-    { label: "Scheduling & stock", open: true, keys: ["billing", "reminders", "inventory"] },
-    { label: "Reports", open: false, keys: ["reports"] },
-    { label: "Settings", open: false, keys: ["settings"] },
-    { label: "Administration", open: false, keys: ["activity-logs", "recycle-bin", "manage-users"] }
+    { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
+    { label: "Operations", open: true, keys: ["billing", "inventory", "reports"] },
+    { label: "Administration", open: false, keys: ["settings", "manage-users"] },
+    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin"] }
   ],
   vet: [
-    { label: "", open: true, keys: ["dashboard", "pet-records", "appointments", "prescriptions"] }
+    { label: "", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations", "billing", "inventory", "reports"] }
   ],
   front_office: _SIDEBAR_FRONT_OFFICE,
   receptionist: _SIDEBAR_FRONT_OFFICE,
@@ -114,11 +108,11 @@ const SIDEBAR_GROUPS = {
 };
 
 const ROLE_COPY = {
-  admin:{ welcome:"Full access. Manage users, pets, appointments, prescriptions, and inventory." },
-  vet:{ welcome:"Review/approve appointments and issue prescriptions." },
-  front_office:{ welcome:"Front desk: register checkout, appointments, prescriptions, billing, and inventory." },
-  receptionist:{ welcome:"Front Office: register checkout, appointments, prescriptions, and inventory." },
-  pharmacist:{ welcome:"Front Office: register checkout, appointments, prescriptions, and inventory." }
+  admin:{ welcome:"" },
+  vet:{ welcome:"" },
+  front_office:{ welcome:"" },
+  receptionist:{ welcome:"" },
+  pharmacist:{ welcome:"" }
 };
 
 window.getRole = function(){ return localStorage.getItem("role") || ""; };
@@ -201,21 +195,6 @@ window.renderSidebar = function (container, role, activeFile) {
 
   const allowed = new Set(CONFIG[role] || []);
   const groups = SIDEBAR_GROUPS[role] || SIDEBAR_GROUPS.front_office;
-
-  if (allowed.has(SIDEBAR_POS_KEY)) {
-    const posWrap = document.createElement("div");
-    posWrap.className = "mb-4";
-    const posLink = document.createElement("a");
-    posLink.href = "pos.html";
-    const posActive = activeFile === "pos.html";
-    posLink.className = posActive
-      ? "flex items-center justify-center gap-2 w-full rounded-xl px-4 py-3.5 text-base font-bold text-white bg-gradient-to-r from-[var(--soft-teal)] to-[#0a4a96] shadow-lg ring-2 ring-[var(--soft-teal)]/30 hover:brightness-105 transition-all"
-      : "flex items-center justify-center gap-2 w-full rounded-xl px-4 py-3.5 text-base font-bold text-[var(--soft-teal)] bg-blue-50 border-2 border-[var(--soft-teal)]/40 hover:bg-blue-100 transition-all";
-    posLink.innerHTML =
-      '<span class="text-xl leading-none">🧾</span><span>Point of Sale</span>';
-    posWrap.appendChild(posLink);
-    container.appendChild(posWrap);
-  }
 
   /** Vets: one short list — no collapsible chrome. */
   const flatSingleGroup = groups.length === 1;
@@ -334,19 +313,19 @@ window.checkBackendHealth = async function checkBackendHealth() {
 /* ===== Dashboard Quick Actions ===== */
 window.renderQuickActions = function(el,role){
   el.innerHTML="";
-  const make = (title,href,icon)=> {
+  const make = (title,href)=> {
     const b=document.createElement("button");
     b.className="text-left w-full bg-[#f7fbfb] hover:bg-[#eef6f6] border border-gray-200 rounded-xl p-5 shadow-soft";
-    b.innerHTML=`<div class='text-2xl mb-2'>${icon}</div><div class='font-semibold'>${title}</div>`;
+    b.innerHTML=`<div class='font-semibold'>${title}</div>`;
     b.onclick=()=>location.href=href;
     return b;
   };
   const map={
-    admin:[make("Point of Sale","pos.html","🧾"),make("Add Pet Record","pet-records.html","➕"),make("Inventory","inventory.html","📦"),make("Create Appointment","appointments.html","📅"),make("Billing","billing.html","🧾"),make("Settings","settings.html","⚙️"),make("Manage Users","manage-users.html","👥"),make("Issue Prescription","prescriptions.html","💊"),make("View Reports","reports.html","📈")],
-    vet:[make("Review Appointments","appointments.html","📅"),make("Issue Prescription","prescriptions.html","💊"),make("View Pet Records","pet-records.html","🐾")],
-    front_office:[make("Point of Sale","pos.html","🧾"),make("Create Appointment","appointments.html","📅"),make("Prescriptions","prescriptions.html","💊"),make("Inventory","inventory.html","📦"),make("Pet Records","pet-records.html","🐾")],
-    receptionist:[make("Point of Sale","pos.html","🧾"),make("Create Appointment","appointments.html","📅"),make("Prescriptions","prescriptions.html","💊"),make("Inventory","inventory.html","📦"),make("Pet Records","pet-records.html","🐾")],
-    pharmacist:[make("Point of Sale","pos.html","🧾"),make("Create Appointment","appointments.html","📅"),make("Prescriptions","prescriptions.html","💊"),make("Inventory","inventory.html","📦"),make("Pet Records","pet-records.html","🐾")]
+    admin:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html"),make("View Reports","reports.html"),make("Users & Roles","manage-users.html"),make("Settings","settings.html")],
+    vet:[make("Start Consultation","consultations.html"),make("Review Appointments","appointments.html"),make("View Pet Records","pet-records.html"),make("Inventory","inventory.html")],
+    front_office:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")],
+    receptionist:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")],
+    pharmacist:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")]
   };
   (map[role]||[]).forEach(btn=>el.appendChild(btn));
 };

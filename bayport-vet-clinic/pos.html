@@ -8,15 +8,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --pos-brand: #0d9488;
-      --pos-border: #e2e8f0;
-      --pos-ink: #334155;
+      --pos-brand: #0057b8;
+      --pos-brand-soft: #e8f0fb;
+      --pos-border: #dbe3ef;
+      --pos-ink: #1f2f46;
+      --pos-bg: #f6f9f9;
+      --pos-card: #ffffff;
+      --pos-muted: #62738a;
+      --pos-sidebar-bg: #ffffff;
+      --pos-main-bg: #f6f9f9;
+      --pos-right-bg: #ffffff;
     }
     body {
       font-family: Inter, system-ui, sans-serif;
       font-size: 15px;
       color: var(--pos-ink);
-      background: #f8fafc;
+      background: var(--pos-bg);
       line-height: 1.5;
       -webkit-font-smoothing: antialiased;
     }
@@ -25,7 +32,7 @@
       width: 100%;
       border-radius: 8px;
       border: 1px solid var(--pos-border);
-      background: #fff;
+      background: var(--pos-card);
       padding: 0 0.875rem;
       font-size: 0.9375rem;
       color: #1e293b;
@@ -34,9 +41,24 @@
     .pos-field:focus {
       outline: none;
       border-color: var(--pos-brand);
-      box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+      box-shadow: 0 0 0 3px rgba(47, 93, 155, 0.14);
     }
     .pos-field::placeholder { color: #94a3b8; }
+    .pos-panel {
+      background: var(--pos-card);
+      border: 1px solid var(--pos-border);
+      border-radius: 14px;
+      box-shadow: 0 3px 10px rgba(28, 52, 88, 0.06);
+    }
+    .pos-sidebar-shell {
+      background: var(--pos-sidebar-bg);
+    }
+    .pos-main-shell {
+      background: var(--pos-main-bg);
+    }
+    .pos-right-shell {
+      background: var(--pos-right-bg);
+    }
     details.pos-min > summary { list-style: none; }
     details.pos-min > summary::-webkit-details-marker { display: none; }
     details.pos-min > summary::marker { display: none; }
@@ -52,15 +74,32 @@
     .pos-tile {
       min-height: 4.25rem;
       border-radius: 10px;
-      border: 1px solid #e2e8f0;
+      border: 1px solid #d4dfef;
       background: #fff;
       padding: 0.75rem;
       text-align: left;
       transition: border-color 0.12s, box-shadow 0.12s;
     }
     .pos-tile:hover {
-      border-color: #cbd5e1;
-      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+      border-color: #aebfdb;
+      box-shadow: 0 4px 12px rgba(28, 52, 88, 0.1);
+    }
+    .pos-sidebar-shell h2,
+    .pos-sidebar-shell p {
+      color: #334155 !important;
+    }
+    .pos-sidebar-shell nav button {
+      color: #334155 !important;
+    }
+    .pos-sidebar-shell nav button:hover {
+      background: #eff6ff !important;
+      color: #0057b8 !important;
+    }
+    .pos-sidebar-shell nav button.bg-\[var\(--soft-teal\)\],
+    .pos-sidebar-shell nav button.text-white {
+      background: #0057b8 !important;
+      color: #ffffff !important;
+      font-weight: 600;
     }
   </style>
 </head>
@@ -71,31 +110,37 @@
       <img src="assets/logo.png" class="w-14 h-14 mx-auto rounded-xl border border-slate-100 mb-6" alt="">
       <h1 class="text-2xl font-semibold text-slate-800 tracking-tight">Checkout</h1>
       <p class="text-slate-500 text-sm mt-2 mb-8 leading-relaxed">Add items, then complete payment on the next screen.</p>
-      <button type="button" id="btnPosStart" class="w-full py-3 rounded-xl bg-teal-600 text-white text-[15px] font-medium hover:bg-teal-700 transition-colors">Start sale</button>
+      <button type="button" id="btnPosStart" class="w-full py-3 rounded-xl bg-slate-600 text-white text-[15px] font-medium hover:bg-slate-700 transition-colors">Start sale</button>
       <button type="button" id="btnPosToday" class="mt-4 text-sm text-slate-500 hover:text-slate-800 underline-offset-2 hover:underline">Today&rsquo;s sales only</button>
       <p class="mt-8 text-xs text-slate-400"><a href="dashboard.html" class="text-slate-500 hover:text-slate-700">← Back to dashboard</a></p>
     </div>
   </div>
 
   <div id="posWorkspace" class="hidden flex flex-col min-h-screen">
-  <header class="shrink-0 border-b border-slate-200/90 bg-white">
-    <div class="max-w-[1400px] mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0">
-        <img src="assets/logo.png" class="w-9 h-9 rounded-lg border border-slate-100 shrink-0" alt="">
-        <div class="min-w-0">
-          <h1 class="text-base font-semibold text-slate-800 truncate">Checkout</h1>
-          <p class="text-xs text-slate-400" id="posOperatorName">—</p>
-        </div>
+  <header class="w-full bg-[var(--pos-brand)] text-white flex items-center justify-between px-8 py-4 shadow">
+    <div class="flex items-center gap-3">
+      <img src="assets/logo.png" class="w-10 h-10 rounded bg-white p-0.5" alt="">
+      <div>
+        <h1 class="text-xl font-semibold">Checkout</h1>
+        <p class="text-xs text-white/80" id="posOperatorName">Front Desk</p>
       </div>
-      <div class="flex items-center gap-4">
-        <a href="dashboard.html" class="lg:hidden text-sm text-slate-500 hover:text-slate-800">Menu</a>
-        <span class="text-sm tabular-nums text-slate-500 hidden sm:inline" id="posClock">—</span>
-        <button type="button" class="text-sm text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50" onclick="logout()">Log out</button>
-      </div>
+    </div>
+    <div class="flex items-center gap-4">
+      <span class="text-sm tabular-nums text-white/80 hidden sm:inline" id="posClock">—</span>
+      <button type="button" class="bg-white text-[var(--pos-brand)] px-4 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
     </div>
   </header>
 
   <div id="posToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[92%] px-4 py-3 rounded-xl shadow-lg text-sm font-medium hidden pointer-events-none"></div>
+  <div id="posSuccessModal" class="fixed inset-0 bg-slate-900/35 hidden items-center justify-center p-4 z-[70]">
+    <div class="bg-white rounded-2xl w-full max-w-md border border-slate-200 shadow-xl p-6">
+      <h3 class="text-xl font-semibold text-slate-800 mb-2">Transaction Complete</h3>
+      <p id="posSuccessText" class="text-sm text-slate-600 mb-5">Payment has been recorded successfully.</p>
+      <div class="flex justify-end">
+        <button type="button" id="closePosSuccessBtn" class="px-4 py-2 rounded-lg bg-[var(--pos-brand)] text-white hover:brightness-95">OK</button>
+      </div>
+    </div>
+  </div>
   <div id="posPreviewModal" class="fixed inset-0 bg-slate-900/30 hidden items-center justify-center p-4 z-50">
     <div class="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl border border-slate-200">
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
@@ -113,7 +158,7 @@
         <button type="button" id="closePosHistoryBtn" class="text-sm text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-50">Close</button>
       </div>
       <div class="flex justify-end px-3 py-2 border-b border-slate-50">
-        <button type="button" id="btnRefreshHistory" class="text-sm text-teal-700 font-medium hover:underline">Refresh</button>
+        <button type="button" id="btnRefreshHistory" class="text-sm text-slate-700 font-medium hover:underline">Refresh</button>
       </div>
       <div id="posHistoryBody" class="text-sm overflow-y-auto flex-1 p-4 text-slate-600 min-h-[140px] leading-relaxed">
         <p class="text-slate-400 py-8 text-center text-sm">Loading&hellip;</p>
@@ -121,20 +166,23 @@
     </div>
   </div>
 
-  <div class="flex flex-1 min-h-0 max-w-[1400px] mx-auto w-full">
-    <aside class="hidden lg:flex w-44 shrink-0 flex-col border-r border-slate-200 bg-white p-3">
-      <p class="text-[11px] font-medium text-slate-400 uppercase tracking-wide mb-2">Navigate</p>
+  <div class="flex flex-1">
+    <aside class="w-72 bg-white border-r border-gray-200 p-6">
+      <h2 class="text-lg font-semibold text-[var(--pos-brand)] uppercase mb-4">Menu</h2>
       <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
     </aside>
 
     <div class="flex flex-1 min-h-0 min-w-0 flex-col lg:flex-row">
-      <div class="flex-1 min-h-0 min-w-0 p-5 lg:p-8 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200/80">
-        <details class="pos-min mb-6 rounded-xl border border-slate-200 bg-white open:shadow-sm" open>
+      <div class="flex-1 min-h-0 min-w-0 p-6 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200/80 pos-main-shell">
+        <details class="pos-min pos-panel mb-6 open:shadow-sm" open>
           <summary class="px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer select-none">Patient &amp; payment</summary>
           <div class="px-4 pb-4 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block text-xs text-slate-500 mb-1" for="petSearch">Search</label>
-              <input id="petSearch" type="search" autocomplete="off" class="pos-field" placeholder="Pet or owner"/>
+              <div class="relative">
+                <input id="petSearch" type="search" autocomplete="off" class="pos-field" placeholder="Pet or owner"/>
+                <div id="petSearchResults" class="hidden absolute z-40 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto"></div>
+              </div>
             </div>
             <div>
               <label class="block text-xs text-slate-500 mb-1" for="petSel">Patient</label>
@@ -150,17 +198,25 @@
         </details>
 
         <details id="rxFold" class="pos-min hidden mb-6 rounded-xl border border-amber-100 bg-amber-50/40">
-          <summary class="px-4 py-3 text-sm font-medium text-amber-900/90 cursor-pointer select-none">Prescriptions for this patient</summary>
+          <summary class="px-4 py-3 text-sm font-medium text-slate-800 cursor-pointer select-none">Prescriptions for this patient</summary>
           <div class="px-4 pb-4 space-y-3">
             <div id="rxList" class="space-y-1 max-h-32 overflow-y-auto"></div>
-            <button type="button" id="importRxBtn" class="text-sm font-medium text-amber-950 bg-amber-200/80 hover:bg-amber-200 px-4 py-2 rounded-lg">Add selected to sale</button>
+            <button type="button" id="importRxBtn" class="text-sm font-medium text-slate-800 bg-slate-200 hover:bg-slate-300 px-4 py-2 rounded-lg">Add selected to sale</button>
+          </div>
+        </details>
+
+        <details id="billFold" class="pos-min mb-6 rounded-xl border border-blue-100 bg-blue-50/40">
+          <summary class="px-4 py-3 text-sm font-medium text-sky-900/90 cursor-pointer select-none">Pending consultation charges</summary>
+          <div class="px-4 pb-4 space-y-3">
+            <div id="billList" class="space-y-1 max-h-36 overflow-y-auto text-sm text-slate-500">Select a patient to load pending consultation charges.</div>
+            <button type="button" id="importBillBtn" class="text-sm font-medium text-slate-800 bg-slate-200 hover:bg-slate-300 px-4 py-2 rounded-lg">Add selected charges</button>
           </div>
         </details>
 
         <div class="flex flex-wrap items-center gap-3 mb-4">
           <div class="inline-flex rounded-full border border-slate-200 bg-slate-50/80 p-1">
-            <button type="button" id="tabProc" class="px-4 py-1.5 text-sm font-medium rounded-full transition-colors">Services</button>
             <button type="button" id="tabShop" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-500 transition-colors">Retail</button>
+            <button type="button" id="tabProc" class="px-4 py-1.5 text-sm font-medium rounded-full transition-colors">Services</button>
           </div>
           <button type="button" id="btnRefreshStock" class="text-sm text-slate-400 hover:text-slate-700 ml-auto">Reload catalog</button>
         </div>
@@ -176,17 +232,17 @@
           </div>
         </div>
 
-        <div id="itemList" class="min-h-[200px] max-h-[min(50vh,480px)] overflow-y-auto rounded-xl border border-slate-200 bg-white">
+        <div id="itemList" class="min-h-[200px] max-h-[min(50vh,480px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           <p class="p-16 text-center text-slate-400 text-sm">Loading&hellip;</p>
         </div>
       </div>
 
-      <aside class="w-full lg:w-[380px] shrink-0 flex flex-col min-h-0 bg-white p-5 lg:p-8 border-t lg:border-t-0 lg:border-l border-slate-200/80">
+      <aside class="w-full lg:w-[380px] shrink-0 flex flex-col min-h-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-200/80 pos-right-shell">
         <div class="flex items-baseline justify-between gap-2 mb-3">
           <h2 class="text-sm font-medium text-slate-800">This sale</h2>
           <button type="button" id="btnClearCart" class="text-xs text-slate-400 hover:text-red-600">Clear</button>
         </div>
-        <div id="cartBody" class="flex-1 min-h-[8rem] max-h-[min(36vh,320px)] text-sm border border-slate-200 rounded-xl bg-slate-50/50 overflow-y-auto mb-6"></div>
+        <div id="cartBody" class="flex-1 min-h-[8rem] max-h-[min(36vh,320px)] text-sm border border-slate-200 rounded-xl bg-white overflow-y-auto mb-6 shadow-sm"></div>
 
         <div class="flex justify-between items-end py-4 border-t border-slate-100">
           <span class="text-sm text-slate-500">Total</span>
@@ -223,7 +279,7 @@
           </label>
         </details>
 
-        <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-medium text-white bg-teal-600 hover:bg-teal-700 transition-colors">
+        <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-medium text-white bg-slate-700 hover:bg-slate-800 transition-colors">
           Complete payment
         </button>
         <button type="button" id="btnOpenHistoryModal" class="w-full mt-4 text-sm text-slate-400 hover:text-slate-700 py-2">
@@ -316,8 +372,10 @@
     let petsCache = [];
     let cart = [];
     let openRx = [];
+    let pendingBills = [];
     const rxSelected = new Set();
-    let activeTab = "procedures";
+    const billSelected = new Set();
+    let activeTab = "shop";
 
     function money(n) {
       return formatPrice(n);
@@ -356,6 +414,7 @@
 
     function renderPetSelect(searchText) {
       const sel = document.getElementById("petSel");
+      const resultsEl = document.getElementById("petSearchResults");
       if (!sel) return;
       const prev = sel.value;
       const q = (searchText || "").trim().toLowerCase();
@@ -373,6 +432,28 @@
       }
       sel.innerHTML = opts;
       if (prev && Array.from(sel.options).some((o) => o.value === prev)) sel.value = prev;
+
+      if (!resultsEl) return;
+      if (!q) {
+        resultsEl.classList.add("hidden");
+        resultsEl.innerHTML = "";
+        return;
+      }
+      if (!filtered.length) {
+        resultsEl.classList.remove("hidden");
+        resultsEl.innerHTML = `<div class="px-3 py-2 text-sm text-slate-400">No matching patient.</div>`;
+        return;
+      }
+      const top = filtered.slice(0, 8);
+      resultsEl.classList.remove("hidden");
+      resultsEl.innerHTML = top
+        .map(
+          (p) => `<button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-b-0 border-slate-100" data-pet-suggest="${p.id}">
+              <div class="font-medium text-slate-800">${escapeHtml(p.name || "")}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(p.owner || "No owner")}</div>
+            </button>`
+        )
+        .join("");
     }
 
     function localDateKey(d) {
@@ -423,7 +504,7 @@
               <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center justify-between gap-2">
                 <span>${escapeHtml(r.petName)} · ${dt}</span>
                 <span class="flex gap-3 shrink-0">
-                  <button type="button" class="text-xs text-teal-700 hover:underline font-medium" data-preview-sale="${r.saleId}">Preview</button>
+                  <button type="button" class="text-xs text-slate-700 hover:underline font-medium" data-preview-sale="${r.saleId}">Preview</button>
                   <button type="button" class="text-xs text-slate-600 hover:underline font-medium" data-print-sale="${r.saleId}">Print</button>
                 </span>
               </div>
@@ -443,11 +524,27 @@
     function showToast(msg, isError) {
       const el = document.getElementById("posToast");
       el.textContent = msg;
-      el.classList.remove("hidden", "bg-emerald-700", "text-white", "bg-rose-700");
-      el.classList.add(isError ? "bg-rose-700" : "bg-emerald-700", "text-white");
+      el.classList.remove("hidden", "bg-slate-700", "text-white", "bg-rose-700");
+      el.classList.add(isError ? "bg-rose-700" : "bg-slate-700", "text-white");
       el.classList.remove("pointer-events-none");
       clearTimeout(showToast._t);
       showToast._t = setTimeout(() => el.classList.add("hidden", "pointer-events-none"), isError ? 8000 : 4500);
+    }
+
+    function showSuccessModal(message) {
+      const modal = document.getElementById("posSuccessModal");
+      const text = document.getElementById("posSuccessText");
+      if (!modal || !text) return;
+      text.textContent = message || "Payment has been recorded successfully.";
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeSuccessModal() {
+      const modal = document.getElementById("posSuccessModal");
+      if (!modal) return;
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
     }
 
     function buildReceiptHtml(receipt) {
@@ -548,7 +645,7 @@
                 <p class="text-xs text-slate-400 font-mono tabular-nums mt-0.5">${r.sku}</p>
               </div>
               <span class="text-sm font-medium tabular-nums text-slate-700 shrink-0">${priceLabel}</span>
-              <button type="button" aria-label="Add ${safe}" class="pos-add-proc w-9 h-9 rounded-lg text-white text-lg font-medium flex items-center justify-center shrink-0 bg-teal-600 hover:bg-teal-700" data-sku="${r.sku}" data-custom="${r.customPrice ? "1" : ""}">+</button>
+              <button type="button" aria-label="Add ${safe}" class="pos-add-proc w-9 h-9 rounded-lg text-white text-lg font-medium flex items-center justify-center shrink-0 bg-slate-600 hover:bg-slate-700" data-sku="${r.sku}" data-custom="${r.customPrice ? "1" : ""}">+</button>
             </div>`;
             })
             .join("");
@@ -589,7 +686,7 @@
               const p = i.unitPrice != null && i.unitPrice !== "" ? "₱" + money(Number(i.unitPrice)) : "—";
               return `<button type="button" class="pos-tile pos-add-stock text-left flex flex-col justify-between min-h-[5rem]" data-id="${i.id}">
                 <span class="text-sm font-medium text-slate-800 leading-snug line-clamp-2">${safe}</span>
-                <span class="text-base font-semibold tabular-nums text-teal-700 mt-2">${p}</span>
+                <span class="text-base font-semibold tabular-nums text-slate-700 mt-2">${p}</span>
                 <span class="text-[10px] text-slate-400 font-mono mt-1 truncate">${skuEsc}</span>
               </button>`;
             })
@@ -613,7 +710,10 @@
     }
 
     function cartKey(line) {
-      return line.kind === "sku" ? "s:" + line.sku : "i:" + line.id;
+      if (line.kind === "sku") return "s:" + line.sku;
+      if (line.kind === "id") return "i:" + line.id;
+      if (line.kind === "billing") return "b:" + line.billingId;
+      return "x:" + Math.random();
     }
 
     function addProcedureLine(sku, customPrice) {
@@ -651,6 +751,22 @@
       renderCart();
     }
 
+    function addBillingLine(record) {
+      if (!record || !record.id) return;
+      const key = "b:" + record.id;
+      const existing = cart.find((l) => cartKey(l) === key);
+      if (existing) return;
+      cart.push({
+        kind: "billing",
+        billingId: record.id,
+        name: `Consultation: ${record.description || "Clinic service"}`,
+        unitPrice: Number(record.amount || 0),
+        qty: 1,
+        needsPrice: false,
+      });
+      renderCart();
+    }
+
     function getCartTotalNumber() {
       const el = document.getElementById("cartBody");
       let t = 0;
@@ -684,7 +800,7 @@
       const ch = Math.round((tender - total) * 100) / 100;
       if (ch >= -0.001) {
         changeEl.textContent = "₱" + money(Math.max(0, ch));
-        changeEl.className = "font-medium tabular-nums text-teal-700 text-sm";
+        changeEl.className = "font-medium tabular-nums text-slate-700 text-sm";
       } else {
         changeEl.textContent = "₱" + money(Math.abs(ch)) + " short";
         changeEl.className = "font-medium tabular-nums text-red-600 text-sm";
@@ -797,8 +913,8 @@
     });
 
     document.getElementById("mainSearch").addEventListener("input", renderItemList);
-    document.getElementById("tabProc").onclick = () => setTab("procedures");
     document.getElementById("tabShop").onclick = () => setTab("shop");
+    document.getElementById("tabProc").onclick = () => setTab("procedures");
 
     function findInventoryByDrugName(drug) {
       const d = (drug || "").trim().toLowerCase();
@@ -853,11 +969,68 @@
         .join("");
     }
 
+    async function loadPendingBillingForPet() {
+      const petId = document.getElementById("petSel").value;
+      const fold = document.getElementById("billFold");
+      const list = document.getElementById("billList");
+      billSelected.clear();
+      if (!petId) {
+        if (fold) fold.open = false;
+        if (list) list.innerHTML = "Select a patient to load pending consultation charges.";
+        pendingBills = [];
+        return;
+      }
+      const all = await Api.billing.list();
+      pendingBills = (all || []).filter((r) =>
+        String(r.petId) === String(petId) && String(r.status || "").toUpperCase() === "PENDING"
+      );
+      if (!pendingBills.length) {
+        if (list) list.innerHTML = "No pending consultation charges for this patient.";
+        return;
+      }
+      if (fold) fold.open = true;
+      list.innerHTML = pendingBills
+        .map((r) => {
+          const desc = escapeHtml(r.description || "Consultation charge");
+          const amount = "₱" + money(Number(r.amount || 0));
+          return `<label class="flex gap-2 p-2.5 bg-white rounded-md border border-slate-200 items-start cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" class="bill-pick mt-0.5 rounded border-slate-300" data-bill-id="${r.id}"/>
+            <span class="flex-1">
+              <span class="font-semibold text-slate-900 text-sm">${desc}</span>
+              <span class="block text-xs text-slate-500 mt-0.5">${amount}</span>
+            </span>
+          </label>`;
+        })
+        .join("");
+    }
+
     document.getElementById("petSearch").addEventListener("input", () => {
       renderPetSelect(document.getElementById("petSearch").value);
     });
+    document.getElementById("petSearchResults").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-pet-suggest]");
+      if (!btn) return;
+      const petId = String(btn.getAttribute("data-pet-suggest") || "");
+      const petSel = document.getElementById("petSel");
+      const picked = petsCache.find((p) => String(p.id) === petId);
+      if (!petSel || !picked) return;
+      petSel.value = petId;
+      document.getElementById("petSearch").value = picked.name || "";
+      const resultsEl = document.getElementById("petSearchResults");
+      resultsEl.classList.add("hidden");
+      resultsEl.innerHTML = "";
+      loadRxForPet();
+      loadPendingBillingForPet();
+    });
+    document.addEventListener("click", (e) => {
+      const resultsEl = document.getElementById("petSearchResults");
+      if (!resultsEl) return;
+      const wrap = e.target.closest("#petSearch") || e.target.closest("#petSearchResults");
+      if (!wrap) resultsEl.classList.add("hidden");
+    });
     document.getElementById("petSel").addEventListener("change", () => {
       loadRxForPet();
+      loadPendingBillingForPet();
     });
 
     document.getElementById("importRxBtn").onclick = () => {
@@ -881,6 +1054,28 @@
         return;
       }
       renderCart();
+    };
+
+    document.getElementById("importBillBtn").onclick = () => {
+      const checks = document.querySelectorAll(".bill-pick:checked");
+      if (!checks.length) {
+        showToast("Select pending consultation charge.", true);
+        return;
+      }
+      let added = 0;
+      checks.forEach((ch) => {
+        const id = Number(ch.getAttribute("data-bill-id"));
+        const rec = pendingBills.find((b) => Number(b.id) === id);
+        if (!rec) return;
+        addBillingLine(rec);
+        billSelected.add(id);
+        added++;
+      });
+      if (!added) {
+        showToast("No pending charge selected.", true);
+        return;
+      }
+      showToast(`${added} consultation charge(s) added.`);
     };
 
     document.getElementById("payBtn").onclick = async () => {
@@ -920,6 +1115,14 @@
           if (def && def.customPrice) o.unitPriceOverride = Number(l.unitPrice);
           return o;
         }
+        if (l.kind === "billing") {
+          return {
+            customName: l.name,
+            customAmount: Number(l.unitPrice || 0),
+            quantity: l.qty || 1,
+            billingRecordId: l.billingId,
+          };
+        }
         return { inventoryItemId: l.id, quantity: l.qty };
       });
       const totalDue = getCartTotalNumber();
@@ -941,19 +1144,42 @@
           fulfillPrescriptionIds: fulfill ? [...rxSelected] : [],
         });
         showToast("Sale #" + (res.saleId || "") + " · ₱" + money(res.total));
+        let completionMessage = "Payment recorded successfully.";
         if (res.saleId) {
           try {
             await printReceiptBySaleId(res.saleId, false);
             showToast("Payment complete. Receipt sent to printer.");
+            completionMessage = `Transaction complete. Sale #${res.saleId} was recorded and receipt was sent to printer.`;
           } catch (printErr) {
             showToast("Payment saved. Receipt print failed: " + (printErr.message || "unknown error"), true);
+            completionMessage = `Transaction complete. Sale #${res.saleId} was recorded, but receipt printing failed. You can reprint from Today's sales.`;
           }
         }
+        showSuccessModal(completionMessage);
         cart = [];
         rxSelected.clear();
+        billSelected.clear();
+        openRx = [];
+        pendingBills = [];
+        document.getElementById("petSearch").value = "";
+        document.getElementById("petSel").value = "";
+        document.getElementById("mainSearch").value = "";
+        const rxFold = document.getElementById("rxFold");
+        const billFold = document.getElementById("billFold");
+        if (rxFold) rxFold.open = false;
+        if (billFold) billFold.open = false;
+        const rxList = document.getElementById("rxList");
+        const billList = document.getElementById("billList");
+        if (rxList) rxList.innerHTML = "";
+        if (billList) billList.innerHTML = "Select a patient to load pending consultation charges.";
         document.getElementById("tenderInp").value = "";
+        document.getElementById("paySel").value = "Cash";
+        renderPetSelect("");
+        setTab("shop");
+        renderItemList();
         renderCart();
         await loadRxForPet();
+        await loadPendingBillingForPet();
         if (isHistoryModalOpen()) await loadPosHistory();
       } catch (e) {
         showToast((e.message || "Checkout failed").slice(0, 200), true);
@@ -963,6 +1189,7 @@
     };
 
     document.getElementById("btnRefreshHistory").onclick = () => loadPosHistory();
+    document.getElementById("closePosSuccessBtn").onclick = closeSuccessModal;
     document.getElementById("closePosPreviewBtn").onclick = () => {
       const modal = document.getElementById("posPreviewModal");
       modal.classList.add("hidden");
@@ -1011,9 +1238,27 @@
       document.getElementById("petSearch").value = "";
       document.getElementById("petSel").innerHTML = '<option value="">Walk-in</option>';
       document.getElementById("tenderInp").value = "";
-      setTab("procedures");
+      setTab("shop");
       await loadInventory();
       await loadPets();
+      await loadPendingBillingForPet();
+      const prefillPetId = sessionStorage.getItem("posPrefillPetId");
+      const focusPending = sessionStorage.getItem("posFocusPendingBilling") === "1";
+      if (prefillPetId) {
+        const petSel = document.getElementById("petSel");
+        if (Array.from(petSel.options).some((o) => String(o.value) === String(prefillPetId))) {
+          petSel.value = String(prefillPetId);
+        }
+        sessionStorage.removeItem("posPrefillPetId");
+        sessionStorage.removeItem("posFocusPendingBilling");
+        await loadRxForPet();
+        await loadPendingBillingForPet();
+        if (focusPending) {
+          const billFold = document.getElementById("billFold");
+          if (billFold) billFold.open = true;
+          document.getElementById("billFold")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
       updateTenderChange();
     })();
   </script>

@@ -6,11 +6,13 @@ import com.bayport.dto.PosLineRequest;
 import com.bayport.dto.PosReceiptDto;
 import com.bayport.dto.PosSaleHistoryDto;
 import com.bayport.entity.InventoryItem;
+import com.bayport.entity.BillingRecord;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
 import com.bayport.entity.Sale;
 import com.bayport.entity.SaleLine;
 import com.bayport.config.InventoryCatalogImporter;
+import com.bayport.repository.BillingRecordRepository;
 import com.bayport.repository.PetRepository;
 import com.bayport.repository.PrescriptionRepository;
 import com.bayport.repository.SaleLineRepository;
@@ -40,6 +42,7 @@ public class PosService {
     private final SaleLineRepository saleLineRepository;
     private final SaleRepository saleRepository;
     private final PosSaleLineBackfillService posSaleLineBackfillService;
+    private final BillingRecordRepository billingRecordRepository;
 
     public PosService(InventoryService inventoryService,
                       SalesService salesService,
@@ -49,7 +52,8 @@ public class PosService {
                       InventoryCatalogImporter inventoryCatalogImporter,
                       SaleLineRepository saleLineRepository,
                       SaleRepository saleRepository,
-                      PosSaleLineBackfillService posSaleLineBackfillService) {
+                      PosSaleLineBackfillService posSaleLineBackfillService,
+                      BillingRecordRepository billingRecordRepository) {
         this.inventoryService = inventoryService;
         this.salesService = salesService;
         this.prescriptionRepository = prescriptionRepository;
@@ -59,6 +63,7 @@ public class PosService {
         this.saleLineRepository = saleLineRepository;
         this.saleRepository = saleRepository;
         this.posSaleLineBackfillService = posSaleLineBackfillService;
+        this.billingRecordRepository = billingRecordRepository;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -75,10 +80,33 @@ public class PosService {
         BigDecimal total = BigDecimal.ZERO;
         List<String> parts = new ArrayList<>();
         List<SaleLine> lineEntities = new ArrayList<>();
+        List<Long> billingIdsToSettle = new ArrayList<>();
 
         for (PosLineRequest line : request.getLines()) {
-            InventoryItem item = resolveLineItem(line);
             int q = line.getQuantity();
+            if (line.getCustomAmount() != null && line.getCustomName() != null && !line.getCustomName().isBlank()) {
+                BigDecimal unit = MoneyUtils.normalize(line.getCustomAmount());
+                if (unit.signum() <= 0) {
+                    throw new IllegalArgumentException("Missing or invalid price for: " + line.getCustomName());
+                }
+                BigDecimal lineTotal = unit.multiply(BigDecimal.valueOf(q));
+                total = total.add(lineTotal);
+                parts.add(line.getCustomName() + " ×" + q + " @ " + MoneyUtils.formatPeso(unit));
+                SaleLine sl = new SaleLine();
+                sl.setLineKind(SaleLine.KIND_PROCEDURE);
+                sl.setItemName(line.getCustomName());
+                sl.setSku(null);
+                sl.setQuantity(q);
+                sl.setUnitPrice(unit);
+                sl.setLineTotal(MoneyUtils.normalize(lineTotal));
+                lineEntities.add(sl);
+                if (line.getBillingRecordId() != null) {
+                    billingIdsToSettle.add(line.getBillingRecordId());
+                }
+                continue;
+            }
+
+            InventoryItem item = resolveLineItem(line);
             BigDecimal unit;
             if (line.getUnitPriceOverride() != null) {
                 unit = MoneyUtils.normalize(line.getUnitPriceOverride());
@@ -126,6 +154,21 @@ public class PosService {
         for (SaleLine sl : lineEntities) {
             sl.setSale(saved);
             saleLineRepository.save(sl);
+        }
+
+        if (!billingIdsToSettle.isEmpty()) {
+            for (Long billingId : billingIdsToSettle) {
+                BillingRecord record = billingRecordRepository.findById(billingId)
+                        .orElseThrow(() -> new IllegalArgumentException("Billing record not found: " + billingId));
+                if (record.getPetId() != null && request.getPetId() != null && !record.getPetId().equals(request.getPetId())) {
+                    throw new IllegalArgumentException("Billing record " + billingId + " does not belong to selected pet");
+                }
+                if (record.getStatus() != BillingRecord.Status.PAID) {
+                    record.setStatus(BillingRecord.Status.PAID);
+                    record.setPaidAt(java.time.LocalDateTime.now());
+                    billingRecordRepository.save(record);
+                }
+            }
         }
 
         if (request.getFulfillPrescriptionIds() != null && !request.getFulfillPrescriptionIds().isEmpty()) {

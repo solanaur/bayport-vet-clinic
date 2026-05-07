@@ -65,11 +65,9 @@ public class BillingService {
         record.setAmount(procedure.getCost());
         record.setReferenceType("PROCEDURE");
         record.setReferenceId(procedure.getId());
-        record.setStatus(BillingRecord.Status.PAID);
-        record.setPaidAt(LocalDateTime.now());
-        BillingRecord saved = billingRecordRepository.save(record);
-        salesService.recordSale(saved, "Procedure", "Procedure charge");
-        return saved;
+        record.setStatus(BillingRecord.Status.PENDING);
+        record.setPaidAt(null);
+        return billingRecordRepository.save(record);
     }
 }
 

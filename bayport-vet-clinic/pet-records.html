@@ -29,7 +29,6 @@
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
             <h3 class="text-2xl font-semibold text-gray-800 mb-1">Pet Records</h3>
-            <p class="text-gray-600 text-sm">Add, view, edit or delete pet records. Click "View" to open the profile.</p>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <div class="relative flex-1 min-w-[200px]">
@@ -375,11 +374,9 @@
       } 
     }
 
-    async function openForm(id, prefilledMicrochip){
+    async function openForm(id){
       try{
       const editing = id ? await repoGetPet(id) : null;
-      const chipVal = editing?.microchip ?? prefilledMicrochip ?? '';
-      const hasChip = !!(editing?.microchip || prefilledMicrochip);
       let currentPhoto = editing?.photo || null;
       let currentPhotoPreview = editing?.photo ? resolveAssetUrl(editing.photo) : 'assets/cutie.jpg';
       lastRawFile = null;
@@ -407,15 +404,6 @@
               </label>
               ${selectField('gender','Gender',editing?.gender||'Female',['Female','Male'])}
               ${field('age','Age',editing?.age,'number')}
-              <div>
-                <label class="text-sm font-medium text-gray-700 block">Microchip ID
-                  <input id="f_microchip" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" value="${(chipVal || '').replace(/"/g, '&quot;')}" placeholder="Enter or scan microchip code">
-                </label>
-                <label class="flex items-center gap-2 text-xs text-gray-600 mt-2">
-                  <input type="checkbox" id="f_noMicrochip" ${hasChip ? '' : 'checked'} class="w-4 h-4 text-[var(--soft-teal)] border-gray-300 rounded focus:ring-[var(--soft-teal)]">
-                  <span>Pet does not have a microchip</span>
-                </label>
-              </div>
               <div class="md:col-span-2 border-2 border-gray-200 rounded-lg p-4 bg-gray-50/50">
                 <div class="flex items-center justify-between mb-3">
                   <div class="text-sm font-medium text-gray-700">Owner</div>
@@ -466,19 +454,6 @@
       const photoInput=document.getElementById('photoInput');
       const photoPreview=document.getElementById('photoPreview');
       photoInput?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; try{ lastRawFile=f; const previewSrc = window.USE_API ? URL.createObjectURL(f) : await fileToDataURL(f); if(!window.USE_API){ currentPhoto = previewSrc; } currentPhotoPreview = previewSrc; photoPreview.innerHTML=`<img src="${currentPhotoPreview}" class="w-full h-full object-cover">`; }catch{ alert('Could not read image'); }});
-
-      const microchipInput = document.getElementById('f_microchip');
-      const noMicrochipCheckbox = document.getElementById('f_noMicrochip');
-      function syncMicrochipField(){
-        if(!microchipInput || !noMicrochipCheckbox) return;
-        const disabled = noMicrochipCheckbox.checked;
-        microchipInput.disabled = disabled;
-        if(disabled){
-          microchipInput.value = '';
-        }
-      }
-      noMicrochipCheckbox?.addEventListener('change', syncMicrochipField);
-      syncMicrochipField();
 
       const addressInput = document.getElementById('f_address');
       const ownerAddressInput = document.getElementById('f_ownerAddress');
@@ -669,14 +644,12 @@
 
         let breedValue = gv('breed');
         if(breedValue==='Others'){ breedValue = (document.getElementById('f_breedOther').value||'').trim(); }
-        const microchipValue = noMicrochipCheckbox?.checked ? null : gv('microchip');
         const base={
           name:gv('name'),
           species:gv('species'),
           breed:breedValue,
           gender:gv('gender'),
           age:Number(gv('age')||0),
-          microchip:microchipValue,
           owner:ownerName,
           address:addressInput?.value||'',
           federation:gv('federation')||'N/A',
@@ -723,14 +696,6 @@
     }, 100);
     
     render();
-    const _urlMc = new URLSearchParams(location.search).get('microchip');
-    if (_urlMc) {
-      try {
-        openForm(null, decodeURIComponent(_urlMc.trim()));
-      } catch (_) {
-        openForm(null, _urlMc.trim());
-      }
-    }
   </script>
 </body>
 </html>

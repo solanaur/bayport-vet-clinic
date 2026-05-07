@@ -2,6 +2,7 @@ package com.bayport.service;
 
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
+import com.lowagie.text.pdf.draw.LineSeparator;
 import com.bayport.dto.ReportSummary;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -22,6 +24,8 @@ public class PdfService {
 
     private static final DateTimeFormatter TS =
             DateTimeFormatter.ofPattern("MMMM d, yyyy hh:mm a");
+    private static final Color CLINIC_BLUE = new Color(0, 87, 184);
+    private static final Color SOFT_BLUE = new Color(235, 243, 255);
     
     private final String uploadDir;
     
@@ -63,10 +67,10 @@ public class PdfService {
                 base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
             }
 
-            Font header = new Font(base, 16, Font.BOLD, Color.BLACK);
-            Font sub = new Font(base, 10, Font.NORMAL, Color.GRAY);
-            Font label = new Font(base, 11, Font.BOLD);
-            Font value = new Font(base, 11, Font.NORMAL);
+            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
+            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
+            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
+            Font value = new Font(base, 11, Font.NORMAL, Color.BLACK);
 
             addClinicHeader(document, header, sub);
             addPrescriptionDetailsMultiple(document, prescriptions, label, value, sub);
@@ -92,29 +96,43 @@ public class PdfService {
      * Adds the clinic header to the document.
      */
     private void addClinicHeader(Document document, Font header, Font sub) throws DocumentException {
+        PdfPTable top = new PdfPTable(2);
+        top.setWidthPercentage(100);
+        top.setWidths(new float[]{1, 4});
+        top.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+        top.setSpacingAfter(6);
+
+        PdfPCell logoCell = new PdfPCell();
+        logoCell.setBorder(Rectangle.NO_BORDER);
+        logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        Image logo = tryLoadClinicLogo();
+        if (logo != null) {
+            logo.scaleToFit(54, 54);
+            logoCell.addElement(logo);
+        } else {
+            logoCell.addElement(new Phrase("🐾", new Font(sub.getBaseFont(), 22, Font.NORMAL, CLINIC_BLUE)));
+        }
+        top.addCell(logoCell);
+
+        PdfPCell textCell = new PdfPCell();
+        textCell.setBorder(Rectangle.NO_BORDER);
+        textCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
         Paragraph clinic = new Paragraph("Bayport Veterinary Clinic", header);
-        clinic.setAlignment(Element.ALIGN_CENTER);
-        clinic.setSpacingAfter(5);
-        document.add(clinic);
+        clinic.setSpacingAfter(3);
+        textCell.addElement(clinic);
+        textCell.addElement(new Paragraph("322 Quirino Avenue, Brgy. Don Galo, Parañaque City  •  0968 633 2940", sub));
+        textCell.addElement(new Paragraph("Generated: " + TS.format(LocalDateTime.now()), sub));
+        top.addCell(textCell);
+        document.add(top);
 
-        Paragraph address = new Paragraph(
-                "322 Quirino Avenue, Brgy. Don Galo, Parañaque City  •  0968 633 2940",
-                sub
-        );
-        address.setAlignment(Element.ALIGN_CENTER);
-        address.setSpacingAfter(15);
-        document.add(address);
-
+        LineSeparator divider = new LineSeparator(1.2f, 100f, CLINIC_BLUE, Element.ALIGN_CENTER, 0);
+        document.add(divider);
         document.add(Chunk.NEWLINE);
-        Paragraph title = new Paragraph("PRESCRIPTION", header);
-        title.setAlignment(Element.ALIGN_CENTER);
-        title.setSpacingAfter(5);
-        document.add(title);
 
-        Paragraph generated = new Paragraph("Generated: " + TS.format(LocalDateTime.now()), sub);
-        generated.setAlignment(Element.ALIGN_CENTER);
-        generated.setSpacingAfter(15);
-        document.add(generated);
+        Paragraph title = new Paragraph("OFFICIAL VETERINARY PRESCRIPTION", header);
+        title.setAlignment(Element.ALIGN_CENTER);
+        title.setSpacingAfter(12);
+        document.add(title);
     }
     
     /**
@@ -178,31 +196,84 @@ public class PdfService {
 
         document.add(Chunk.NEWLINE);
 
-        // Medication names only — dosage/directions/notes not used on Rx record.
-        PdfPTable productsTable = new PdfPTable(1);
+        PdfPTable productsTable = new PdfPTable(3);
         productsTable.setWidthPercentage(100);
+        productsTable.setWidths(new float[]{3, 2, 3});
         productsTable.setSpacingBefore(5);
         productsTable.setSpacingAfter(10);
         productsTable.setHeaderRows(1);
 
         PdfPCell medHeader = new PdfPCell(new Phrase("Medication", label));
-        medHeader.setBackgroundColor(new Color(240, 240, 240));
+        medHeader.setBackgroundColor(SOFT_BLUE);
+        medHeader.setBorderColor(CLINIC_BLUE);
         medHeader.setPadding(8);
         productsTable.addCell(medHeader);
+        PdfPCell doseHeader = new PdfPCell(new Phrase("Dosage", label));
+        doseHeader.setBackgroundColor(SOFT_BLUE);
+        doseHeader.setBorderColor(CLINIC_BLUE);
+        doseHeader.setPadding(8);
+        productsTable.addCell(doseHeader);
+        PdfPCell dirHeader = new PdfPCell(new Phrase("Directions", label));
+        dirHeader.setBackgroundColor(SOFT_BLUE);
+        dirHeader.setBorderColor(CLINIC_BLUE);
+        dirHeader.setPadding(8);
+        productsTable.addCell(dirHeader);
 
         for (Prescription rx : prescriptions) {
             PdfPCell drugCell = new PdfPCell(new Phrase(nullToEmpty(rx.getDrug()), value));
             drugCell.setPadding(6);
+            drugCell.setBorderColor(new Color(190, 210, 240));
             productsTable.addCell(drugCell);
+            PdfPCell dosageCell = new PdfPCell(new Phrase(
+                    rx.getDosage() == null || rx.getDosage().isBlank() ? "As prescribed" : rx.getDosage(),
+                    value));
+            dosageCell.setPadding(6);
+            dosageCell.setBorderColor(new Color(190, 210, 240));
+            productsTable.addCell(dosageCell);
+            PdfPCell directionsCell = new PdfPCell(new Phrase(
+                    rx.getDirections() == null || rx.getDirections().isBlank() ? "Follow veterinarian instructions" : rx.getDirections(),
+                    value));
+            directionsCell.setPadding(6);
+            directionsCell.setBorderColor(new Color(190, 210, 240));
+            productsTable.addCell(directionsCell);
         }
 
         document.add(productsTable);
 
         Paragraph payNote = new Paragraph(
-                "Pricing, payment, and inventory are handled at the clinic Point of Sale (front desk).",
+                "For animal treatment only. Payments are handled at the clinic front desk.",
                 sub);
         payNote.setSpacingBefore(8);
         document.add(payNote);
+    }
+
+    private Image tryLoadClinicLogo() {
+        String[] classpathCandidates = {
+                "/static/assets/logo.png",
+                "/assets/logo.png",
+                "/logo.png"
+        };
+        for (String candidate : classpathCandidates) {
+            try (InputStream in = PdfService.class.getResourceAsStream(candidate)) {
+                if (in != null) {
+                    return Image.getInstance(in.readAllBytes());
+                }
+            } catch (Exception ignored) {}
+        }
+        String[] fileCandidates = {
+                "assets/logo.png",
+                "../assets/logo.png",
+                "../../assets/logo.png"
+        };
+        for (String path : fileCandidates) {
+            try {
+                File f = new File(path);
+                if (f.exists() && f.isFile()) {
+                    return Image.getInstance(f.getAbsolutePath());
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
     /**

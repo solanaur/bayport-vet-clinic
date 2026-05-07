@@ -378,7 +378,6 @@
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
             <div>
               <h3 class="text-2xl font-semibold text-gray-800 mb-1">Appointments</h3>
-              <p class="text-sm text-gray-500">Manage appointments, approve requests, and track completed visits.</p>
             </div>
             <button id="addBtn" class="px-5 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-medium hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md hidden">+ Create Appointment</button>
           </div>
@@ -396,7 +395,6 @@
           <div class="flex items-center justify-between mb-4">
             <div>
               <h4 class="text-lg font-semibold text-gray-800">Appointments Calendar</h4>
-              <p class="text-xs text-gray-500">Click a date to view appointments.</p>
             </div>
           </div>
           <div id="appointmentsCalendar" class="border rounded-xl" style="width: 100%; background: white; overflow: hidden;"></div>
@@ -670,8 +668,8 @@
                         ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status!=='Approved by Vet' && a.status!=='Done'
                           ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md" onclick="approve(${a.id})">Approve</button>` : ''}
 
-                        ${(role==='vet' && a.status==='Approved by Vet')
-                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="openProcedurePage(${a.id}, ${a.petId})">Add Procedure</button>` : ''}
+                        ${((role==='vet' || role==='admin' || window.isFrontOffice(role)) && a.status!=='Done')
+                          ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="openConsultationPage(${a.id}, ${a.petId})">Start Consultation</button>` : ''}
 
                         ${(role==='admin' || (role==='vet' && a.vet===user)) && a.status==='Approved by Vet'
                           ? `<button class="px-4 py-2 text-xs font-medium rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md" onclick="markDone(${a.id})">Mark Done</button>` : ''}
@@ -956,11 +954,10 @@
       await render(); // Re-render table, calendar, and date filter (Done appointments will be removed from calendar)
     }
     
-    function openProcedurePage(appointmentId, petId) {
-      // Store appointment and pet info for procedure page
-      sessionStorage.setItem('procedureAppointmentId', appointmentId);
-      sessionStorage.setItem('procedurePetId', petId);
-      window.location.href = 'procedure.html';
+    function openConsultationPage(appointmentId, petId) {
+      sessionStorage.setItem('consultationAppointmentId', appointmentId);
+      sessionStorage.setItem('consultationPetId', petId);
+      window.location.href = 'consultations.html';
     }
     async function delAppt(id){ 
       if(confirm('Delete appointment?')){ 

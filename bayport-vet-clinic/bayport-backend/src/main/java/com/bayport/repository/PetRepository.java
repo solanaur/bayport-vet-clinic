@@ -15,8 +15,5 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
     List<Pet> findByDeletedFalse();
     List<Pet> findByDeletedTrue();
     Optional<Pet> findByIdAndDeletedFalse(Long id);
-
-    /** Microchip lookup (case-insensitive); excludes soft-deleted pets. */
-    Optional<Pet> findFirstByMicrochipIgnoreCaseAndDeletedFalse(String microchip);
 }
 

@@ -58,7 +58,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             ${row('Species',p?.species)} ${row('Breed',p?.breed)}
             ${row('Gender',p?.gender)}   ${row('Age',p?.age)}
-            ${row('Microchip',p?.microchip || 'None')} ${row('Federation',p?.federation||'N/A')}
+            ${row('Federation',p?.federation||'N/A')}
             ${row('Address',p?.address)}
           </div>
         </section>
@@ -72,12 +72,12 @@
 
         <section class="border rounded-xl p-4">
           <div class="flex items-center justify-between mb-3">
-            <h4 class="text-lg font-semibold text-gray-800">Procedures</h4>
-            <button class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm" onclick="openProc()">Add Procedure</button>
+            <h4 class="text-lg font-semibold text-gray-800">Medical History</h4>
+            <button class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm" onclick="startConsultation()">Start Consultation</button>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full border-collapse text-sm">
-              <thead><tr class="text-left text-gray-600 border-b"><th class="py-2">Performed At</th><th class="py-2">Category</th><th class="py-2">Name</th><th class="py-2">Notes</th><th class="py-2">Medications</th><th class="py-2">Cost</th><th class="py-2">Actions</th></tr></thead>
+              <thead><tr class="text-left text-gray-600 border-b"><th class="py-2">Performed At</th><th class="py-2">Category</th><th class="py-2">Entry</th><th class="py-2">Diagnosis / Notes</th><th class="py-2">Prescribed Meds</th><th class="py-2">Vet</th><th class="py-2">Output</th></tr></thead>
               <tbody id="procRows">
               </tbody>
             </table>
@@ -119,9 +119,18 @@
       renderPetReminders();
     }
 
-    function renderProcedures(){
-      repoGetPet(id).then(p=>{
+    async function renderProcedures(){
+      try {
+        const [p, rxListRaw] = await Promise.all([repoGetPet(id), Api.rx.list()]);
         const list = (p?.procedures||[]);
+        const rxList = (Array.isArray(rxListRaw) ? rxListRaw : []).filter(rx => Number(rx.petId) === Number(id));
+        const rxByProcedure = new Map();
+        rxList.forEach(rx => {
+          const key = Number(rx.consultationProcedureId || 0);
+          if (!key) return;
+          if (!rxByProcedure.has(key)) rxByProcedure.set(key, []);
+          rxByProcedure.get(key).push(rx);
+        });
         const tbody = document.getElementById('procRows');
         if(!tbody) return;
         tbody.innerHTML = list.map((pr,idx)=>`
@@ -129,17 +138,101 @@
             <td class="py-3">${pr.performedAt||''}</td>
             <td class="py-3">${pr.category||''}</td>
             <td class="py-3">${pr.name||''}</td>
-            <td class="py-3">${pr.notes||''}</td>
-            <td class="py-3">${pr.medications||''}</td>
-            <td class="py-3">₱ ${formatPrice(pr.cost || 0)}</td>
+            <td class="py-3 whitespace-pre-line">${pr.notes||''}</td>
             <td class="py-3">
-              <button class="px-2 py-1 border rounded-md mr-2 text-sm" onclick="openProc(${idx})">Edit</button>
-              <button class="px-2 py-1 border rounded-md text-sm text-red-600" onclick="delProc(${idx})">Delete</button>
+              ${((rxByProcedure.get(Number(pr.id)) || []).map(rx => {
+                const details = [rx.dosage, rx.directions].filter(Boolean).join(' • ');
+                return `<div class="mb-1"><div class="font-medium">${rx.drug || ''}</div>${details ? `<div class="text-xs text-gray-500">${details}</div>` : ''}</div>`;
+              }).join('')) || (pr.medications || '<span class="text-gray-400">No prescription</span>')}
             </td>
-          </tr>`).join('') || `<tr><td class="py-3" colspan="6">No procedures recorded.</td></tr>`;
+            <td class="py-3">${pr.vet||''}</td>
+            <td class="py-3">
+              ${((rxByProcedure.get(Number(pr.id)) || []).length)
+                ? `<div class="flex flex-col gap-2">
+                     <button class="px-2 py-1 text-xs border rounded-md border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white" onclick="printPrescription(${Number(pr.id)})">Print Prescription (PDF)</button>
+                     <button class="px-2 py-1 text-xs border rounded-md border-green-700 text-green-700 hover:bg-green-700 hover:text-white" onclick="sendPrescriptionEmail(${Number(pr.id)})">Send to Owner Email</button>
+                   </div>`
+                : `<span class="text-xs text-gray-400">-</span>`}
+            </td>
+          </tr>`).join('') || `<tr><td class="py-3" colspan="7">No medical history recorded.</td></tr>`;
         const total = list.reduce((s,pr)=>s+Number(pr.cost||0),0);
         document.getElementById('procTotal').textContent = `₱ ${formatPrice(total)}`;
-      });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function printPrescription(procedureId){
+      try{
+        const rxListRaw = await Api.rx.list();
+        const rows = (Array.isArray(rxListRaw) ? rxListRaw : [])
+          .filter(rx => Number(rx.petId) === Number(id) && Number(rx.consultationProcedureId) === Number(procedureId));
+        if(!rows.length){ alert('No prescription found for this consultation.'); return; }
+        const first = rows[0];
+        const groupKey = `${first.petId}_${first.date}_${first.prescriber}`;
+        const blob = await Api.rx.downloadPdf(first.id, groupKey);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `Prescription_${first.pet || 'Pet'}_${first.date}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 1000);
+      }catch(err){
+        alert('Unable to print prescription: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    async function sendPrescriptionEmail(procedureId){
+      try{
+        const rxListRaw = await Api.rx.list();
+        const rows = (Array.isArray(rxListRaw) ? rxListRaw : [])
+          .filter(rx => Number(rx.petId) === Number(id) && Number(rx.consultationProcedureId) === Number(procedureId));
+        if(!rows.length){ alert('No prescription found for this consultation.'); return; }
+        const first = rows[0];
+        const groupKey = `${first.petId}_${first.date}_${first.prescriber}`;
+        const owner = currentPet?.ownerId ? await repoGetOwner(currentPet.ownerId) : null;
+        const ownerEmail = owner?.email || '';
+        const subject = `Prescription for ${first.pet || 'your pet'} (${first.date || ''})`;
+        try {
+          await Api.rx.email(first.id, groupKey, { to: ownerEmail, subject });
+        } catch (primaryErr) {
+          const raw = String(primaryErr?.message || '');
+          const endpointMissing =
+            raw.includes('NoResourceFoundException') ||
+            raw.includes('No static resource') ||
+            raw.includes('(404)');
+          if (!endpointMissing) throw primaryErr;
+          const lines = rows.map(r => {
+            const details = [r.dosage, r.directions].filter(Boolean).join(' | ');
+            return `- ${r.drug || 'N/A'}${details ? ` (${details})` : ''}`;
+          }).join('\n');
+          const body = [
+            `Hello ${owner?.fullName || owner?.name || 'Pet Owner'},`,
+            '',
+            'Please see your pet prescription details below:',
+            `Pet: ${first.pet || 'N/A'}`,
+            `Date: ${first.date || 'N/A'}`,
+            `Prescriber: ${first.prescriber || 'N/A'}`,
+            '',
+            'Medicines:',
+            lines || '- N/A',
+            '',
+            'Thank you,',
+            'Bayport Veterinary Clinic'
+          ].join('\n');
+          await Api.email.send(ownerEmail, subject, body);
+        }
+        alert(`Prescription email sent${ownerEmail ? ` to ${ownerEmail}` : ''}.`);
+      }catch(err){
+        alert('Unable to send prescription email: ' + (err.message || 'Unknown error'));
+      }
+    }
+
+    function startConsultation(){
+      sessionStorage.setItem('consultationPetId', id);
+      location.href = `consultations.html?petId=${id}`;
     }
 
     function openProc(editIndex){

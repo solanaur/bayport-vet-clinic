@@ -21,6 +21,9 @@ public class Prescription {
     @Column(name = "pet_id")
     private Long petId;
 
+    @Column(name = "consultation_procedure_id")
+    private Long consultationProcedureId;
+
     private String pet;
     private String owner;
     private String drug;
@@ -69,6 +72,9 @@ public class Prescription {
 
     public Long getPetId() { return petId; }
     public void setPetId(Long petId) { this.petId = petId; }
+
+    public Long getConsultationProcedureId() { return consultationProcedureId; }
+    public void setConsultationProcedureId(Long consultationProcedureId) { this.consultationProcedureId = consultationProcedureId; }
 
     public String getPet() { return pet; }
     public void setPet(String pet) { this.pet = pet; }

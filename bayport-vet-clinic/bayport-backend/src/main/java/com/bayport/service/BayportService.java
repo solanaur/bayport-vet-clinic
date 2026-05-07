@@ -67,6 +67,9 @@ public class BayportService {
     @Autowired(required = false)
     private MfaCodeRepository mfaCodeRepository;
 
+    @Autowired
+    private VaccineReminderService vaccineReminderService;
+
     // Pet operations
     public List<Pet> getAllPets() {
         // Use soft delete - only get non-deleted pets
@@ -95,14 +98,6 @@ public class BayportService {
     public Optional<Pet> getPetById(Long id) {
         // Use soft delete - only get non-deleted pets
         return petRepository.findByIdAndDeletedFalse(id);
-    }
-
-    /** Microchip lookup for scanners / REST API (cloud-ready). */
-    public Optional<Pet> getPetByMicrochip(String microchip) {
-        if (microchip == null || microchip.isBlank()) {
-            return Optional.empty();
-        }
-        return petRepository.findFirstByMicrochipIgnoreCaseAndDeletedFalse(microchip.trim());
     }
 
     public Pet savePet(Pet pet) {
@@ -191,6 +186,7 @@ public class BayportService {
         if (savedProcedure.getCost() != null && savedProcedure.getCost().signum() > 0) {
             billingService.billProcedure(saved, savedProcedure);
         }
+        vaccineReminderService.syncPetVaccineReminders(saved);
 
         return saved;
     }
@@ -209,7 +205,9 @@ public class BayportService {
         existing.setLabType(updated.getLabType());
         existing.setCost(updated.getCost());
         existing.setVet(updated.getVet());
-        return procedureRepository.save(existing);
+        Procedure saved = procedureRepository.save(existing);
+        vaccineReminderService.syncPetVaccineReminders(existing.getPet());
+        return saved;
     }
 
     public void deleteProcedure(Long petId, Long procedureId) {
@@ -218,7 +216,9 @@ public class BayportService {
         if (existing.getPet() == null || !existing.getPet().getId().equals(petId)) {
             throw new IllegalStateException("Procedure does not belong to the specified pet");
         }
+        Pet pet = existing.getPet();
         procedureRepository.delete(existing);
+        vaccineReminderService.syncPetVaccineReminders(pet);
     }
 
     // Appointment operations
@@ -541,10 +541,6 @@ public class BayportService {
     public Prescription savePrescription(Prescription prescription) {
         // Clinical record only — pricing happens at POS / inventory
         prescription.setPrice(null);
-        // Dosage / directions / notes removed from workflow — keep DB columns null
-        prescription.setDosage(null);
-        prescription.setDirections(null);
-        prescription.setNotes(null);
         if (prescription.getPetId() != null) {
             petRepository.findById(prescription.getPetId()).ifPresent(p -> {
                 prescription.setPet(p.getName());
@@ -570,9 +566,6 @@ public class BayportService {
     public Prescription updatePrescription(Long id, Prescription prescription) {
         prescription.setId(id);
         prescription.setPrice(null);
-        prescription.setDosage(null);
-        prescription.setDirections(null);
-        prescription.setNotes(null);
         return prescriptionRepository.save(prescription);
     }
 
