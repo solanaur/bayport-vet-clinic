@@ -27,6 +27,9 @@ public class InventoryItem {
     private Integer quantity;
     private Integer reorderLevel;
 
+    /** Optional product image URL (e.g. /uploads/...). Services typically omit this. */
+    private String photo;
+
     @Column(precision = 12, scale = 2)
     @JsonSerialize(using = MoneySerializer.class)
     private BigDecimal unitPrice;
@@ -94,6 +97,14 @@ public class InventoryItem {
 
     public void setReorderLevel(Integer reorderLevel) {
         this.reorderLevel = reorderLevel;
+    }
+
+    public String getPhoto() {
+        return photo;
+    }
+
+    public void setPhoto(String photo) {
+        this.photo = photo;
     }
 
     public BigDecimal getUnitPrice() {

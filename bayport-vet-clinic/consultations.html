@@ -13,16 +13,7 @@
   </style>
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-    <div class="flex items-center space-x-5">
-      <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt="">
-      <div>
-        <h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1>
-        <p class="text-sm text-gray-100/90">Consultation module</p>
-      </div>
-    </div>
-    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
@@ -40,11 +31,25 @@
         <section id="start_view">
         <div class="mb-6">
           <h3 class="text-2xl font-semibold text-gray-800">Start Consultation</h3>
+          <p class="text-sm text-gray-500 mt-1">Work through the steps in order. You can jump back to edit earlier steps before saving.</p>
         </div>
 
+        <div id="consult_workflow_bar" class="mb-8 rounded-xl border border-gray-200 bg-slate-50 p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+            <span>Progress</span>
+            <span id="consult_step_label">Step 1 of 3</span>
+          </div>
+          <div class="flex gap-2">
+            <button type="button" data-consult-step="1" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm">1 · Diagnosis</button>
+            <button type="button" data-consult-step="2" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">2 · Procedures</button>
+            <button type="button" data-consult-step="3" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">3 · Prescriptions</button>
+          </div>
+        </div>
+
+        <div id="consult_step_1" class="consult-step-panel">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <label class="text-sm text-gray-700">Pet
-            <select id="c_pet" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+            <select id="c_pet" title="Select the patient for this visit" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
           </label>
           <label class="text-sm text-gray-700">Consultation date
             <input id="c_date" type="date" class="w-full border border-gray-300 rounded-md p-3 mt-1">
@@ -55,6 +60,11 @@
           <label class="text-sm text-gray-700 md:col-span-2">Clinical notes
             <textarea id="c_notes" rows="3" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Findings, treatment plan, follow-up instructions"></textarea>
           </label>
+        </div>
+        </div>
+
+        <div id="consult_step_2" class="consult-step-panel hidden">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <label class="text-sm text-gray-700">Procedure category
             <select id="c_procedure_category" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
           </label>
@@ -64,8 +74,11 @@
           <label class="text-sm text-gray-700 md:col-span-2">Procedure fee (PHP)
             <input id="c_procedure_cost" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="0" readonly>
           </label>
-          <div class="md:col-span-2">
-            <button id="add_procedure_btn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">Add Procedure</button>
+          <div class="md:col-span-2 flex items-center gap-2">
+            <button type="button" id="add_procedure_btn" title="Add selected service to this visit" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add procedure
+            </button>
           </div>
         </div>
 
@@ -76,19 +89,35 @@
             Procedure total: <span id="procedure_total" class="font-semibold">PHP 0.00</span>
           </div>
         </section>
+        </div>
 
+        <div id="consult_step_3" class="consult-step-panel hidden">
         <section class="border rounded-xl p-4">
           <div class="flex items-center justify-between gap-3 mb-3">
             <h4 class="font-semibold">Prescription lines</h4>
-            <button id="issue_rx_btn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">Issue Prescription</button>
+            <button type="button" id="issue_rx_btn" title="Add medicines from inventory" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium">
+              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+              Issue prescription
+            </button>
           </div>
           <div id="line_rows" class="space-y-2 text-sm text-gray-700"></div>
           <p class="text-xs text-gray-500 mt-2">Prescription entries are clinical records only. No inventory deduction or sale is posted here.</p>
         </section>
+        </div>
 
-        <div class="mt-6 flex justify-end gap-3">
-          <button class="px-5 py-2 border rounded-md" onclick="location.href='appointments.html'">Back</button>
-          <button id="save_send_pos_btn" class="px-6 py-2 rounded-md bg-green-700 text-white">Save & Send to POS</button>
+        <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6">
+          <button type="button" class="inline-flex items-center gap-2 px-5 py-2 border rounded-md text-sm text-gray-700 hover:bg-gray-50" onclick="location.href='appointments.html'">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            Back to appointments
+          </button>
+          <div class="flex flex-wrap gap-2 justify-end">
+            <button type="button" id="consult_prev_btn" class="px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-600 hidden">Previous step</button>
+            <button type="button" id="consult_next_btn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm font-semibold shadow-sm">Next step</button>
+            <button type="button" id="save_send_pos_btn" class="hidden inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-green-700 text-white text-sm font-semibold shadow-md hover:bg-green-800">
+              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              Save &amp; send to POS
+            </button>
+          </div>
         </div>
         </section>
 
@@ -129,8 +158,12 @@
   <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard('consultations');
+    if (typeof initBayportAppHeader === "function") {
+      initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Consultation module" });
+    }
     renderSidebar(document.getElementById('sidebarNav'), getRole(), 'consultations.html');
 
     const petSelect = document.getElementById('c_pet');
@@ -192,7 +225,10 @@
               ${l.instructions ? `<span class="block text-xs text-gray-500">Instructions: ${l.instructions}</span>` : ''}
             </span>
             <div class="flex items-center gap-3">
-              <button onclick="removeLine(${idx})" class="text-red-600">Remove</button>
+              <button type="button" onclick="removeLine(${idx})" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm" title="Remove line">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Remove
+              </button>
             </div>
           </div>
         `).join('');
@@ -211,7 +247,10 @@
             </span>
             <div class="flex items-center gap-3">
               <span>${php(p.cost)}</span>
-              <button onclick="removeProcedure(${idx})" class="text-red-600">Remove</button>
+              <button type="button" onclick="removeProcedure(${idx})" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm" title="Remove procedure">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                Remove
+              </button>
             </div>
           </div>
         `).join('');
@@ -568,9 +607,12 @@
       const prefilledPetId = Number(sessionStorage.getItem('consultationPetId') || new URLSearchParams(location.search).get('petId') || 0);
       sessionStorage.removeItem('consultationPetId');
 
-      petSelect.innerHTML = (pets || []).map(p => `<option value="${p.id}">${p.name} (${p.owner || 'Owner'})</option>`).join('');
+      const petOptions = (pets || []).map(p => `<option value="${p.id}">${p.name} (${p.owner || 'Owner'})</option>`).join('');
+      petSelect.innerHTML = `<option value="">Select a pet</option>${petOptions}`;
       if (prefilledPetId && (pets || []).some(p => Number(p.id) === prefilledPetId)) {
         petSelect.value = String(prefilledPetId);
+      } else {
+        petSelect.value = '';
       }
 
       inventoryItems = (inv || []).filter(i => !isServiceItem(i) && onHand(i) > 0);
@@ -643,29 +685,59 @@
           .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]?.id || null;
 
         const prescriberName = getUserName() || localStorage.getItem('username') || 'Vet';
-        const prescriptionSaves = lines.map(line => Api.rx.create({
-          petId,
-          consultationProcedureId,
-          drug: line.name,
-          dosage: line.dosage || null,
-          directions: [line.frequency, line.duration, line.instructions].filter(Boolean).join(' | ') || null,
-          notes: `Consultation: ${diagnosis || 'N/A'}\nClinical Notes: ${notes || 'N/A'}`,
-          prescriber: prescriberName,
-          date: performedAt,
-          dispensed: false
-        }));
+        const prescriptionSaves = lines.map((line) => {
+          const item = inventoryItems.find((i) => Number(i.id) === Number(line.id));
+          const unit = item ? Number(item.unitPrice || 0) : 0;
+          return Api.rx.create({
+            petId,
+            consultationProcedureId,
+            drug: line.name,
+            dosage: line.dosage || null,
+            directions: [line.frequency, line.duration, line.instructions].filter(Boolean).join(" | ") || null,
+            notes: `Consultation: ${diagnosis || "N/A"}\nClinical Notes: ${notes || "N/A"}`,
+            prescriber: prescriberName,
+            date: performedAt,
+            dispensed: false,
+            price: unit > 0 ? unit : null,
+          });
+        });
         const savedPrescriptions = prescriptionSaves.length ? await Promise.all(prescriptionSaves) : [];
 
-        alert('Consultation saved. Medical history and prescriptions are synchronized (not posted to sales).');
-        procedures.splice(0, procedures.length);
-        lines.splice(0, lines.length);
-        document.getElementById('c_diagnosis').value = '';
-        document.getElementById('c_notes').value = '';
-        renderProcedures();
-        renderLines();
-        sessionStorage.setItem('posPrefillPetId', String(petId));
-        sessionStorage.setItem('posFocusPendingBilling', '1');
-        location.href = 'pos.html';
+        const apptIdRaw = sessionStorage.getItem("consultationAppointmentId");
+        const appointmentId =
+          apptIdRaw && String(apptIdRaw).trim() !== "" && !Number.isNaN(Number(apptIdRaw)) ? Number(apptIdRaw) : null;
+        let apptMarked = false;
+        let apptMarkMsg = "";
+        if (appointmentId && window.USE_API) {
+          try {
+            const appt = await Api.appts.get(appointmentId);
+            if (appt && Number(appt.petId) === petId) {
+              await repoDoneAppt(appointmentId);
+              apptMarked = true;
+            } else if (appt) {
+              apptMarkMsg =
+                "Consultation was saved, but the linked appointment is for a different pet, so the queue was not auto-completed. Mark it done in Appointments if needed.";
+            } else {
+              apptMarkMsg =
+                "Consultation was saved, but the linked appointment was not found. Mark it done in Appointments if needed.";
+            }
+          } catch (e) {
+            apptMarkMsg =
+              "Consultation was saved, but the appointment could not be marked done automatically: " +
+              (e && e.message ? e.message : "unknown error");
+            console.warn(e);
+          }
+        }
+
+        if (apptMarkMsg) {
+          alert(apptMarkMsg);
+        } else if (apptMarked) {
+          sessionStorage.setItem("queueToast", "Consultation saved and sent to POS. Appointment marked completed.");
+        } else {
+          sessionStorage.setItem("queueToast", "Consultation saved and sent to POS.");
+        }
+        sessionStorage.removeItem("consultationAppointmentId");
+        window.location.replace("appointments.html");
         return;
       } catch (err) {
         console.error(err);
@@ -675,7 +747,58 @@
 
     document.getElementById('save_send_pos_btn').addEventListener('click', saveConsultationAndSendToPos);
 
+    let consultStep = 1;
+    const stepPanels = [
+      null,
+      document.getElementById('consult_step_1'),
+      document.getElementById('consult_step_2'),
+      document.getElementById('consult_step_3')
+    ];
+    const stepTabs = Array.from(document.querySelectorAll('.consult-step-tab'));
+    const stepLabelEl = document.getElementById('consult_step_label');
+    const prevBtn = document.getElementById('consult_prev_btn');
+    const nextBtn = document.getElementById('consult_next_btn');
+    const saveBtn = document.getElementById('save_send_pos_btn');
+
+    function applyConsultStep(n) {
+      consultStep = Math.min(3, Math.max(1, n));
+      for (let s = 1; s <= 3; s++) {
+        const el = stepPanels[s];
+        if (el) el.classList.toggle('hidden', s !== consultStep);
+      }
+      stepTabs.forEach((tab) => {
+        const sn = Number(tab.getAttribute('data-consult-step'));
+        const on = sn === consultStep;
+        tab.className = on
+          ? 'consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm'
+          : 'consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50';
+      });
+      if (stepLabelEl) stepLabelEl.textContent = `Step ${consultStep} of 3`;
+      if (prevBtn) prevBtn.classList.toggle('hidden', consultStep <= 1);
+      if (nextBtn) nextBtn.classList.toggle('hidden', consultStep >= 3);
+      if (saveBtn) saveBtn.classList.toggle('hidden', consultStep < 3);
+    }
+
+    stepTabs.forEach((tab) => {
+      tab.addEventListener('click', () => applyConsultStep(Number(tab.getAttribute('data-consult-step'))));
+    });
+    prevBtn?.addEventListener('click', () => applyConsultStep(consultStep - 1));
+    nextBtn?.addEventListener('click', () => {
+      if (consultStep === 1) {
+        const petId = Number(petSelect.value);
+        if (!petId) {
+          alert('Select a pet first.');
+          return;
+        }
+      }
+      if (consultStep === 2 && procedures.length === 0) {
+        if (!confirm('No procedures added yet. Continue to prescriptions anyway?')) return;
+      }
+      applyConsultStep(consultStep + 1);
+    });
+
     initData();
+    applyConsultStep(1);
     setActiveTab('start');
   </script>
 </body>

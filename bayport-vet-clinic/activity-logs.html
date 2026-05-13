@@ -8,10 +8,7 @@
   <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex flex-col sm:flex-row items-center justify-between px-4 sm:px-12 py-4 shadow-soft">
-    <div class="flex items-center space-x-3 sm:space-x-5 mb-2 sm:mb-0"><img src="assets/logo.png" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-lg sm:text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-xs sm:text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
-    <button class="bg-white text-[var(--soft-teal)] px-4 sm:px-5 py-2 rounded-md font-semibold hover:bg-gray-50 text-sm sm:text-base" onclick="logout()">Logout</button>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div class="flex flex-1 flex-col lg:flex-row">
     <aside class="w-full lg:w-72 bg-white border-r border-gray-200 p-4 lg:p-6 shadow-soft flex-shrink-0">
@@ -47,8 +44,10 @@
 
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard('activity-logs');
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     const role = getRole();
     if (role !== 'admin') {
       location.href = 'dashboard.html';

@@ -275,6 +275,7 @@ window.Api = {
     update: (appt) => ApiHttp(`/appointments/${appt.id}`, { method: "PUT", body: appt, token: Api.token() }),
     approve: (id) => ApiHttp(`/appointments/${id}/approve`, { method: "POST", token: Api.token() }),
     done: (id) => ApiHttp(`/appointments/${id}/done`, { method: "POST", token: Api.token() }),
+    cancel: (id) => ApiHttp(`/appointments/${id}/cancel`, { method: "POST", token: Api.token() }),
     remove: (id) => ApiHttp(`/appointments/${id}`, { method: "DELETE", token: Api.token() }),
   },
 
@@ -345,6 +346,11 @@ window.Api = {
     remove: (id) => ApiHttp(`/inventory/${id}`, { method: "DELETE", token: Api.token() }),
     mergeCatalog: () =>
       ApiHttp("/inventory/merge-catalog", { method: "POST", token: Api.token() }),
+    uploadPhoto: (id, file) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      return ApiHttp(`/inventory/${id}/photo`, { method: "POST", body: fd, token: Api.token() });
+    },
   },
 
   billing: {
@@ -359,7 +365,7 @@ window.Api = {
     list: () => ApiHttp("/sales", { token: Api.token() }),
     summary: (days = 7) => ApiHttp(`/sales/summary?days=${days}`, { token: Api.token() }),
     posHistory: (limit = 40) =>
-      ApiHttp(`/reports/pos-sales-recent?limit=${limit}`, { token: Api.token() }),
+      ApiHttp(`/sales/pos-recent?limit=${encodeURIComponent(limit)}`, { token: Api.token() }),
     receipt: (saleId) => ApiHttp(`/sales/${saleId}/receipt`, { token: Api.token() }),
     stream: () => new EventSource(`${window.API_BASE}/sales/stream`),
   },
@@ -468,12 +474,8 @@ async function repoAddPet(pet, file) {
   const created = await Api.pets.create(pet);
   let finalPet = created;
   if (file) {
-    try {
-      await Api.pets.uploadPhoto(created.id, file);
-      finalPet = await Api.pets.get(created.id);
-    } catch (err) {
-      console.warn("Photo upload failed:", err.message);
-    }
+    await Api.pets.uploadPhoto(created.id, file);
+    finalPet = await Api.pets.get(created.id);
   }
   return finalPet;
 }
@@ -483,12 +485,8 @@ async function repoUpdatePet(pet, photoFile) {
   const updated = await Api.pets.update(pet);
   let finalPet = updated;
   if (photoFile) {
-    try {
-      await Api.pets.uploadPhoto(pet.id, photoFile);
-      finalPet = await Api.pets.get(pet.id);
-    } catch (err) {
-      console.warn("Photo upload failed:", err.message);
-    }
+    await Api.pets.uploadPhoto(pet.id, photoFile);
+    finalPet = await Api.pets.get(pet.id);
   }
   return finalPet;
 }
@@ -560,6 +558,11 @@ async function repoApproveAppt(id) {
 async function repoDoneAppt(id) {
   ensureApiEnabled();
   await Api.appts.done(id);
+}
+
+async function repoCancelAppt(id) {
+  ensureApiEnabled();
+  await Api.appts.cancel(id);
 }
 
 async function repoListRx() {

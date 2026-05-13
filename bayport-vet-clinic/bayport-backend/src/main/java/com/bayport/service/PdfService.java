@@ -3,6 +3,7 @@ package com.bayport.service;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.lowagie.text.pdf.draw.LineSeparator;
+import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
@@ -435,7 +436,7 @@ public class PdfService {
                 newPatientsTable.addCell(ownerNameHeader);
                 
                 // Data rows with proper cell padding
-                for (ReportSummary.NewPatient np : summary.newPatients) {
+                for (ReportNewPatient np : summary.newPatients) {
                     PdfPCell dateCell = new PdfPCell(new Phrase(nullToEmpty(np.addedAt), value));
                     dateCell.setPadding(6);
                     newPatientsTable.addCell(dateCell);

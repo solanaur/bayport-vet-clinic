@@ -12,8 +12,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -306,7 +310,7 @@ public class BayportService {
         appointment.setTime(request.getTime());
         appointment.setVet(request.getVet());
 
-        // Let saveAppointment handle status defaulting, time validation,
+        // Let saveAppointment handle status defaulting, time normalization,
         // overlap checks, code generation, and email notification.
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             appointment.setStatus(request.getStatus());
@@ -332,14 +336,11 @@ public class BayportService {
             throw new IllegalArgumentException("Selected veterinarian is not active or not found");
         }
 
-        // Validate 30-minute time intervals
-        validateTimeInterval(appointment.getTime());
+        // Normalize and validate time (any minute; HH:mm 24h)
+        appointment.setTime(normalizeAppointmentTime(appointment.getTime()));
 
-        // Check for overlapping appointments for the same vet
+        // Check for overlapping appointments for the same vet (same date + exact time string)
         validateVetAvailability(appointment);
-
-        // Enforce global 30-minute slot capacity (max 5 patients regardless of vet)
-        enforceClinicSlotCapacity(appointment.getDate(), appointment.getTime(), appointment.getId());
 
         appointment.setStatus("Pending");
         
@@ -373,26 +374,25 @@ public class BayportService {
     }
 
     /**
-     * Validates that appointment time is in 30-minute intervals (ends in :00 or :30).
+     * Parses appointment time and returns normalized {@code HH:mm} (24-hour).
+     * Any minute is allowed — there is no 30-minute “slot grid” validation.
      */
-    private void validateTimeInterval(String time) {
-        if (time == null || time.trim().isEmpty()) {
+    private String normalizeAppointmentTime(String raw) {
+        if (raw == null || raw.trim().isEmpty()) {
             throw new IllegalArgumentException("Appointment time is required");
         }
-        
-        String[] parts = time.split(":");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException("Invalid time format. Use HH:mm format");
-        }
-        
+        String t = raw.trim();
+        LocalTime lt;
         try {
-            int minutes = Integer.parseInt(parts[1]);
-            if (minutes != 0 && minutes != 30) {
-                throw new IllegalArgumentException("Appointment time must be in 30-minute intervals (e.g., 09:00, 09:30, 10:00)");
+            lt = LocalTime.parse(t, DateTimeFormatter.ISO_LOCAL_TIME);
+        } catch (DateTimeParseException ignored) {
+            try {
+                lt = LocalTime.parse(t, DateTimeFormatter.ofPattern("H:mm"));
+            } catch (DateTimeParseException ex) {
+                throw new IllegalArgumentException("Invalid time. Use a 24-hour clock time such as 09:15 or 14:05.");
             }
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid time format. Minutes must be a number");
         }
+        return String.format("%02d:%02d", lt.getHour(), lt.getMinute());
     }
 
     /**
@@ -430,14 +430,13 @@ public class BayportService {
         if (appointment.getCode() == null || appointment.getCode().trim().isEmpty()) {
             appointment.setCode(generateUniqueAppointmentCode(appointment));
         }
-        // Validate time interval if time is being updated
+        // Validate / normalize time if being updated
         if (appointment.getTime() != null) {
-            validateTimeInterval(appointment.getTime());
+            appointment.setTime(normalizeAppointmentTime(appointment.getTime()));
         }
         // Check for overlaps if date/time/vet is being updated
         if (appointment.getDate() != null && appointment.getTime() != null && appointment.getVet() != null) {
             validateVetAvailability(appointment);
-            enforceClinicSlotCapacity(appointment.getDate(), appointment.getTime(), appointment.getId());
         }
         return appointmentRepository.save(appointment);
     }
@@ -452,6 +451,7 @@ public class BayportService {
         if (appointmentOpt.isPresent()) {
             Appointment appointment = appointmentOpt.get();
             appointment.setStatus("Approved by Vet");
+            appointment.setConsultationStartedAt(Instant.now());
             logOperation("APPT_APPROVED", "Appointment approved for " + appointment.getOwner(), appointment.getPetId());
             Appointment saved = appointmentRepository.save(appointment);
             
@@ -522,10 +522,57 @@ public class BayportService {
             Appointment appointment = appointmentOpt.get();
             appointment.setStatus("Done");
             appointment.setCompletedAt(LocalDate.now());
+            appointment.setConsultationStartedAt(null);
             logOperation("APPT_DONE", "Appointment done for " + appointment.getOwner(), appointment.getPetId());
             return appointmentRepository.save(appointment);
         }
         throw new ResourceNotFoundException("Appointment not found with id: " + id);
+    }
+
+    /**
+     * After POS checkout for a linked consultation: completes the appointment if it matches the pet
+     * and is still active (not already done or cancelled).
+     */
+    public void tryMarkAppointmentDoneAfterPosCheckout(Long appointmentId, Long salePetId) {
+        if (appointmentId == null) {
+            return;
+        }
+        Optional<Appointment> opt = appointmentRepository.findById(appointmentId);
+        if (opt.isEmpty()) {
+            return;
+        }
+        Appointment appt = opt.get();
+        if (salePetId != null && appt.getPetId() != null && !salePetId.equals(appt.getPetId())) {
+            // Stale browser session (e.g. different patient selected on POS) — do not fail checkout.
+            return;
+        }
+        String st = appt.getStatus() != null ? appt.getStatus().trim() : "";
+        if ("Done".equalsIgnoreCase(st) || "Cancelled".equalsIgnoreCase(st)) {
+            return;
+        }
+        if (!"Approved by Vet".equalsIgnoreCase(st)) {
+            return;
+        }
+        markAppointmentDone(appointmentId);
+    }
+
+    public Appointment cancelAppointment(Long id) {
+        Optional<Appointment> appointmentOpt = appointmentRepository.findById(id);
+        if (appointmentOpt.isEmpty()) {
+            throw new ResourceNotFoundException("Appointment not found with id: " + id);
+        }
+        Appointment appointment = appointmentOpt.get();
+        String st = appointment.getStatus() != null ? appointment.getStatus() : "";
+        if ("Done".equalsIgnoreCase(st)) {
+            throw new IllegalStateException("Cannot cancel a completed appointment");
+        }
+        if ("Cancelled".equalsIgnoreCase(st)) {
+            return appointment;
+        }
+        appointment.setStatus("Cancelled");
+        appointment.setConsultationStartedAt(null);
+        logOperation("APPT_CANCELLED", "Appointment cancelled for " + appointment.getOwner(), appointment.getPetId());
+        return appointmentRepository.save(appointment);
     }
 
     // Prescription operations
@@ -886,30 +933,6 @@ public class BayportService {
                     overlapping.stream().noneMatch(a -> a.getId().equals(appointment.getId())))) {
                 throw new IllegalArgumentException("Veterinarian already has an appointment at this time slot");
             }
-        }
-    }
-
-    /**
-     * Enforces the clinic-wide rule that only five patients can occupy the same
-     * 30-minute block regardless of veterinarian assignment.
-     */
-    private void enforceClinicSlotCapacity(LocalDate date, String time, Long currentAppointmentId) {
-        if (date == null || time == null) {
-            return;
-        }
-        long activeCount = appointmentRepository.countActiveAppointments(date, time);
-        long effectiveCount = activeCount;
-        if (currentAppointmentId != null) {
-            Optional<Appointment> existingOpt = appointmentRepository.findById(currentAppointmentId);
-            if (existingOpt.isPresent()) {
-                Appointment existing = existingOpt.get();
-                if (date.equals(existing.getDate()) && time.equals(existing.getTime())) {
-                    effectiveCount = Math.max(0, activeCount - 1);
-                }
-            }
-        }
-        if (effectiveCount >= 5) {
-            throw new IllegalArgumentException("Selected time slot already has 5 patients. Please choose another time.");
         }
     }
 

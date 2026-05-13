@@ -2,6 +2,7 @@ package com.bayport.config;
 
 import com.bayport.entity.InventoryItem;
 import com.bayport.repository.InventoryItemRepository;
+import com.bayport.repository.InventorySkuSuppressionRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import java.util.Optional;
 
 /**
  * Merges catalog JSON (products + procedures/services) into {@code inventory_items} by SKU.
+ * SKUs the user deleted are recorded in {@code inventory_sku_suppression} and are never re-inserted here.
  * Per-row failures are logged and skipped so one bad row does not block the rest.
  */
 @Component
@@ -23,10 +25,13 @@ public class InventoryCatalogImporter {
     private static final Logger log = LoggerFactory.getLogger(InventoryCatalogImporter.class);
 
     private final InventoryItemRepository inventoryItemRepository;
+    private final InventorySkuSuppressionRepository skuSuppressionRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public InventoryCatalogImporter(InventoryItemRepository inventoryItemRepository) {
+    public InventoryCatalogImporter(InventoryItemRepository inventoryItemRepository,
+                                    InventorySkuSuppressionRepository skuSuppressionRepository) {
         this.inventoryItemRepository = inventoryItemRepository;
+        this.skuSuppressionRepository = skuSuppressionRepository;
     }
 
     public void importMissingSkus() {
@@ -75,6 +80,10 @@ public class InventoryCatalogImporter {
             throw new IllegalArgumentException("SKU is required");
         }
         String trimmed = sku.trim();
+        if (skuSuppressionRepository.existsById(trimmed.toUpperCase())) {
+            throw new IllegalArgumentException(
+                    "This item was removed from inventory and is not restored automatically: " + trimmed);
+        }
         Optional<InventoryItem> existing = inventoryItemRepository.findBySku(trimmed);
         if (existing.isPresent()) {
             return existing.get();
@@ -113,6 +122,9 @@ public class InventoryCatalogImporter {
     private boolean importOneRow(JsonNode n) {
         String sku = text(n, "sku");
         if (sku == null || sku.isBlank()) {
+            return false;
+        }
+        if (skuSuppressionRepository.existsById(sku.trim().toUpperCase())) {
             return false;
         }
         if (inventoryItemRepository.findBySku(sku).isPresent()) {

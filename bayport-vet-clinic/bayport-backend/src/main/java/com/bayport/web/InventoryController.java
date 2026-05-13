@@ -55,7 +55,8 @@ public class InventoryController {
     }
 
     /**
-     * Merges built-in product + procedure/service catalog rows (by SKU). Safe to run anytime.
+     * Merges built-in product + procedure/service catalog rows (by SKU). Skips SKUs you removed from inventory
+     * so they do not reappear after restart.
      */
     @PostMapping("/merge-catalog")
     @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")

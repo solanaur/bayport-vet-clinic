@@ -1,7 +1,6 @@
 package com.bayport.dto;
 
 import com.bayport.entity.OperationLog;
-
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +13,7 @@ public class ReportSummary {
     public int prescriptionsDispensed;
     public int petsAdded;
     public List<OperationLog> events = new ArrayList<>();
-    public List<NewPatient> newPatients = new ArrayList<>();
+    public List<ReportNewPatient> newPatients = new ArrayList<>();
     /** @deprecated No longer populated; use {@link #posProcedureLines} / {@link #posProductLines}. */
     @Deprecated
     public List<FinishedAppointment> finished = new ArrayList<>();
@@ -42,12 +41,6 @@ public class ReportSummary {
         public int quantity;
         public BigDecimal unitPrice;
         public BigDecimal lineTotal;
-    }
-
-    public static class NewPatient {
-        public String petName;
-        public String ownerName;
-        public String addedAt;
     }
 
     public static class FinishedAppointment {

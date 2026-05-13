@@ -25,7 +25,11 @@ public class LocalFileStorageService implements FileStorageService {
 
     @Override
     public String store(MultipartFile file) throws IOException {
-        String cleanName = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename(), "filename"));
+        String original = file.getOriginalFilename();
+        if (!StringUtils.hasText(original)) {
+            original = "upload.jpg";
+        }
+        String cleanName = StringUtils.cleanPath(Objects.requireNonNull(original, "filename"));
         String filename = UUID.randomUUID() + "_" + cleanName.replace(" ", "_");
         Path destination = uploadRoot.resolve(filename);
         Files.copy(file.getInputStream(), destination, StandardCopyOption.REPLACE_EXISTING);

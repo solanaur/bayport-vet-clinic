@@ -50,6 +50,26 @@
       border-radius: 14px;
       box-shadow: 0 3px 10px rgba(28, 52, 88, 0.06);
     }
+    .pos-soft-panel {
+      border-radius: 14px;
+      border: 1px solid #dbe3ef;
+      background: #f8fafc;
+    }
+    .pos-select-card {
+      border: 1px solid #d9e2ef;
+      background: #ffffff;
+      border-radius: 10px;
+      padding: 0.7rem 0.75rem;
+    }
+    .pos-check {
+      width: 1.05rem;
+      height: 1.05rem;
+      accent-color: #7c3aed;
+      border-radius: 4px;
+      border: 1px solid #c5d0df;
+      margin-top: 0.05rem;
+      flex-shrink: 0;
+    }
     .pos-sidebar-shell {
       background: var(--pos-sidebar-bg);
     }
@@ -117,19 +137,7 @@
   </div>
 
   <div id="posWorkspace" class="hidden flex flex-col min-h-screen">
-  <header class="w-full bg-[var(--pos-brand)] text-white flex items-center justify-between px-8 py-4 shadow">
-    <div class="flex items-center gap-3">
-      <img src="assets/logo.png" class="w-10 h-10 rounded bg-white p-0.5" alt="">
-      <div>
-        <h1 class="text-xl font-semibold">Checkout</h1>
-        <p class="text-xs text-white/80" id="posOperatorName">Front Desk</p>
-      </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <span class="text-sm tabular-nums text-white/80 hidden sm:inline" id="posClock">—</span>
-      <button type="button" class="bg-white text-[var(--pos-brand)] px-4 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
-    </div>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div id="posToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[92%] px-4 py-3 rounded-xl shadow-lg text-sm font-medium hidden pointer-events-none"></div>
   <div id="posSuccessModal" class="fixed inset-0 bg-slate-900/35 hidden items-center justify-center p-4 z-[70]">
@@ -141,7 +149,7 @@
       </div>
     </div>
   </div>
-  <div id="posPreviewModal" class="fixed inset-0 bg-slate-900/30 hidden items-center justify-center p-4 z-50">
+  <div id="posPreviewModal" class="fixed inset-0 bg-slate-900/40 hidden items-center justify-center p-4 z-[70]">
     <div class="bg-white rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl border border-slate-200">
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <h3 class="font-medium text-slate-800">Receipt preview</h3>
@@ -152,134 +160,197 @@
   </div>
 
   <div id="posHistoryModal" class="fixed inset-0 bg-slate-900/30 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl w-full max-w-lg max-h-[min(85vh,520px)] flex flex-col shadow-xl border border-slate-200">
+    <div class="bg-white rounded-2xl w-full max-w-3xl max-h-[min(88vh,760px)] flex flex-col shadow-xl border border-slate-200">
       <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
         <h3 class="font-medium text-slate-800">Today&rsquo;s sales</h3>
-        <button type="button" id="closePosHistoryBtn" class="text-sm text-slate-500 hover:text-slate-800 px-2 py-1 rounded-lg hover:bg-slate-50">Close</button>
+        <button type="button" id="closePosHistoryBtn" class="text-sm text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium">Close</button>
       </div>
-      <div class="flex justify-end px-3 py-2 border-b border-slate-50">
-        <button type="button" id="btnRefreshHistory" class="text-sm text-slate-700 font-medium hover:underline">Refresh</button>
+      <div class="px-3 py-3 border-b border-slate-100">
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <input id="historySearchInp" type="search" class="pos-field sm:col-span-2" placeholder="Search patient, invoice, item..." />
+          <select id="historyStatusSel" class="pos-field">
+            <option value="ALL">All statuses</option>
+            <option value="PAID">Paid</option>
+            <option value="PENDING">Pending</option>
+            <option value="VOIDED">Voided/Refunded</option>
+          </select>
+          <select id="historyPaySel" class="pos-field">
+            <option value="ALL">All payment methods</option>
+            <option value="Cash">Cash</option>
+            <option value="Card">Card</option>
+            <option value="GCash">GCash</option>
+            <option value="Bank transfer">Bank transfer</option>
+          </select>
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <button type="button" id="btnClearHistoryFilters" class="text-sm text-slate-700 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-slate-50">Clear filters</button>
+          <button type="button" id="btnRefreshHistory" class="text-sm text-white bg-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium">Refresh</button>
+        </div>
       </div>
       <div id="posHistoryBody" class="text-sm overflow-y-auto flex-1 p-4 text-slate-600 min-h-[140px] leading-relaxed">
         <p class="text-slate-400 py-8 text-center text-sm">Loading&hellip;</p>
+      </div>
+      <div class="px-4 py-2 border-t border-slate-100 flex justify-center">
+        <button type="button" id="btnLoadMoreHistory" class="hidden text-sm text-slate-700 border border-slate-300 px-4 py-1.5 rounded-lg hover:bg-slate-50">Load more</button>
       </div>
     </div>
   </div>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6">
-      <h2 class="text-lg font-semibold text-[var(--pos-brand)] uppercase mb-4">Menu</h2>
+      <h2 class="text-lg font-semibold text-[var(--pos-brand)] uppercase mb-4">Point of sale</h2>
       <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
     </aside>
 
     <div class="flex flex-1 min-h-0 min-w-0 flex-col lg:flex-row">
       <div class="flex-1 min-h-0 min-w-0 p-6 overflow-y-auto border-b lg:border-b-0 lg:border-r border-slate-200/80 pos-main-shell">
-        <details class="pos-min pos-panel mb-6 open:shadow-sm" open>
-          <summary class="px-4 py-3 text-sm font-medium text-slate-700 cursor-pointer select-none">Patient &amp; payment</summary>
-          <div class="px-4 pb-4 pt-0 grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs text-slate-500 mb-1" for="petSearch">Search</label>
-              <div class="relative">
-                <input id="petSearch" type="search" autocomplete="off" class="pos-field" placeholder="Pet or owner"/>
-                <div id="petSearchResults" class="hidden absolute z-40 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto"></div>
+        <section class="pos-panel mb-6 shadow-sm">
+          <div class="px-4 py-3 text-sm font-medium text-slate-700 border-b border-slate-100">Current patient</div>
+          <div class="px-4 pb-4 pt-0">
+            <label class="block text-xs text-slate-500 mb-1" for="petSearch">Search patient</label>
+            <div class="relative">
+              <input id="petSearch" type="search" autocomplete="off" class="pos-field pr-10" placeholder="Search by name, phone number, or pet name"/>
+              <button type="button" id="clearPetSearchBtn" class="hidden absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 text-sm" aria-label="Clear search">×</button>
+              <div id="petSearchResults" class="hidden absolute z-40 mt-1 w-full rounded-xl border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto"></div>
+            </div>
+            <div class="mt-2 flex items-center justify-end gap-2">
+              <button type="button" id="useWalkInBtn" class="text-xs px-3 py-1.5 rounded-md border border-slate-300 bg-white text-slate-600 hover:text-slate-800 hover:bg-slate-50 shadow-sm">
+                Proceed as Walk-in Customer
+              </button>
+            </div>
+            <div id="petSummaryCard" class="hidden mt-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div class="flex flex-col sm:flex-row gap-4">
+                <div id="petCardPhoto" class="shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <p id="petSummaryName" class="text-lg font-bold text-slate-900">—</p>
+                        <span id="petSpeciesPill" class="hidden text-xs font-semibold rounded-full bg-sky-100 text-sky-800 px-2.5 py-0.5"></span>
+                      </div>
+                      <p id="petSummaryMeta" class="text-sm text-slate-600 mt-1">—</p>
+                      <p id="petSummaryOwner" class="text-sm text-slate-600 mt-1">—</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 shrink-0">
+                      <a id="petViewProfileBtn" href="pet-records.html" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">View profile</a>
+                      <button type="button" id="petChangePatientBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--pos-brand)] text-[var(--pos-brand)] hover:bg-blue-50">Change patient</button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <label class="block text-xs text-slate-500 mb-1" for="petSel">Patient</label>
-              <select id="petSel" class="pos-field font-medium"></select>
-            </div>
-            <div>
-              <label class="block text-xs text-slate-500 mb-1" for="paySel">Payment</label>
-              <select id="paySel" class="pos-field">
-                <option>Cash</option><option>Card</option><option>GCash</option><option>Bank transfer</option>
-              </select>
-            </div>
+            <select id="petSel" class="hidden"></select>
           </div>
-        </details>
+        </section>
 
-        <details id="rxFold" class="pos-min hidden mb-6 rounded-xl border border-amber-100 bg-amber-50/40">
-          <summary class="px-4 py-3 text-sm font-medium text-slate-800 cursor-pointer select-none">Prescriptions for this patient</summary>
+        <details id="rxFold" class="hidden mb-6 pos-soft-panel pos-min">
+          <summary id="rxFoldTitle" class="px-4 py-3 text-sm font-medium text-slate-800 cursor-pointer select-none list-none flex flex-wrap items-center justify-between gap-2">
+            <span class="inline-flex flex-wrap items-center gap-2">
+              <span>Prescriptions</span>
+              <span id="rxAddedBadge" class="hidden text-[11px] font-semibold tracking-wide rounded-full bg-sky-100 text-sky-900 px-2.5 py-0.5"></span>
+            </span>
+          </summary>
           <div class="px-4 pb-4 space-y-3">
-            <div id="rxList" class="space-y-1 max-h-32 overflow-y-auto"></div>
-            <button type="button" id="importRxBtn" class="text-sm font-medium text-slate-800 bg-slate-200 hover:bg-slate-300 px-4 py-2 rounded-lg">Add selected to sale</button>
+            <div id="rxList" class="space-y-2 max-h-[min(40vh,320px)] overflow-y-auto"></div>
+            <button type="button" id="rxAddPrescriptionBtn" class="w-full text-sm font-semibold text-[var(--pos-brand)] py-2.5 rounded-lg border border-dashed border-slate-300 hover:bg-slate-50">
+              + Add prescription
+            </button>
+            <button type="button" id="importRxBtn" class="w-full text-sm font-semibold text-white bg-[var(--pos-brand)] hover:brightness-105 py-2.5 rounded-lg shadow-sm">
+              Add selected to sale
+            </button>
           </div>
         </details>
 
-        <details id="billFold" class="pos-min mb-6 rounded-xl border border-blue-100 bg-blue-50/40">
-          <summary class="px-4 py-3 text-sm font-medium text-sky-900/90 cursor-pointer select-none">Pending consultation charges</summary>
+        <section id="billFold" class="hidden mb-6 pos-soft-panel">
+          <div id="billFoldTitle" class="px-4 py-3 text-sm font-semibold text-slate-800 border-b border-slate-100">Bill from consultation</div>
           <div class="px-4 pb-4 space-y-3">
-            <div id="billList" class="space-y-1 max-h-36 overflow-y-auto text-sm text-slate-500">Select a patient to load pending consultation charges.</div>
-            <button type="button" id="importBillBtn" class="text-sm font-medium text-slate-800 bg-slate-200 hover:bg-slate-300 px-4 py-2 rounded-lg">Add selected charges</button>
+            <div id="billList" class="space-y-1 max-h-48 overflow-y-auto text-sm text-slate-500">Loading pending consultation charges...</div>
           </div>
-        </details>
+        </section>
 
-        <div class="flex flex-wrap items-center gap-3 mb-4">
-          <div class="inline-flex rounded-full border border-slate-200 bg-slate-50/80 p-1">
-            <button type="button" id="tabShop" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-500 transition-colors">Retail</button>
-            <button type="button" id="tabProc" class="px-4 py-1.5 text-sm font-medium rounded-full transition-colors">Services</button>
-          </div>
-          <button type="button" id="btnRefreshStock" class="text-sm text-slate-400 hover:text-slate-700 ml-auto">Reload catalog</button>
-        </div>
+        <div class="mt-5">
+          <div id="catalogSection">
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+              <div class="inline-flex rounded-full border border-slate-200 bg-slate-50/80 p-1">
+                <button type="button" id="tabShop" class="px-4 py-1.5 text-sm font-medium rounded-full text-slate-500 transition-colors">Products</button>
+                <button type="button" id="tabProc" class="px-4 py-1.5 text-sm font-medium rounded-full transition-colors">Services</button>
+              </div>
+              <button type="button" id="btnRefreshStock" class="text-sm text-slate-400 hover:text-slate-700 ml-auto">Reload catalog</button>
+            </div>
 
-        <div class="flex gap-3 mb-4">
-          <div class="flex-1 min-w-0">
-            <label class="sr-only" for="mainSearch">Search catalog</label>
-            <input id="mainSearch" type="search" class="pos-field" placeholder="Search by name or SKU"/>
-          </div>
-          <div class="w-20 shrink-0">
-            <label class="sr-only" for="lineQty">Qty</label>
-            <input id="lineQty" type="number" min="1" value="1" class="pos-field text-center tabular-nums font-medium px-1" title="Quantity per add"/>
-          </div>
-        </div>
+            <div class="flex gap-3 mb-4">
+              <div class="flex-1 min-w-0">
+                <label class="sr-only" for="mainSearch">Search catalog</label>
+                <input id="mainSearch" type="search" class="pos-field" placeholder="Search by name or SKU"/>
+              </div>
+            </div>
 
-        <div id="itemList" class="min-h-[200px] max-h-[min(50vh,480px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
-          <p class="p-16 text-center text-slate-400 text-sm">Loading&hellip;</p>
+            <div id="posCatChips" class="hidden flex flex-wrap gap-2 mb-3"></div>
+
+            <div id="itemList" class="min-h-[200px] max-h-[min(50vh,480px)] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <p class="p-16 text-center text-slate-400 text-sm">Loading&hellip;</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <aside class="w-full lg:w-[380px] shrink-0 flex flex-col min-h-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-200/80 pos-right-shell">
+      <aside class="w-full lg:w-[400px] shrink-0 flex flex-col min-h-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-200/80 pos-right-shell">
         <div class="flex items-baseline justify-between gap-2 mb-3">
-          <h2 class="text-sm font-medium text-slate-800">This sale</h2>
-          <button type="button" id="btnClearCart" class="text-xs text-slate-400 hover:text-red-600">Clear</button>
+          <h2 class="text-sm font-semibold text-slate-800">Current sale</h2>
+          <button type="button" id="btnClearCart" class="text-xs font-semibold text-[var(--pos-brand)] hover:underline">Clear all</button>
         </div>
-        <div id="cartBody" class="flex-1 min-h-[8rem] max-h-[min(36vh,320px)] text-sm border border-slate-200 rounded-xl bg-white overflow-y-auto mb-6 shadow-sm"></div>
+        <div id="cartBody" class="flex-1 min-h-[8rem] max-h-[min(36vh,320px)] text-sm border border-slate-200 rounded-xl bg-white overflow-y-auto mb-4 shadow-sm"></div>
 
-        <div class="flex justify-between items-end py-4 border-t border-slate-100">
-          <span class="text-sm text-slate-500">Total</span>
-          <span class="text-2xl font-semibold tabular-nums text-slate-900">₱<span id="cartTotal">0.00</span></span>
+        <div class="space-y-2 text-sm border-t border-slate-100 pt-3 mb-4">
+          <div class="flex justify-between text-slate-600">
+            <span>Subtotal</span>
+            <span class="tabular-nums font-medium text-slate-800">₱<span id="cartSubtotal">0.00</span></span>
+          </div>
+          <div class="flex justify-between items-center gap-2 text-slate-600">
+            <span>Discount</span>
+            <button type="button" id="posDiscountAddBtn" class="text-xs font-semibold text-[var(--pos-brand)] hover:underline shrink-0">Add</button>
+          </div>
+          <div id="posDiscountWrap" class="hidden">
+            <label class="block text-xs text-slate-500 mb-1" for="posDiscountInp">Amount (₱)</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm tabular-nums">₱</span>
+              <input id="posDiscountInp" type="number" min="0" step="0.01" class="pos-field pl-8 tabular-nums" placeholder="0.00" value=""/>
+            </div>
+          </div>
+          <div class="flex justify-between items-end pt-2 border-t border-slate-100">
+            <span class="text-sm font-medium text-slate-700">Total</span>
+            <span class="text-2xl font-semibold tabular-nums text-slate-900">₱<span id="cartTotal">0.00</span></span>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="block text-xs text-slate-500 mb-1" for="paySel">Payment method</label>
+          <select id="paySel" class="pos-field">
+            <option>Cash</option><option>Card</option><option>GCash</option><option>Bank transfer</option>
+          </select>
         </div>
 
         <div id="cashTenderBlock" class="space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4 mb-3">
-          <label class="block text-xs text-slate-500" for="tenderInp">Cash received</label>
+          <label class="block text-xs text-slate-500 mb-1" for="tenderInp">Amount received</label>
           <div class="relative">
             <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm tabular-nums">₱</span>
             <input id="tenderInp" type="number" min="0" step="0.01" placeholder="0.00" class="pos-field pl-8 tabular-nums"/>
           </div>
-          <details class="pos-min text-sm">
-            <summary class="cursor-pointer text-slate-400 hover:text-slate-600 select-none text-xs">Quick amounts</summary>
-            <div class="grid grid-cols-3 gap-2 mt-3">
-              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="100">+100</button>
-              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="500">+500</button>
-              <button type="button" class="tender-quick py-2 rounded-lg text-xs font-medium bg-white border border-slate-200 text-slate-700 hover:bg-slate-50" data-add="1000">+1000</button>
-              <button type="button" id="tenderExactBtn" class="col-span-3 py-2 rounded-lg text-xs font-medium bg-slate-800 text-white hover:bg-slate-700">Exact total</button>
-            </div>
-          </details>
           <div class="flex justify-between text-sm pt-2 border-t border-slate-200/80">
-            <span class="text-slate-500">Change</span>
+            <span id="changeLabel" class="text-slate-500">Payment status</span>
             <span id="changeDisplay" class="font-medium tabular-nums text-slate-400">₱0.00</span>
           </div>
         </div>
-        <p id="nonCashHint" class="hidden text-sm text-slate-500 mb-4">Non-cash: customer pays the amount due.</p>
+        <p id="nonCashHint" class="hidden text-sm text-slate-500 mb-4">Non-cash selected: charge exact amount due.</p>
 
-        <details class="pos-min mb-4 text-sm border border-slate-100 rounded-xl px-3 py-2">
-          <summary class="cursor-pointer text-slate-500 select-none text-xs">After payment (prescriptions)</summary>
-          <label class="flex gap-2 items-start mt-3 text-slate-600 cursor-pointer">
-            <input type="checkbox" id="fulfillRx" class="mt-1 rounded border-slate-300 text-teal-600 focus:ring-teal-500"/>
-            <span>Mark imported prescriptions as dispensed</span>
+        <div id="afterPaymentBlock" class="hidden mb-4 text-sm border border-slate-100 rounded-xl px-3 py-2 bg-white">
+          <label class="flex gap-2 items-start text-slate-600 cursor-pointer">
+            <input type="checkbox" id="fulfillRx" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"/>
+            <span>After payment: mark imported prescriptions as dispensed</span>
           </label>
-        </details>
+        </div>
 
-        <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-medium text-white bg-slate-700 hover:bg-slate-800 transition-colors">
+        <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-semibold text-white bg-[var(--pos-brand)] hover:brightness-105 shadow-sm transition-colors">
           Complete payment
         </button>
         <button type="button" id="btnOpenHistoryModal" class="w-full mt-4 text-sm text-slate-400 hover:text-slate-700 py-2">
@@ -297,8 +368,12 @@
   <script src="assets/api.js"></script>
   <script src="assets/thermal-receipt.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard("pos");
+    if (typeof initBayportAppHeader === "function") {
+      initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "pos-brand", tagline: "Point of sale · Checkout" });
+    }
     const role = getRole();
     renderSidebar(document.getElementById("sidebarNav"), role, "pos.html");
 
@@ -352,30 +427,19 @@
       if (e.target && e.target.id === "posHistoryModal") closeHistoryModal();
     });
 
-    (function posHeaderClock() {
-      const clockEl = document.getElementById("posClock");
-      const opEl = document.getElementById("posOperatorName");
-      if (opEl && typeof getUserName === "function") {
-        const n = getUserName();
-        opEl.textContent = n && String(n).trim() ? n : "Signed in";
-      }
-      function tick() {
-        if (!clockEl) return;
-        clockEl.textContent = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-      }
-      tick();
-      setInterval(tick, 1000);
-    })();
-
     let inventory = [];
     let procedureRows = [];
     let petsCache = [];
     let cart = [];
     let openRx = [];
     let pendingBills = [];
+    let walkInMode = false;
+    let posHistoryRows = [];
+    let posHistoryLimit = 20;
+    const dismissedBillingIds = new Set();
     const rxSelected = new Set();
-    const billSelected = new Set();
     let activeTab = "shop";
+    let posCatFilter = "ALL";
 
     function money(n) {
       return formatPrice(n);
@@ -404,6 +468,150 @@
       return owner ? `${name} — ${owner}` : name;
     }
 
+    function getSelectedPetId() {
+      return String(document.getElementById("petSel")?.value || "");
+    }
+
+    function getSelectedPet() {
+      const petId = getSelectedPetId();
+      if (!petId) return null;
+      return petsCache.find((p) => String(p.id) === petId) || null;
+    }
+
+    function petMetaLine(p) {
+      if (!p) return "Walk-in customer";
+      const breed = (p.breed || "Unknown breed").trim();
+      const ageRaw = p.age != null ? String(p.age).trim() : "";
+      const age = ageRaw ? `${ageRaw} yr${ageRaw === "1" ? "" : "s"}` : "Age not set";
+      const g = (p.gender || "").trim();
+      return `${breed} • ${age}${g ? ` • ${g}` : ""}`;
+    }
+
+    function renderPatientSummary() {
+      const card = document.getElementById("petSummaryCard");
+      const nameEl = document.getElementById("petSummaryName");
+      const metaEl = document.getElementById("petSummaryMeta");
+      const ownerEl = document.getElementById("petSummaryOwner");
+      const photoEl = document.getElementById("petCardPhoto");
+      const pill = document.getElementById("petSpeciesPill");
+      const viewBtn = document.getElementById("petViewProfileBtn");
+      if (!card || !nameEl || !metaEl || !ownerEl) return;
+      const photoHtml = (photoPath, wrapCls) =>
+        typeof renderPetPhotoHtml === "function"
+          ? renderPetPhotoHtml(photoPath, wrapCls, "object-cover w-full h-full")
+          : `<div class="${wrapCls} rounded-lg bg-[var(--pos-brand)]"></div>`;
+      if (walkInMode) {
+        renderWalkInSummary();
+        return;
+      }
+      const pet = getSelectedPet();
+      if (!pet) {
+        card.classList.add("hidden");
+        return;
+      }
+      nameEl.textContent = pet.name || `Pet #${pet.id}`;
+      metaEl.textContent = petMetaLine(pet);
+      const phone = (pet.ownerPhone || pet.phone || "").trim();
+      ownerEl.textContent = phone ? `Owner: ${pet.owner || "—"} • ${phone}` : `Owner: ${pet.owner || "—"}`;
+      if (photoEl) {
+        photoEl.innerHTML = photoHtml(pet.photo, "relative h-24 w-24 sm:h-28 sm:w-28 rounded-xl border border-slate-200 overflow-hidden shrink-0");
+      }
+      if (pill) {
+        const sp = (pet.species || "").trim();
+        if (sp) {
+          pill.textContent = sp;
+          pill.classList.remove("hidden");
+        } else {
+          pill.classList.add("hidden");
+        }
+      }
+      if (viewBtn) {
+        viewBtn.href = `pet-profile.html?id=${encodeURIComponent(pet.id)}`;
+        viewBtn.classList.remove("pointer-events-none", "opacity-40");
+      }
+      card.classList.remove("hidden");
+    }
+
+    function renderWalkInSummary() {
+      const card = document.getElementById("petSummaryCard");
+      const nameEl = document.getElementById("petSummaryName");
+      const metaEl = document.getElementById("petSummaryMeta");
+      const ownerEl = document.getElementById("petSummaryOwner");
+      const photoEl = document.getElementById("petCardPhoto");
+      const pill = document.getElementById("petSpeciesPill");
+      const viewBtn = document.getElementById("petViewProfileBtn");
+      if (!card || !nameEl || !metaEl || !ownerEl) return;
+      nameEl.textContent = "Walk-in customer";
+      metaEl.textContent = "No registered patient selected";
+      ownerEl.textContent = "Owner: Walk-in";
+      if (photoEl) {
+        photoEl.innerHTML =
+          typeof renderPetPhotoHtml === "function"
+            ? renderPetPhotoHtml(null, "relative h-24 w-24 sm:h-28 sm:w-28 rounded-xl border border-slate-200 overflow-hidden shrink-0", "object-cover w-full h-full")
+            : `<div class="h-24 w-24 sm:h-28 sm:w-28 rounded-xl bg-[var(--pos-brand)] shrink-0"></div>`;
+      }
+      if (pill) pill.classList.add("hidden");
+      if (viewBtn) {
+        viewBtn.href = "pet-records.html";
+        viewBtn.classList.add("pointer-events-none", "opacity-40");
+      }
+      card.classList.remove("hidden");
+    }
+
+    function clearQueueSessionForPos() {
+      sessionStorage.removeItem("consultationAppointmentId");
+      sessionStorage.removeItem("consultationPetId");
+    }
+
+    /** Only use stored queue appointment if it belongs to this patient; clears stale keys. */
+    async function resolveAppointmentIdForPosPet(petIdStr) {
+      const apptIdRaw = sessionStorage.getItem("consultationAppointmentId");
+      const parsed =
+        apptIdRaw && String(apptIdRaw).trim() !== "" && !Number.isNaN(Number(apptIdRaw)) ? Number(apptIdRaw) : null;
+      if (parsed == null) return null;
+      if (!petIdStr) {
+        clearQueueSessionForPos();
+        return null;
+      }
+      if (!window.USE_API || typeof Api?.appts?.get !== "function") return parsed;
+      try {
+        const appt = await Api.appts.get(parsed);
+        const apptPet = appt && (appt.petId != null ? appt.petId : appt.pet?.id);
+        if (appt && Number(apptPet) === Number(petIdStr)) return parsed;
+      } catch (_) {
+        /* stale id or network */
+      }
+      clearQueueSessionForPos();
+      return null;
+    }
+
+    async function setSelectedPet(petId, options = {}) {
+      const sel = document.getElementById("petSel");
+      const resultsEl = document.getElementById("petSearchResults");
+      if (!sel) return;
+      const priorPet = String(sel.value || "");
+      const id = String(petId || "");
+      walkInMode = Boolean(options.walkIn);
+      if (id) walkInMode = false;
+      if (priorPet !== id) {
+        dismissedBillingIds.clear();
+        if (priorPet !== "") {
+          clearQueueSessionForPos();
+        }
+      }
+      sel.value = id;
+      const pet = id ? petsCache.find((p) => String(p.id) === id) : null;
+      document.getElementById("petSearch").value = pet ? petDisplayLine(pet) : "";
+      if (resultsEl) {
+        resultsEl.classList.add("hidden");
+        resultsEl.innerHTML = "";
+      }
+      await loadRxForPet();
+      await loadPendingBillingForPet();
+      renderPatientSummary();
+      renderCart();
+    }
+
     function sortPetsForSelect(arr) {
       return [...(arr || [])].sort((a, b) => {
         const c = (a.owner || "").toLowerCase().localeCompare((b.owner || "").toLowerCase());
@@ -424,10 +632,11 @@
         : sorted.filter((p) => {
             const n = (p.name || "").toLowerCase();
             const o = (p.owner || "").toLowerCase();
-            return n.includes(q) || o.includes(q);
+            const phone = (p.ownerPhone || p.phone || "").toLowerCase();
+            return n.includes(q) || o.includes(q) || phone.includes(q);
           });
       let opts = '<option value="">Walk-in</option>';
-      for (const p of filtered) {
+      for (const p of sorted) {
         opts += `<option value="${p.id}">${escapeHtml(petDisplayLine(p))}</option>`;
       }
       sel.innerHTML = opts;
@@ -450,7 +659,7 @@
         .map(
           (p) => `<button type="button" class="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 border-b last:border-b-0 border-slate-100" data-pet-suggest="${p.id}">
               <div class="font-medium text-slate-800">${escapeHtml(p.name || "")}</div>
-              <div class="text-xs text-slate-500">${escapeHtml(p.owner || "No owner")}</div>
+              <div class="text-xs text-slate-500">${escapeHtml(p.owner || "No owner")}${p.ownerPhone || p.phone ? ` • ${escapeHtml(p.ownerPhone || p.phone)}` : ""}</div>
             </button>`
         )
         .join("");
@@ -472,6 +681,112 @@
       return part.length >= 10 ? part.slice(0, 10) : part;
     }
 
+    function saleStatusLabel(r) {
+      const s = String(r?.status || "").toUpperCase();
+      if (s.includes("VOID") || s.includes("REFUND") || s.includes("CANCEL")) return "VOIDED";
+      if (s === "PENDING") return "PENDING";
+      return "PAID";
+    }
+
+    function salePaymentMethod(r) {
+      const direct = String(r?.paymentMethod || r?.payment || "").trim();
+      if (direct) return direct;
+      const note = String(r?.note || "");
+      const m = note.match(/Payment:\s*([^.|]+)/i);
+      return m && m[1] ? m[1].trim() : "—";
+    }
+
+    function saleLinesText(r) {
+      const lines = Array.isArray(r?.lines) ? r.lines : [];
+      if (!lines.length) return "—";
+      return lines
+        .slice(0, 3)
+        .map((l) => `${escapeHtml(l.itemName || "Item")} ×${Number(l.quantity || 0)} · ₱${money(l.lineTotal ?? 0)}`)
+        .join("<br/>");
+    }
+
+    function getHistoryFilters() {
+      return {
+        q: (document.getElementById("historySearchInp")?.value || "").trim().toLowerCase(),
+        status: document.getElementById("historyStatusSel")?.value || "ALL",
+        pay: document.getElementById("historyPaySel")?.value || "ALL",
+      };
+    }
+
+    function filteredHistoryRows() {
+      const { q, status, pay } = getHistoryFilters();
+      return posHistoryRows.filter((r) => {
+        const s = saleStatusLabel(r);
+        const p = salePaymentMethod(r);
+        if (status !== "ALL" && s !== status) return false;
+        if (pay !== "ALL" && p !== pay) return false;
+        if (!q) return true;
+        const text = [
+          r.saleId,
+          `INV-${r.saleId}`,
+          r.petName || "",
+          p,
+          ...(Array.isArray(r.lines) ? r.lines.map((l) => l.itemName || "") : []),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return text.includes(q);
+      });
+    }
+
+    function renderHistoryRows() {
+      const el = document.getElementById("posHistoryBody");
+      const loadMoreBtn = document.getElementById("btnLoadMoreHistory");
+      if (!el || !loadMoreBtn) return;
+      const rows = filteredHistoryRows();
+      if (!rows.length) {
+        el.innerHTML = '<p class="text-slate-400 py-10 text-center text-sm">No matching sales for today.</p>';
+        loadMoreBtn.classList.add("hidden");
+        return;
+      }
+      const visible = rows.slice(0, posHistoryLimit);
+      const groups = { PAID: [], PENDING: [], VOIDED: [] };
+      visible.forEach((r) => groups[saleStatusLabel(r)].push(r));
+      const sections = [
+        { key: "PAID", label: "Today’s Sales (Paid)" },
+        { key: "PENDING", label: "Pending Payments" },
+        { key: "VOIDED", label: "Refunded / Voided" },
+      ]
+        .filter((s) => groups[s.key].length)
+        .map((s) => {
+          const cards = groups[s.key]
+            .map((r) => {
+              const dt = formatPosDateTime(r.occurredAt);
+              const payment = salePaymentMethod(r);
+              const invoice = `INV-${r.saleId}`;
+              return `<div class="border border-slate-200 rounded-xl p-3 mb-2 hover:bg-slate-50/70 transition-colors">
+                <div class="flex justify-between gap-2 items-start">
+                  <div>
+                    <div class="text-sm font-semibold text-slate-800">${escapeHtml(r.petName || "Walk-in")} <span class="text-xs text-slate-500 font-medium">• ${invoice}</span></div>
+                    <div class="text-xs text-slate-500 mt-0.5">${dt} • ${escapeHtml(payment)}</div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-semibold tabular-nums text-slate-900">₱${money(r.total)}</div>
+                    <div class="mt-1 flex justify-end gap-2">
+                      <button type="button" class="text-xs text-slate-700 hover:underline font-medium" data-preview-sale="${r.saleId}">Preview</button>
+                      <button type="button" class="text-xs text-slate-700 hover:underline font-medium" data-print-sale="${r.saleId}">Print</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="mt-2 text-xs leading-relaxed text-slate-600">${saleLinesText(r)}</div>
+              </div>`;
+            })
+            .join("");
+          return `<section class="mb-4">
+            <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">${s.label}</h4>
+            ${cards}
+          </section>`;
+        })
+        .join("");
+      el.innerHTML = sections;
+      loadMoreBtn.classList.toggle("hidden", visible.length >= rows.length ? true : false);
+    }
+
     async function loadPosHistory() {
       const el = document.getElementById("posHistoryBody");
       if (!el) return;
@@ -479,39 +794,9 @@
       try {
         const rowsAll = await Api.sales.posHistory(80);
         const today = localDateKey(new Date());
-        const rows = (rowsAll || []).filter((r) => saleOccurredDateKey(r.occurredAt) === today);
-        if (!rows.length) {
-          el.innerHTML = '<p class="text-slate-400 py-10 text-center text-sm">No sales today.</p>';
-          return;
-        }
-        el.innerHTML = rows
-          .map((r) => {
-            const dt = formatPosDateTime(r.occurredAt);
-            const lines =
-              (r.lines || []).length > 0
-                ? (r.lines || [])
-                    .map(
-                      (l) =>
-                        `${escapeHtml(l.itemName)} ×${l.quantity} · ₱${money(l.lineTotal ?? 0)}`
-                    )
-                    .join("<br/>")
-                : "—";
-            return `<div class="border-b border-slate-100 py-3 last:border-0">
-              <div class="flex justify-between gap-2 font-medium text-slate-800 text-sm">
-                <span>#${r.saleId}</span>
-                <span class="tabular-nums text-slate-900">₱${money(r.total)}</span>
-              </div>
-              <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center justify-between gap-2">
-                <span>${escapeHtml(r.petName)} · ${dt}</span>
-                <span class="flex gap-3 shrink-0">
-                  <button type="button" class="text-xs text-slate-700 hover:underline font-medium" data-preview-sale="${r.saleId}">Preview</button>
-                  <button type="button" class="text-xs text-slate-600 hover:underline font-medium" data-print-sale="${r.saleId}">Print</button>
-                </span>
-              </div>
-              <div class="mt-2 text-xs leading-relaxed text-slate-500">${lines}</div>
-            </div>`;
-          })
-          .join("");
+        posHistoryRows = (rowsAll || []).filter((r) => saleOccurredDateKey(r.occurredAt) === today);
+        posHistoryLimit = 20;
+        renderHistoryRows();
       } catch (e) {
         el.innerHTML = `<p class="text-red-600 py-2 text-center text-xs font-medium">${escapeHtml((e.message || "Error").slice(0, 120))}</p>`;
       }
@@ -609,18 +894,55 @@
       });
     }
 
+    function renderPosCategoryChips() {
+      const wrap = document.getElementById("posCatChips");
+      if (!wrap) return;
+      if (activeTab !== "shop") {
+        wrap.classList.add("hidden");
+        return;
+      }
+      const cats = [
+        ...new Set(
+          inventory
+            .filter((i) => !isServiceItem(i))
+            .map((i) => (i.category || "").trim())
+            .filter(Boolean),
+        ),
+      ].sort((a, b) => a.localeCompare(b));
+      const mk = (id, label, on) =>
+        `<button type="button" data-pos-cat="${escapeHtml(id)}" class="rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+          on
+            ? "border-[var(--pos-brand)] bg-[var(--pos-brand)] text-white"
+            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+        }">${escapeHtml(label)}</button>`;
+      wrap.innerHTML = mk("ALL", "All", posCatFilter === "ALL") + cats.map((c) => mk(c, c, posCatFilter === c)).join("");
+      wrap.classList.remove("hidden");
+      wrap.querySelectorAll("[data-pos-cat]").forEach((btn) => {
+        btn.onclick = () => {
+          posCatFilter = btn.getAttribute("data-pos-cat") || "ALL";
+          renderPosCategoryChips();
+          renderItemList();
+        };
+      });
+    }
+
     function filteredStock() {
       const q = (document.getElementById("mainSearch").value || "").trim().toLowerCase();
-      return inventory.filter((i) => !isServiceItem(i)).filter((i) => {
+      let list = inventory.filter((i) => !isServiceItem(i)).filter((i) => {
         if (!q) return true;
         return (i.name || "").toLowerCase().includes(q) || (i.sku || "").toLowerCase().includes(q);
       });
+      if (posCatFilter && posCatFilter !== "ALL") {
+        list = list.filter((i) => (i.category || "").trim() === posCatFilter);
+      }
+      return list;
     }
 
     function renderItemList() {
       const el = document.getElementById("itemList");
       if (activeTab === "procedures") {
         const list = filteredProcedures().sort((a, b) => (a.section + a.name).localeCompare(b.section + b.name));
+        document.getElementById("posCatChips")?.classList.add("hidden");
         if (!list.length) {
           el.innerHTML = '<p class="p-12 text-center text-slate-400 text-sm">No matches.</p>';
           return;
@@ -661,10 +983,12 @@
           </details>`);
         }
         el.innerHTML = parts.join("");
+        return;
       } else {
         const list = filteredStock().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
         if (!list.length) {
           el.innerHTML = '<p class="p-12 text-center text-slate-400 text-sm">No matches.</p>';
+          renderPosCategoryChips();
           return;
         }
         const byCat = new Map();
@@ -683,20 +1007,28 @@
             .map((i) => {
               const safe = String(i.name || "").replace(/</g, "");
               const skuEsc = escapeHtml(String(i.sku || "—"));
-              const p = i.unitPrice != null && i.unitPrice !== "" ? "₱" + money(Number(i.unitPrice)) : "—";
-              return `<button type="button" class="pos-tile pos-add-stock text-left flex flex-col justify-between min-h-[5rem]" data-id="${i.id}">
+              const pr = i.unitPrice != null && i.unitPrice !== "" ? "₱" + money(Number(i.unitPrice)) : "—";
+              const photoUrl =
+                i.photo && typeof resolveAssetUrl === "function" ? resolveAssetUrl(String(i.photo).trim()) : "";
+              const escUrl = photoUrl ? String(photoUrl).replace(/&/g, "&amp;").replace(/"/g, "&quot;") : "";
+              const thumb = escUrl
+                ? `<div class="mb-2 h-16 w-full rounded-md bg-white overflow-hidden border border-slate-100"><img src="${escUrl}" alt="" class="w-full h-full object-contain"/></div>`
+                : `<div class="mb-2 h-16 w-full rounded-md bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[10px] text-slate-400">No photo</div>`;
+              return `<button type="button" class="pos-tile pos-add-stock text-left flex flex-col justify-between min-h-[6.5rem]" data-id="${i.id}">
+                ${thumb}
                 <span class="text-sm font-medium text-slate-800 leading-snug line-clamp-2">${safe}</span>
-                <span class="text-base font-semibold tabular-nums text-slate-700 mt-2">${p}</span>
+                <span class="text-base font-semibold tabular-nums text-slate-700 mt-1">${pr}</span>
                 <span class="text-[10px] text-slate-400 font-mono mt-1 truncate">${skuEsc}</span>
               </button>`;
             })
             .join("");
           parts.push(
             `<div class="mb-5 px-1"><h3 class="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">${catSafe}</h3>` +
-              `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2">${tiles}</div></div>`
+              `<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">${tiles}</div></div>`
           );
         }
         el.innerHTML = parts.join("");
+        renderPosCategoryChips();
       }
     }
 
@@ -717,7 +1049,7 @@
     }
 
     function addProcedureLine(sku, customPrice) {
-      const qty = Math.max(1, parseInt(document.getElementById("lineQty").value, 10) || 1);
+      const qty = 1;
       const row = procedureRows.find((r) => r.sku === sku);
       if (!row) return;
       const unit = customPrice ? null : Number(row.unitPrice || 0);
@@ -737,7 +1069,7 @@
     }
 
     function addStockLine(id) {
-      const qty = Math.max(1, parseInt(document.getElementById("lineQty").value, 10) || 1);
+      const qty = 1;
       const item = inventory.find((i) => i.id === id);
       if (!item) {
         showToast("Refresh the product list.", true);
@@ -759,15 +1091,16 @@
       cart.push({
         kind: "billing",
         billingId: record.id,
-        name: `Consultation: ${record.description || "Clinic service"}`,
+        name: String(record.description || "Consultation charge"),
         unitPrice: Number(record.amount || 0),
         qty: 1,
         needsPrice: false,
+        billingIssuedAt: record.issuedAt || null,
       });
       renderCart();
     }
 
-    function getCartTotalNumber() {
+    function getCartSubtotalNumber() {
       const el = document.getElementById("cartBody");
       let t = 0;
       cart.forEach((l, i) => {
@@ -781,13 +1114,106 @@
       return t;
     }
 
+    function posDiscountPanelActive() {
+      const wrap = document.getElementById("posDiscountWrap");
+      return wrap && !wrap.classList.contains("hidden");
+    }
+
+    function resetPosDiscountUi() {
+      const wrap = document.getElementById("posDiscountWrap");
+      const btn = document.getElementById("posDiscountAddBtn");
+      const inp = document.getElementById("posDiscountInp");
+      if (wrap) wrap.classList.add("hidden");
+      if (btn) btn.textContent = "Add";
+      if (inp) inp.value = "";
+    }
+
+    function getDiscountPeso(subtotalOverride) {
+      if (!posDiscountPanelActive()) return 0;
+      const inp = document.getElementById("posDiscountInp");
+      const raw = inp ? parseFloat(String(inp.value).trim()) : 0;
+      const d = Math.max(0, Number.isFinite(raw) ? raw : 0);
+      const sub = subtotalOverride != null ? Number(subtotalOverride) : getCartSubtotalNumber();
+      return Math.min(d, Math.max(0, sub));
+    }
+
+    function getCartTotalNumber() {
+      const sub = getCartSubtotalNumber();
+      const tot = sub - getDiscountPeso(sub);
+      return Math.max(0, Math.round(tot * 100) / 100);
+    }
+
+    function refreshCartMoney() {
+      const el = document.getElementById("cartBody");
+      const subEl = document.getElementById("cartSubtotal");
+      const totEl = document.getElementById("cartTotal");
+      if (!el || !cart.length) return;
+      let sub = 0;
+      cart.forEach((l, i) => {
+        let u = Number(l.unitPrice || 0);
+        if (l.needsPrice) {
+          const input = el.querySelector(`.cart-price-inp[data-idx="${i}"]`);
+          u = input ? Math.max(0, parseFloat(input.value) || 0) : 0;
+        }
+        sub += u * l.qty;
+        const lineEl = el.querySelector(`.cart-line-total[data-idx="${i}"]`);
+        if (lineEl) lineEl.textContent = "₱" + money(u * l.qty);
+      });
+      if (subEl) subEl.textContent = money(sub);
+      const disc = getDiscountPeso(sub);
+      const tot = Math.max(0, Math.round((sub - disc) * 100) / 100);
+      if (totEl) totEl.textContent = money(tot);
+      updateTenderChange();
+    }
+
+    function billingIdsInCart() {
+      return new Set(
+        cart
+          .filter((l) => l.kind === "billing" && l.billingId != null)
+          .map((l) => Number(l.billingId))
+      );
+    }
+
+    function mergeBillingIntoCart() {
+      const petId = getSelectedPetId();
+      if (!petId || !pendingBills.length) return false;
+      const inCart = billingIdsInCart();
+      let added = false;
+      for (const r of pendingBills) {
+        const bid = Number(r.id);
+        if (!bid || inCart.has(bid) || dismissedBillingIds.has(bid)) continue;
+        cart.push({
+          kind: "billing",
+          billingId: bid,
+          name: String(r.description || "Consultation charge"),
+          unitPrice: Number(r.amount || 0),
+          qty: 1,
+          needsPrice: false,
+          billingIssuedAt: r.issuedAt || null,
+        });
+        inCart.add(bid);
+        added = true;
+      }
+      return added;
+    }
+
     function updateTenderChange() {
       const pay = document.getElementById("paySel").value;
       const tenderInp = document.getElementById("tenderInp");
+      const changeLabel = document.getElementById("changeLabel");
       const changeEl = document.getElementById("changeDisplay");
       const cashBlock = document.getElementById("cashTenderBlock");
       const nonCash = document.getElementById("nonCashHint");
-      if (!tenderInp || !changeEl || !cashBlock || !nonCash) return;
+      if (!tenderInp || !changeEl || !cashBlock || !nonCash || !changeLabel) return;
+      const hasCartItems = cart.length > 0;
+      if (!hasCartItems) {
+        cashBlock.classList.add("hidden");
+        nonCash.classList.add("hidden");
+        changeLabel.textContent = "Payment status";
+        changeEl.textContent = "₱0.00";
+        changeEl.className = "font-medium tabular-nums text-slate-400 text-sm";
+        return;
+      }
       const total = getCartTotalNumber();
       if (pay !== "Cash") {
         cashBlock.classList.add("hidden");
@@ -796,67 +1222,187 @@
       }
       cashBlock.classList.remove("hidden");
       nonCash.classList.add("hidden");
+      const hasTypedTender = String(tenderInp.value || "").trim().length > 0;
       const tender = Math.max(0, parseFloat(tenderInp.value) || 0);
       const ch = Math.round((tender - total) * 100) / 100;
-      if (ch >= -0.001) {
-        changeEl.textContent = "₱" + money(Math.max(0, ch));
-        changeEl.className = "font-medium tabular-nums text-slate-700 text-sm";
+      if (!hasTypedTender) {
+        changeLabel.textContent = "Remaining";
+        changeEl.textContent = "₱" + money(Math.max(0, total));
+        changeEl.className = "font-medium tabular-nums text-slate-500 text-sm";
+      } else if (Math.abs(ch) <= 0.001) {
+        changeLabel.textContent = "Status";
+        changeEl.textContent = "Exact amount";
+        changeEl.className = "font-medium text-emerald-700 text-sm";
+      } else if (ch > 0) {
+        changeLabel.textContent = "Change due";
+        changeEl.textContent = "₱" + money(ch);
+        changeEl.className = "font-medium tabular-nums text-emerald-700 text-sm";
       } else {
-        changeEl.textContent = "₱" + money(Math.abs(ch)) + " short";
-        changeEl.className = "font-medium tabular-nums text-red-600 text-sm";
+        changeLabel.textContent = "Remaining";
+        changeEl.textContent = "₱" + money(Math.abs(ch));
+        changeEl.className = "font-medium tabular-nums text-amber-700 text-sm";
       }
+    }
+
+    function paintBillFold() {
+      const fold = document.getElementById("billFold");
+      const list = document.getElementById("billList");
+      const title = document.getElementById("billFoldTitle");
+      if (!fold || !list || !title) return;
+      const petId = getSelectedPetId();
+      if (walkInMode || !petId) {
+        fold.classList.add("hidden");
+        return;
+      }
+      const bills = pendingBills || [];
+      const inCart = billingIdsInCart();
+      const hasBillUi = bills.length > 0 || cart.some((l) => l.kind === "billing");
+      if (!hasBillUi) {
+        fold.classList.add("hidden");
+        return;
+      }
+      fold.classList.remove("hidden");
+      title.textContent = "Bill from consultation";
+      const parts = [];
+      for (const r of bills) {
+        const bid = Number(r.id);
+        const added = inCart.has(bid);
+        const desc = escapeHtml(r.description || "Consultation charge");
+        const amt = "₱" + money(Number(r.amount || 0));
+        const when = formatPosDateTime(r.issuedAt);
+        const chip = added
+          ? `<span class="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Added to sale</span>`
+          : `<span class="text-[11px] font-medium text-slate-500">Not in sale</span>`;
+        const btn = added
+          ? ""
+          : `<button type="button" class="text-xs font-semibold text-[var(--pos-brand)] hover:underline shrink-0" data-bill-add="${bid}">Add to sale</button>`;
+        parts.push(`<div class="rounded-xl border border-slate-200 bg-white px-3 py-3 mb-2 shadow-sm">
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="font-semibold text-slate-900 text-sm">${desc}</span>
+                ${chip}
+              </div>
+              <div class="text-xs text-slate-500 mt-1">${escapeHtml(when)}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-sm font-semibold text-slate-800 tabular-nums">${amt}</div>
+              <div class="mt-1 flex justify-end">${btn}</div>
+            </div>
+          </div>
+        </div>`);
+      }
+      list.innerHTML = parts.length ? parts.join("") : '<p class="text-sm text-slate-500">No consultation charges.</p>';
     }
 
     function renderCart() {
       const el = document.getElementById("cartBody");
+      const afterPayment = document.getElementById("afterPaymentBlock");
+      const rxBadge = document.getElementById("rxAddedBadge");
+      mergeBillingIntoCart();
+
+      const rxInCart = cart.filter((l) => l.kind === "id" && l.rxId != null).length;
+      if (rxBadge) {
+        if (rxInCart > 0) {
+          rxBadge.textContent = `${rxInCart} added`;
+          rxBadge.classList.remove("hidden");
+        } else {
+          rxBadge.classList.add("hidden");
+        }
+      }
+
       if (cart.length === 0) {
         el.innerHTML = '<div class="py-12 text-center text-sm text-slate-400">No items yet.</div>';
-        document.getElementById("cartTotal").textContent = "0.00";
+        const subEl = document.getElementById("cartSubtotal");
+        const totEl = document.getElementById("cartTotal");
+        if (subEl) subEl.textContent = "0.00";
+        if (totEl) totEl.textContent = "0.00";
+        resetPosDiscountUi();
+        if (afterPayment) afterPayment.classList.add("hidden");
         updateTenderChange();
+        paintBillFold();
         return;
       }
-        el.innerHTML =
-        `<div class="divide-y divide-slate-100">` +
-        cart
-          .map((line, idx) => {
-            const unit = Number(line.unitPrice || 0);
-            const sub = unit * line.qty;
-            const priceRow = line.needsPrice
-              ? `<label class="block mt-2 text-xs text-slate-500">Amount (₱)
-                 <input type="number" min="0" step="0.01" data-idx="${idx}" class="cart-price-inp pos-field mt-1" placeholder="Required" value="${unit > 0 ? unit : ""}"/>
-               </label>`
-              : `<p class="text-xs text-slate-400 mt-1 tabular-nums">₱${money(unit)} × ${line.qty}</p>`;
-            return `<div class="px-4 py-3 hover:bg-white/80 transition-colors">
-            <div class="flex justify-between gap-2 items-start">
-              <p class="text-sm font-medium text-slate-800 leading-snug flex-1">${String(line.name).replace(/</g, "")}</p>
-              <button type="button" class="cart-remove shrink-0 text-xs text-slate-400 hover:text-red-600 font-medium" data-idx="${idx}" aria-label="Remove">Remove</button>
-            </div>
-            ${priceRow}
-            <p class="text-right text-sm font-medium cart-line-total tabular-nums mt-2 text-slate-900" data-idx="${idx}">₱${money(line.needsPrice ? 0 : sub)}</p>
-          </div>`;
-          })
-          .join("") +
-        `</div>`;
+
+      const consult = [];
+      const presc = [];
+      const retail = [];
+      cart.forEach((line, idx) => {
+        if (line.kind === "billing") consult.push({ line, idx });
+        else if (line.kind === "id" && line.rxId != null) presc.push({ line, idx });
+        else retail.push({ line, idx });
+      });
+
+      function renderGroup(title, rows) {
+        if (!rows.length) return "";
+        const countPart = title === "Prescriptions" && rows.length ? ` (${rows.length})` : "";
+        return `<div class="border-b border-slate-100 last:border-b-0">
+          <div class="px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 bg-slate-50/70">${title}${countPart}</div>
+          ${rows
+            .map(({ line, idx }) => {
+              const unit = Number(line.unitPrice || 0);
+              const sub = unit * line.qty;
+              const name = String(line.name).replace(/</g, "");
+              const rxSub =
+                line.rxDirections
+                  ? `<p class="text-xs text-slate-500 mt-1 leading-snug">${String(line.rxDirections).replace(/</g, "")}</p>`
+                  : "";
+              const amountRow = line.needsPrice
+                ? `<label class="block mt-2 text-xs text-slate-500">Unit amount (₱)
+                   <input type="number" min="0" step="0.01" data-idx="${idx}" class="cart-price-inp pos-field mt-1" placeholder="Required" value="${unit > 0 ? unit : ""}"/>
+                 </label>`
+                : `<p class="text-xs text-slate-500 mt-1">Unit <span class="font-medium tabular-nums text-slate-700">₱${money(unit)}</span></p>`;
+              return `<div class="px-4 py-3 hover:bg-white/80 transition-colors border-t border-slate-100 first:border-t-0">
+              <div class="flex justify-between gap-2 items-start">
+                <div class="min-w-0 flex-1">
+                  <p class="text-sm font-medium text-slate-800 leading-snug">${name}</p>
+                  ${rxSub}
+                  ${amountRow}
+                </div>
+                <button type="button" class="cart-remove shrink-0 w-8 h-8 rounded-lg border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 text-lg leading-none flex items-center justify-center" data-idx="${idx}" title="Remove" aria-label="Remove">×</button>
+              </div>
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <div class="inline-flex items-center rounded-md border border-slate-200 bg-white">
+                  <button type="button" class="cart-qty-minus px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50" data-idx="${idx}" aria-label="Decrease quantity">−</button>
+                  <span class="px-2 py-1 text-xs font-semibold tabular-nums text-slate-700 min-w-[2.25rem] text-center">Qty ${line.qty}</span>
+                  <button type="button" class="cart-qty-plus px-2.5 py-1 text-sm text-slate-600 hover:bg-slate-50" data-idx="${idx}" aria-label="Increase quantity">+</button>
+                </div>
+                <p class="text-right text-sm font-semibold cart-line-total tabular-nums text-slate-900" data-idx="${idx}">₱${money(line.needsPrice ? 0 : sub)}</p>
+              </div>
+            </div>`;
+            })
+            .join("")}
+        </div>`;
+      }
+
+      el.innerHTML = `<div>${renderGroup("Consultation", consult)}${renderGroup("Prescriptions", presc)}${renderGroup("Retail & services", retail)}</div>`;
 
       function recalcTotals() {
-        let t = 0;
-        cart.forEach((l, i) => {
-          let u = Number(l.unitPrice || 0);
-          if (l.needsPrice) {
-            const input = el.querySelector(`.cart-price-inp[data-idx="${i}"]`);
-            u = input ? Math.max(0, parseFloat(input.value) || 0) : 0;
-          }
-          t += u * l.qty;
-          const subEl = el.querySelector(`.cart-line-total[data-idx="${i}"]`);
-          if (subEl) subEl.textContent = "₱" + money(u * l.qty);
-        });
-        document.getElementById("cartTotal").textContent = money(t);
-        updateTenderChange();
+        refreshCartMoney();
       }
 
       el.querySelectorAll(".cart-remove").forEach((btn) => {
         btn.onclick = () => {
-          cart.splice(Number(btn.dataset.idx), 1);
+          const idx = Number(btn.dataset.idx);
+          const line = cart[idx];
+          if (line && line.kind === "billing" && line.billingId != null) dismissedBillingIds.add(Number(line.billingId));
+          cart.splice(idx, 1);
+          renderCart();
+        };
+      });
+      el.querySelectorAll(".cart-qty-minus").forEach((btn) => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.idx);
+          if (!cart[idx]) return;
+          cart[idx].qty = Math.max(1, Number(cart[idx].qty || 1) - 1);
+          renderCart();
+        };
+      });
+      el.querySelectorAll(".cart-qty-plus").forEach((btn) => {
+        btn.onclick = () => {
+          const idx = Number(btn.dataset.idx);
+          if (!cart[idx]) return;
+          cart[idx].qty = Math.max(1, Number(cart[idx].qty || 1) + 1);
           renderCart();
         };
       });
@@ -868,26 +1414,56 @@
         };
       });
       recalcTotals();
+      if (afterPayment) afterPayment.classList.toggle("hidden", !openRx.length);
+      paintBillFold();
+      const activePet = document.getElementById("petSel")?.value;
+      if (!activePet && walkInMode) {
+        renderWalkInSummary();
+      } else if (!activePet) {
+        void loadPendingBillingQueue();
+      }
     }
 
     document.getElementById("paySel").addEventListener("change", updateTenderChange);
     document.getElementById("tenderInp").addEventListener("input", updateTenderChange);
-    document.querySelectorAll(".tender-quick").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const add = Number(btn.getAttribute("data-add")) || 0;
-        const inp = document.getElementById("tenderInp");
-        const cur = parseFloat(inp.value) || 0;
-        inp.value = String(cur + add);
-        updateTenderChange();
-      });
+    document.getElementById("posDiscountInp").addEventListener("input", () => {
+      if (cart.length) refreshCartMoney();
+      else updateTenderChange();
     });
-    document.getElementById("tenderExactBtn").addEventListener("click", () => {
-      document.getElementById("tenderInp").value = String(getCartTotalNumber());
-      updateTenderChange();
+    document.getElementById("posDiscountAddBtn").addEventListener("click", () => {
+      const wrap = document.getElementById("posDiscountWrap");
+      const btn = document.getElementById("posDiscountAddBtn");
+      if (!wrap || !btn) return;
+      if (wrap.classList.contains("hidden")) {
+        wrap.classList.remove("hidden");
+        btn.textContent = "Clear";
+        document.getElementById("posDiscountInp")?.focus();
+      } else {
+        resetPosDiscountUi();
+        if (cart.length) refreshCartMoney();
+        else updateTenderChange();
+      }
+    });
+    document.getElementById("petChangePatientBtn").addEventListener("click", async () => {
+      const inp = document.getElementById("petSearch");
+      const clearBtn = document.getElementById("clearPetSearchBtn");
+      const resultsEl = document.getElementById("petSearchResults");
+      if (inp) inp.value = "";
+      if (clearBtn) clearBtn.classList.add("hidden");
+      if (resultsEl) {
+        resultsEl.classList.add("hidden");
+        resultsEl.innerHTML = "";
+      }
+      renderPetSelect("");
+      await setSelectedPet("", { walkIn: false });
+      showToast("Search or select a patient.");
     });
     document.getElementById("btnClearCart").addEventListener("click", () => {
       if (!cart.length) return;
       if (!window.confirm("Clear all lines in this sale?")) return;
+      cart.forEach((l) => {
+        if (l.kind === "billing" && l.billingId != null) dismissedBillingIds.add(Number(l.billingId));
+      });
       cart = [];
       rxSelected.clear();
       renderCart();
@@ -928,6 +1504,14 @@
       }) || null;
     }
 
+    function posRxCategory(inv, drug) {
+      const c = inv && String(inv.category || "").trim();
+      if (c && c.toUpperCase() !== "SERVICE") return c;
+      const d = (drug || "").toLowerCase();
+      if (/(vaccin|dhp|dhpp|rabies|felv|fvrcp|kennel)/i.test(d)) return "Vaccines";
+      return "Medications";
+    }
+
     async function loadPets() {
       try {
         const pets = await repoListPets();
@@ -942,85 +1526,158 @@
     }
 
     async function loadRxForPet() {
-      const petId = document.getElementById("petSel").value;
+      const petId = getSelectedPetId();
       const fold = document.getElementById("rxFold");
+      const title = document.getElementById("rxFoldTitle");
       const list = document.getElementById("rxList");
+      const afterPayment = document.getElementById("afterPaymentBlock");
+      const fulfillEl = document.getElementById("fulfillRx");
       rxSelected.clear();
       if (!petId) {
         if (fold) fold.classList.add("hidden");
         openRx = [];
+        if (afterPayment) afterPayment.classList.add("hidden");
+        if (fulfillEl) fulfillEl.checked = false;
         return;
       }
       const all = await Api.rx.list();
       openRx = (all || []).filter((r) => String(r.petId) === String(petId) && !r.dispensed && !r.archived);
       if (!openRx.length) {
         if (fold) fold.classList.add("hidden");
+        if (afterPayment) afterPayment.classList.add("hidden");
+        if (fulfillEl) fulfillEl.checked = false;
         return;
       }
       if (fold) fold.classList.remove("hidden");
-      list.innerHTML = openRx
-        .map((r) => {
-          const drug = escapeHtml(r.drug || "Medication");
-          return `<label class="flex gap-2 p-2.5 bg-white rounded-md border border-slate-200 items-start cursor-pointer hover:bg-slate-50">
-            <input type="checkbox" class="rx-pick mt-0.5 rounded border-slate-300" data-rx-id="${r.id}" data-drug="${(r.drug || "").replace(/"/g, "&quot;")}"/>
-            <span class="font-semibold text-slate-900 text-sm">${drug}</span>
+      if (title) title.textContent = "Prescriptions";
+      if (afterPayment) afterPayment.classList.toggle("hidden", cart.length === 0);
+      const byCat = new Map();
+      for (const r of openRx) {
+        const inv = findInventoryByDrugName(r.drug);
+        const cat = posRxCategory(inv, r.drug);
+        if (!byCat.has(cat)) byCat.set(cat, []);
+        byCat.get(cat).push(r);
+      }
+      const cats = [...byCat.keys()].sort((a, b) => a.localeCompare(b));
+      list.innerHTML = cats
+        .map((cat) => {
+          const rows = byCat.get(cat);
+          const blocks = rows
+            .map((r) => {
+              const inv = findInventoryByDrugName(r.drug);
+              const unit = r.price != null && r.price !== "" ? Number(r.price) : Number(inv?.unitPrice || 0);
+              const drugEsc = (r.drug || "").replace(/"/g, "&quot;");
+              const sub = escapeHtml([r.dosage, r.directions].filter(Boolean).join(" · ") || "—");
+              return `<label class="flex gap-3 pos-select-card cursor-pointer items-start py-2.5 px-3 rounded-xl border border-slate-200 hover:border-slate-300 bg-white">
+            <input type="checkbox" class="rx-pick pos-check mt-1 shrink-0" data-rx-id="${r.id}" data-drug="${drugEsc}"/>
+            <div class="min-w-0 flex-1">
+              <div class="font-semibold text-slate-900 text-sm">${escapeHtml(r.drug || "Medication")}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${sub}</div>
+              <div class="text-xs text-slate-600 mt-1.5 tabular-nums">Qty: <span class="font-medium">1</span> · <span class="font-semibold">₱${money(unit)}</span></div>
+            </div>
           </label>`;
+            })
+            .join("");
+          return `<div class="mb-4 last:mb-0"><p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mb-2 px-0.5">${escapeHtml(cat)}</p><div class="space-y-2">${blocks}</div></div>`;
         })
         .join("");
     }
 
     async function loadPendingBillingForPet() {
-      const petId = document.getElementById("petSel").value;
-      const fold = document.getElementById("billFold");
+      const petId = getSelectedPetId();
       const list = document.getElementById("billList");
-      billSelected.clear();
+      const fold = document.getElementById("billFold");
       if (!petId) {
-        if (fold) fold.open = false;
-        if (list) list.innerHTML = "Select a patient to load pending consultation charges.";
         pendingBills = [];
+        if (walkInMode) {
+          if (list) list.innerHTML = "";
+          if (fold) fold.classList.add("hidden");
+          renderPatientSummary();
+          return;
+        }
+        await loadPendingBillingQueue();
+        renderPatientSummary();
         return;
       }
       const all = await Api.billing.list();
       pendingBills = (all || []).filter((r) =>
         String(r.petId) === String(petId) && String(r.status || "").toUpperCase() === "PENDING"
       );
+      paintBillFold();
+      renderPatientSummary();
+    }
+
+    async function loadPendingBillingQueue() {
+      const list = document.getElementById("billList");
+      const fold = document.getElementById("billFold");
+      const title = document.getElementById("billFoldTitle");
+      if (!list) return;
+      const all = await Api.billing.list();
+      pendingBills = (all || [])
+        .filter((r) => String(r.status || "").toUpperCase() === "PENDING")
+        .sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")));
       if (!pendingBills.length) {
-        if (list) list.innerHTML = "No pending consultation charges for this patient.";
+        list.innerHTML = "No pending consultation charges.";
+        if (fold) fold.classList.add("hidden");
+        renderPatientSummary();
         return;
       }
-      if (fold) fold.open = true;
-      list.innerHTML = pendingBills
-        .map((r) => {
-          const desc = escapeHtml(r.description || "Consultation charge");
-          const amount = "₱" + money(Number(r.amount || 0));
-          return `<label class="flex gap-2 p-2.5 bg-white rounded-md border border-slate-200 items-start cursor-pointer hover:bg-slate-50">
-            <input type="checkbox" class="bill-pick mt-0.5 rounded border-slate-300" data-bill-id="${r.id}"/>
-            <span class="flex-1">
-              <span class="font-semibold text-slate-900 text-sm">${desc}</span>
-              <span class="block text-xs text-slate-500 mt-0.5">${amount}</span>
-            </span>
-          </label>`;
-        })
-        .join("");
+      const inCart = billingIdsInCart();
+      const visibleBills = pendingBills.filter((r) => !inCart.has(Number(r.id)));
+      if (!visibleBills.length) {
+        list.innerHTML = "All pending consultation charges are already in cart.";
+        if (fold) fold.classList.add("hidden");
+        renderPatientSummary();
+        return;
+      }
+      if (fold) fold.classList.remove("hidden");
+      if (title) title.textContent = `Pending charges (${visibleBills.length})`;
+      list.innerHTML = visibleBills.map((r) => {
+        const desc = escapeHtml(r.description || "Consultation charge");
+        const pet = escapeHtml(r.petName || "Walk-in");
+        const owner = escapeHtml(r.ownerName || "—");
+        const amount = "₱" + money(Number(r.amount || 0));
+        return `<div class="pos-select-card">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="font-semibold text-slate-900 text-sm">${desc}</div>
+              <div class="text-xs text-slate-500">${pet} • ${owner}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${amount}</div>
+            </div>
+            <div class="flex flex-col items-end gap-2">
+              <button type="button" class="text-xs px-2 py-1 rounded-md border border-slate-300 hover:bg-slate-50" data-bill-add="${r.id}">Add to cart</button>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+      renderPatientSummary();
     }
 
     document.getElementById("petSearch").addEventListener("input", () => {
-      renderPetSelect(document.getElementById("petSearch").value);
+      const val = document.getElementById("petSearch").value;
+      renderPetSelect(val);
+      const clearBtn = document.getElementById("clearPetSearchBtn");
+      if (clearBtn) clearBtn.classList.toggle("hidden", !String(val || "").length);
     });
-    document.getElementById("petSearchResults").addEventListener("click", (e) => {
+    document.getElementById("clearPetSearchBtn").addEventListener("click", () => {
+      const inp = document.getElementById("petSearch");
+      const clearBtn = document.getElementById("clearPetSearchBtn");
+      const resultsEl = document.getElementById("petSearchResults");
+      if (!inp) return;
+      inp.value = "";
+      renderPetSelect("");
+      if (resultsEl) {
+        resultsEl.classList.add("hidden");
+        resultsEl.innerHTML = "";
+      }
+      if (clearBtn) clearBtn.classList.add("hidden");
+      inp.focus();
+    });
+    document.getElementById("petSearchResults").addEventListener("click", async (e) => {
       const btn = e.target.closest("[data-pet-suggest]");
       if (!btn) return;
       const petId = String(btn.getAttribute("data-pet-suggest") || "");
-      const petSel = document.getElementById("petSel");
-      const picked = petsCache.find((p) => String(p.id) === petId);
-      if (!petSel || !picked) return;
-      petSel.value = petId;
-      document.getElementById("petSearch").value = picked.name || "";
-      const resultsEl = document.getElementById("petSearchResults");
-      resultsEl.classList.add("hidden");
-      resultsEl.innerHTML = "";
-      loadRxForPet();
-      loadPendingBillingForPet();
+      await setSelectedPet(petId);
     });
     document.addEventListener("click", (e) => {
       const resultsEl = document.getElementById("petSearchResults");
@@ -1028,9 +1685,12 @@
       const wrap = e.target.closest("#petSearch") || e.target.closest("#petSearchResults");
       if (!wrap) resultsEl.classList.add("hidden");
     });
-    document.getElementById("petSel").addEventListener("change", () => {
-      loadRxForPet();
-      loadPendingBillingForPet();
+    document.getElementById("useWalkInBtn").addEventListener("click", async () => {
+      await setSelectedPet("", { walkIn: true });
+      const clearBtn = document.getElementById("clearPetSearchBtn");
+      if (clearBtn) clearBtn.classList.add("hidden");
+      renderWalkInSummary();
+      showToast("Walk-in customer selected.");
     });
 
     document.getElementById("importRxBtn").onclick = () => {
@@ -1043,11 +1703,26 @@
       checks.forEach((ch) => {
         const inv = findInventoryByDrugName(ch.getAttribute("data-drug"));
         if (!inv) return;
-        const existing = cart.find((l) => l.kind === "id" && l.id === inv.id);
+        const rxId = Number(ch.getAttribute("data-rx-id"));
+        const rx = openRx.find((x) => Number(x.id) === rxId);
+        const unitFromRx = rx && rx.price != null && rx.price !== "" ? Number(rx.price) : null;
+        const unit = unitFromRx != null && Number.isFinite(unitFromRx) ? unitFromRx : Number(inv.unitPrice || 0);
+        const rxDirections = rx ? [rx.dosage, rx.directions].filter(Boolean).join(" · ") : "";
+        const existing = cart.find((l) => l.kind === "id" && l.id === inv.id && (l.rxId == null || l.rxId === rxId));
         if (existing) existing.qty += 1;
-        else cart.push({ kind: "id", id: inv.id, name: inv.name, unitPrice: Number(inv.unitPrice || 0), qty: 1, needsPrice: false });
+        else
+          cart.push({
+            kind: "id",
+            id: inv.id,
+            name: inv.name,
+            unitPrice: unit,
+            qty: 1,
+            needsPrice: false,
+            rxId,
+            rxDirections,
+          });
         added++;
-        rxSelected.add(Number(ch.getAttribute("data-rx-id")));
+        rxSelected.add(rxId);
       });
       if (!added) {
         showToast("No matching inventory item.", true);
@@ -1056,27 +1731,27 @@
       renderCart();
     };
 
-    document.getElementById("importBillBtn").onclick = () => {
-      const checks = document.querySelectorAll(".bill-pick:checked");
-      if (!checks.length) {
-        showToast("Select pending consultation charge.", true);
-        return;
-      }
-      let added = 0;
-      checks.forEach((ch) => {
-        const id = Number(ch.getAttribute("data-bill-id"));
-        const rec = pendingBills.find((b) => Number(b.id) === id);
-        if (!rec) return;
-        addBillingLine(rec);
-        billSelected.add(id);
-        added++;
-      });
-      if (!added) {
-        showToast("No pending charge selected.", true);
-        return;
-      }
-      showToast(`${added} consultation charge(s) added.`);
+    document.getElementById("rxAddPrescriptionBtn").onclick = () => {
+      setTab("shop");
+      document.getElementById("catalogSection")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const ms = document.getElementById("mainSearch");
+      if (ms) setTimeout(() => ms.focus(), 350);
     };
+
+    document.getElementById("billList").addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-bill-add]");
+      if (!btn) return;
+      const id = Number(btn.getAttribute("data-bill-add"));
+      dismissedBillingIds.delete(id);
+      const rec = pendingBills.find((b) => Number(b.id) === id);
+      if (!rec) return;
+      addBillingLine(rec);
+      if (rec.petId != null) {
+        const petIdStr = String(rec.petId);
+        if (getSelectedPetId() !== petIdStr) await setSelectedPet(petIdStr);
+      }
+      showToast("Charge added to sale.");
+    });
 
     document.getElementById("payBtn").onclick = async () => {
       if (!cart.length) {
@@ -1125,6 +1800,7 @@
         }
         return { inventoryItemId: l.id, quantity: l.qty };
       });
+      const discountAmount = getDiscountPeso();
       const totalDue = getCartTotalNumber();
       const payMethod = document.getElementById("paySel").value;
       if (payMethod === "Cash") {
@@ -1137,12 +1813,16 @@
       const payBtn = document.getElementById("payBtn");
       payBtn.disabled = true;
       try {
+        const appointmentId = await resolveAppointmentIdForPosPet(petIdRaw);
         const res = await Api.pos.checkout({
           petId: petIdRaw ? Number(petIdRaw) : null,
+          appointmentId,
           paymentMethod: document.getElementById("paySel").value,
+          discountAmount,
           lines,
           fulfillPrescriptionIds: fulfill ? [...rxSelected] : [],
         });
+        clearQueueSessionForPos();
         showToast("Sale #" + (res.saleId || "") + " · ₱" + money(res.total));
         let completionMessage = "Payment recorded successfully.";
         if (res.saleId) {
@@ -1158,28 +1838,27 @@
         showSuccessModal(completionMessage);
         cart = [];
         rxSelected.clear();
-        billSelected.clear();
+        dismissedBillingIds.clear();
         openRx = [];
         pendingBills = [];
-        document.getElementById("petSearch").value = "";
-        document.getElementById("petSel").value = "";
+        await setSelectedPet("");
         document.getElementById("mainSearch").value = "";
         const rxFold = document.getElementById("rxFold");
         const billFold = document.getElementById("billFold");
-        if (rxFold) rxFold.open = false;
-        if (billFold) billFold.open = false;
+        if (rxFold) rxFold.classList.add("hidden");
+        if (billFold) billFold.classList.add("hidden");
         const rxList = document.getElementById("rxList");
         const billList = document.getElementById("billList");
         if (rxList) rxList.innerHTML = "";
-        if (billList) billList.innerHTML = "Select a patient to load pending consultation charges.";
+        if (billList) billList.innerHTML = "Loading pending consultation charges...";
         document.getElementById("tenderInp").value = "";
+        resetPosDiscountUi();
         document.getElementById("paySel").value = "Cash";
         renderPetSelect("");
         setTab("shop");
         renderItemList();
         renderCart();
-        await loadRxForPet();
-        await loadPendingBillingForPet();
+        await loadPendingBillingQueue();
         if (isHistoryModalOpen()) await loadPosHistory();
       } catch (e) {
         showToast((e.message || "Checkout failed").slice(0, 200), true);
@@ -1189,6 +1868,29 @@
     };
 
     document.getElementById("btnRefreshHistory").onclick = () => loadPosHistory();
+    document.getElementById("btnClearHistoryFilters").onclick = () => {
+      document.getElementById("historySearchInp").value = "";
+      document.getElementById("historyStatusSel").value = "ALL";
+      document.getElementById("historyPaySel").value = "ALL";
+      posHistoryLimit = 20;
+      renderHistoryRows();
+    };
+    document.getElementById("historySearchInp").addEventListener("input", () => {
+      posHistoryLimit = 20;
+      renderHistoryRows();
+    });
+    document.getElementById("historyStatusSel").addEventListener("change", () => {
+      posHistoryLimit = 20;
+      renderHistoryRows();
+    });
+    document.getElementById("historyPaySel").addEventListener("change", () => {
+      posHistoryLimit = 20;
+      renderHistoryRows();
+    });
+    document.getElementById("btnLoadMoreHistory").addEventListener("click", () => {
+      posHistoryLimit += 20;
+      renderHistoryRows();
+    });
     document.getElementById("closePosSuccessBtn").onclick = closeSuccessModal;
     document.getElementById("closePosPreviewBtn").onclick = () => {
       const modal = document.getElementById("posPreviewModal");
@@ -1241,24 +1943,18 @@
       setTab("shop");
       await loadInventory();
       await loadPets();
-      await loadPendingBillingForPet();
+      await loadPendingBillingQueue();
       const prefillPetId = sessionStorage.getItem("posPrefillPetId");
       const focusPending = sessionStorage.getItem("posFocusPendingBilling") === "1";
       if (prefillPetId) {
-        const petSel = document.getElementById("petSel");
-        if (Array.from(petSel.options).some((o) => String(o.value) === String(prefillPetId))) {
-          petSel.value = String(prefillPetId);
-        }
+        await setSelectedPet(String(prefillPetId));
         sessionStorage.removeItem("posPrefillPetId");
         sessionStorage.removeItem("posFocusPendingBilling");
-        await loadRxForPet();
-        await loadPendingBillingForPet();
         if (focusPending) {
-          const billFold = document.getElementById("billFold");
-          if (billFold) billFold.open = true;
           document.getElementById("billFold")?.scrollIntoView({ behavior: "smooth", block: "start" });
         }
       }
+      await resolveAppointmentIdForPosPet(getSelectedPetId());
       updateTenderChange();
     })();
   </script>

@@ -3,6 +3,7 @@ package com.bayport.entity;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -24,6 +25,10 @@ public class Appointment {
 
     @Column(name = "completed_at")
     private LocalDate completedAt;
+
+    /** Server time when the appointment entered consultation (vet approved / room ready). */
+    @Column(name = "consultation_started_at")
+    private Instant consultationStartedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id", insertable = false, updatable = false)
@@ -69,6 +74,9 @@ public class Appointment {
 
     public LocalDate getCompletedAt() { return completedAt; }
     public void setCompletedAt(LocalDate completedAt) { this.completedAt = completedAt; }
+
+    public Instant getConsultationStartedAt() { return consultationStartedAt; }
+    public void setConsultationStartedAt(Instant consultationStartedAt) { this.consultationStartedAt = consultationStartedAt; }
 
     public Pet getPet() { return pet; }
     public void setPet(Pet pet) { this.pet = pet; }

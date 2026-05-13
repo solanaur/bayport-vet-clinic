@@ -8,16 +8,7 @@
   <style>:root{--soft-teal:#0057b8}body{font-family:Inter,system-ui,sans-serif}</style>
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-8 py-4 shadow">
-    <div class="flex items-center gap-3">
-      <img src="assets/logo.png" class="w-10 h-10 rounded bg-white p-0.5" alt="">
-      <div>
-        <h1 class="text-xl font-semibold">Settings</h1>
-        <p class="text-xs text-white/80">Clinic profile and global receipt printer</p>
-      </div>
-    </div>
-    <button class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div id="setToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 hidden z-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
 
@@ -80,8 +71,10 @@
 <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard('settings');
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Clinic profile and global receipt printer" });
     renderSidebar(document.getElementById('sidebarNav'), getRole(), 'settings.html');
 
     function toast(msg, isError) {

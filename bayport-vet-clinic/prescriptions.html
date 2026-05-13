@@ -13,10 +13,7 @@
   </style>
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
-    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50 transition-all duration-200" onclick="logout()">Logout</button>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
@@ -68,8 +65,10 @@
 <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard('prescriptions');
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     renderSidebar(document.getElementById('sidebarNav'), getRole(), 'prescriptions.html');
 
     const role=getRole();
@@ -264,7 +263,7 @@
 
     document.getElementById('issueBtn')?.addEventListener('click', openForm);
 
-    async function openForm(){
+    async function openForm(prefillPetId){
       const pets = await repoListPets();
       try {
         inventoryCache = await Api.inventory.list() || [];
@@ -353,6 +352,12 @@
       const vetInp = document.getElementById('f_vet');
       const categorySel = document.getElementById('f_category');
       const productSel = document.getElementById('f_product');
+
+      const pre =
+        prefillPetId != null && Number.isFinite(Number(prefillPetId))
+          ? String(Number(prefillPetId))
+          : new URLSearchParams(location.search).get('petId');
+      if (pre && petSel && [...petSel.options].some((o) => o.value === pre)) petSel.value = pre;
 
       try {
         vetInp.value = (typeof getUserName === 'function' ? getUserName() : '') || localStorage.getItem('userDisplayName') || localStorage.getItem('username') || 'Vet';
@@ -580,6 +585,22 @@
     }
 
     render();
+
+    (async () => {
+      try {
+        const q = new URLSearchParams(window.location.search);
+        if (q.get('issue') !== '1' || !q.get('petId')) return;
+        if (role !== 'admin' && role !== 'vet') return;
+        const u = new URL(window.location.href);
+        u.searchParams.delete('petId');
+        u.searchParams.delete('issue');
+        const tail = u.searchParams.toString();
+        history.replaceState({}, '', u.pathname + (tail ? '?' + tail : '') + u.hash);
+        await openForm(Number(q.get('petId')));
+      } catch (e) {
+        console.error(e);
+      }
+    })();
   </script>
 </body>
 </html>

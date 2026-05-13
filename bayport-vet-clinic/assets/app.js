@@ -53,54 +53,91 @@ window.logout = function() {
 
 /* ===== Role & Sidebar ===== */
 const CONFIG = {
-  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","activity-logs","recycle-bin","settings","manage-users"],
-  vet:          ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports"],
-  // Front Office = reception + pharmacy (single role for cloud scaling)
-  front_office: ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"],
-  receptionist: ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"],
-  pharmacist:   ["dashboard","pet-records","appointments","consultations","inventory","billing","pos"]
+  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","activity-logs","recycle-bin","settings","manage-users","help"],
+  /** Clinical focus: no billing, POS, inventory, or reports in nav (billing still flows from consultations). */
+  vet:          ["dashboard","pet-records","appointments","consultations","help"],
+  // Front Office = reception + pharmacy — no Consultations module (vet/clinical only).
+  front_office: ["dashboard","pet-records","appointments","inventory","billing","pos","help"],
+  receptionist: ["dashboard","pet-records","appointments","inventory","billing","pos","help"],
+  pharmacist:   ["dashboard","pet-records","appointments","inventory","billing","pos","help"]
 };
 
 const LABEL = {
   "dashboard":"Dashboard",
-  "pet-records":"Pet Records",
+  "pet-records":"Pet profiles",
   "appointments":"Appointments",
   "consultations":"Consultations",
-  "billing":"Billing / POS",
+  "billing":"Billing",
+  "pos":"Point of sale",
   "activity-logs":"Activity Logs",
   "recycle-bin":"Recycle Bin",
   "settings":"Settings",
   "inventory":"Inventory",
   "reports":"Reports",
-  "manage-users":"Users & Roles"
+  "manage-users":"Users & Roles",
+  "help":"Help & support"
 };
 
 /** Shorter labels in the sidebar only (less visual noise). */
 const SIDEBAR_LABEL = {
   ...LABEL,
-  "pet-records": "Pet records",
-  "manage-users": "Users & roles"
+  "pet-records": "Pet profiles",
+  "manage-users": "Users & roles",
+  "billing": "Billing & payments"
+};
+
+/** Inline SVG (h-5 w-5) for sidebar rows — keeps actions recognizable at a glance. */
+const SIDEBAR_ICONS = {
+  dashboard: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`,
+  "pet-records": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
+  appointments: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
+  consultations: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
+  billing: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>`,
+  pos: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`,
+  inventory: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
+  reports: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+  settings: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+  "manage-users": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
+  "activity-logs": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  "recycle-bin": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`,
+  help: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+};
+
+const NAV_TOOLTIPS = {
+  dashboard: "Overview and shortcuts for your role",
+  "pet-records": "Search and open pet profiles",
+  appointments: "Schedule and manage visits",
+  consultations: "Record visits, diagnoses, and procedures",
+  billing: "Invoices and balances",
+  pos: "Checkout and receipts",
+  inventory: "Stock and catalog",
+  reports: "Revenue and operational summaries",
+  settings: "Clinic and system preferences",
+  "manage-users": "Staff accounts and roles",
+  "activity-logs": "Who changed what",
+  "recycle-bin": "Restore deleted records",
+  help: "FAQs, tips, and how to get support"
 };
 
 /**
- * Collapsible groups — daily tasks stay on top; secondary/admin tucked away.
- * Reduces overwhelm for busy clinic staff.
+ * Collapsible groups — Core workflow first; operations and admin settings below.
  */
 const _SIDEBAR_FRONT_OFFICE = [
-  { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
-  { label: "Operations", open: true, keys: ["billing", "inventory"] }
+  { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments"] },
+  { label: "Operations", open: true, keys: ["billing", "pos", "inventory"] },
+  { label: "Help & support", open: false, keys: ["help"] }
 ];
-/** Shown as a separate emphasized block (not a normal nav row). */
-const SIDEBAR_POS_KEY = "pos";
 const SIDEBAR_GROUPS = {
   admin: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
-    { label: "Operations", open: true, keys: ["billing", "inventory", "reports"] },
-    { label: "Administration", open: false, keys: ["settings", "manage-users"] },
-    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin"] }
+    { label: "Operations", open: true, keys: ["billing", "pos", "inventory", "reports"] },
+    { label: "Admin settings", open: false, keys: ["settings", "manage-users"] },
+    { label: "Records & audit", open: false, keys: ["activity-logs", "recycle-bin"] },
+    { label: "Help & support", open: false, keys: ["help"] }
   ],
   vet: [
-    { label: "", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations", "billing", "inventory", "reports"] }
+    { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
+    { label: "Help & support", open: false, keys: ["help"] }
   ],
   front_office: _SIDEBAR_FRONT_OFFICE,
   receptionist: _SIDEBAR_FRONT_OFFICE,
@@ -117,6 +154,15 @@ const ROLE_COPY = {
 
 window.getRole = function(){ return localStorage.getItem("role") || ""; };
 window.getUserName = function(){ return localStorage.getItem("userDisplayName") || ""; };
+
+/** Display title under the user name in the global header (not the same as the account role key). */
+window.getBayportHeaderRoleTitle = function () {
+  const r = String(window.getRole() || "").toLowerCase();
+  if (r === "admin") return "Administrator";
+  if (r === "vet") return "Vet";
+  if (typeof window.isFrontOffice === "function" && window.isFrontOffice(r)) return "Staff";
+  return "Staff";
+};
 const RECEIPT_PRINTER_KEY = "bayport_receipt_printer";
 const BRANCH_CODE_KEY = "bayport_branch_code";
 const CLINIC_SETTINGS_KEY = "bayport_clinic_settings";
@@ -196,11 +242,11 @@ window.renderSidebar = function (container, role, activeFile) {
   const allowed = new Set(CONFIG[role] || []);
   const groups = SIDEBAR_GROUPS[role] || SIDEBAR_GROUPS.front_office;
 
-  /** Vets: one short list — no collapsible chrome. */
-  const flatSingleGroup = groups.length === 1;
+  /** Single group with no section label → flat list without <details>. */
+  const flatSingleGroup = groups.length === 1 && !String(groups[0].label || "").trim();
 
   groups.forEach((group) => {
-    const keys = group.keys.filter((k) => allowed.has(k) && k !== SIDEBAR_POS_KEY);
+    const keys = group.keys.filter((k) => allowed.has(k));
     if (keys.length === 0) return;
 
     const wrap = document.createElement("div");
@@ -218,16 +264,19 @@ window.renderSidebar = function (container, role, activeFile) {
     keys.forEach((key) => {
       const btn = document.createElement("button");
       btn.type = "button";
+      const tip = NAV_TOOLTIPS[key];
+      if (tip) btn.title = tip;
       btn.className =
-        "w-full text-left px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-blue-50/90 hover:text-[var(--soft-teal)] transition-colors";
-      btn.textContent = SIDEBAR_LABEL[key] || LABEL[key];
+        "w-full text-left px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-blue-50/90 hover:text-[var(--soft-teal)] transition-colors flex items-center gap-2.5";
+      const iconHtml = SIDEBAR_ICONS[key] || "";
+      btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
         location.href = `${key}.html`;
       };
       if (`${key}.html` === activeFile) {
         btn.dataset.sidebarActive = "1";
         btn.className =
-          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--soft-teal)] text-white font-medium shadow-sm";
+          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--soft-teal)] text-white font-medium shadow-sm flex items-center gap-2.5";
       }
       wrap.appendChild(btn);
     });
@@ -296,6 +345,25 @@ window.resolveAssetUrl = function resolveAssetUrl(value){
 };
 
 /**
+ * Pet photo slot: solid Bayport blue when missing or on image error (no stock photo).
+ * @param {string|null|undefined} photoPath
+ * @param {string} wrapClass classes on outer wrapper (include size, e.g. w-full h-full rounded-xl)
+ * @param {string} imgClass classes on img (e.g. object-cover w-full h-full)
+ */
+window.renderPetPhotoHtml = function renderPetPhotoHtml(photoPath, wrapClass, imgClass) {
+  const trimmed = photoPath && String(photoPath).trim();
+  const url = trimmed ? window.resolveAssetUrl(trimmed) : "";
+  const fallback =
+    `<div data-pet-photo-fallback class="absolute inset-0 bg-[var(--soft-teal)]" aria-hidden="true"></div>`;
+  if (!url) {
+    return `<div class="${wrapClass} relative overflow-hidden bg-[var(--soft-teal)]" data-pet-photo-wrap>${fallback}</div>`;
+  }
+  const esc = String(url).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  const fb = `<div data-pet-photo-fallback class="absolute inset-0 hidden bg-[var(--soft-teal)]" aria-hidden="true"></div>`;
+  return `<div class="${wrapClass} relative overflow-hidden bg-[var(--soft-teal)]" data-pet-photo-wrap>${fb}<img src="${esc}" class="absolute inset-0 z-10 ${imgClass || "object-cover w-full h-full"}" alt="" decoding="async" onerror="this.remove();var w=this.closest('[data-pet-photo-wrap]');var f=w&&w.querySelector('[data-pet-photo-fallback]');if(f){f.classList.remove('hidden');}"></div>`;
+};
+
+/**
  * Simple health check helper used by desktop builds to verify that the
  * Spring Boot backend is reachable. Returns a promise that resolves to
  * a boolean (true if backend reports status=UP, false otherwise).
@@ -311,23 +379,67 @@ window.checkBackendHealth = async function checkBackendHealth() {
 };
 
 /* ===== Dashboard Quick Actions ===== */
-window.renderQuickActions = function(el,role){
-  el.innerHTML="";
-  const make = (title,href)=> {
-    const b=document.createElement("button");
-    b.className="text-left w-full bg-[#f7fbfb] hover:bg-[#eef6f6] border border-gray-200 rounded-xl p-5 shadow-soft";
-    b.innerHTML=`<div class='font-semibold'>${title}</div>`;
-    b.onclick=()=>location.href=href;
+const QA_ICON = {
+  calendar: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
+  clipboard: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>`,
+  book: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
+  cube: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
+  cash: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>`,
+  chart: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+  users: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
+  cog: `<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`
+};
+
+window.renderQuickActions = function (el, role) {
+  el.innerHTML = "";
+  const make = (title, href, iconKey, { primary = false, subtitle = "" } = {}) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.title = title;
+    const ic = QA_ICON[iconKey] || QA_ICON.clipboard;
+    const base =
+      "text-left w-full rounded-xl p-5 shadow-soft border flex gap-4 items-start transition-transform hover:scale-[1.01] active:scale-[0.99]";
+    const style = primary
+      ? `${base} bg-[var(--soft-teal)] text-white border-[var(--soft-teal)] ring-2 ring-offset-2 ring-[var(--soft-teal)]/30`
+      : `${base} bg-[#f7fbfb] hover:bg-[#eef6f6] border-gray-200 text-gray-800`;
+    const sub = subtitle ? `<div class="text-xs mt-1 ${primary ? "text-white/85" : "text-gray-500"}">${subtitle}</div>` : "";
+    b.className = style;
+    b.innerHTML = `<span class="shrink-0 ${primary ? "text-white" : "text-[var(--soft-teal)]"}">${ic}</span><div class="min-w-0"><div class="font-semibold leading-snug">${title}</div>${sub}</div>`;
+    b.onclick = () => {
+      location.href = href;
+    };
     return b;
   };
-  const map={
-    admin:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html"),make("View Reports","reports.html"),make("Users & Roles","manage-users.html"),make("Settings","settings.html")],
-    vet:[make("Start Consultation","consultations.html"),make("Review Appointments","appointments.html"),make("View Pet Records","pet-records.html"),make("Inventory","inventory.html")],
-    front_office:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")],
-    receptionist:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")],
-    pharmacist:[make("Start Consultation","consultations.html"),make("Create Appointment","appointments.html"),make("Pet Records","pet-records.html"),make("Inventory","inventory.html"),make("Billing / POS","billing.html")]
+  const fo = window.isFrontOffice(role);
+  const map = {
+    admin: [
+      make("Start consultation", "consultations.html", "clipboard", { primary: true, subtitle: "Diagnosis and procedures" }),
+      make("Create appointment", "appointments.html", "calendar", { subtitle: "Book the next visit" }),
+      make("Pet profiles", "pet-records.html", "book"),
+      make("Billing & payments", "billing.html", "cash"),
+      make("Point of sale", "pos.html", "cash", { subtitle: "Fast checkout" }),
+      make("Reports", "reports.html", "chart"),
+      make("Inventory", "inventory.html", "cube"),
+      make("Users & roles", "manage-users.html", "users"),
+      make("Settings", "settings.html", "cog")
+    ],
+    vet: [
+      make("Start consultation", "consultations.html", "clipboard", { primary: true, subtitle: "Step-by-step visit workflow" }),
+      make("Appointments", "appointments.html", "calendar", { subtitle: "Today and upcoming" }),
+      make("Pet profiles", "pet-records.html", "book", { subtitle: "Medical history and reminders" })
+    ],
+    front_office: [
+      make("Create appointment", "appointments.html", "calendar", { primary: true, subtitle: "Book visits and manage queue" }),
+      make("Pet profiles", "pet-records.html", "book"),
+      make("Billing & payments", "billing.html", "cash"),
+      make("Point of sale", "pos.html", "cash", { subtitle: "Checkout" }),
+      make("Inventory", "inventory.html", "cube")
+    ],
+    receptionist: null,
+    pharmacist: null
   };
-  (map[role]||[]).forEach(btn=>el.appendChild(btn));
+  const rows = map[role] || map.front_office;
+  (rows || []).forEach((btn) => el.appendChild(btn));
 };
 
 /* ===== Global Error Handler (helps on desktop builds without DevTools) ===== */

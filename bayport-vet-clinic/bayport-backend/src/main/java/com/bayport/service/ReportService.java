@@ -1,5 +1,6 @@
 package com.bayport.service;
 
+import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.Sale;
@@ -103,7 +104,7 @@ public class ReportService {
                             && !p.getCreatedAt().toLocalDate().isAfter(end))
                     .forEach(p -> {
                         try {
-                            ReportSummary.NewPatient patient = new ReportSummary.NewPatient();
+                            ReportNewPatient patient = new ReportNewPatient();
                             patient.petName = p.getName() != null ? p.getName() : "";
                             patient.ownerName = p.getOwner() != null ? p.getOwner() : "";
                             patient.addedAt = p.getCreatedAt() != null ? p.getCreatedAt().toString() : "";

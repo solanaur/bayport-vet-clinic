@@ -8,6 +8,7 @@ public class PosReceiptDto {
     public Long saleId;
     public String occurredAt;
     public String petName;
+    public String ownerName;
     public BigDecimal total;
     public String paymentMethod;
     public String note;

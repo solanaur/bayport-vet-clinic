@@ -4,7 +4,7 @@ import com.bayport.dto.PosCheckoutRequest;
 import com.bayport.dto.PosCheckoutResponse;
 import com.bayport.dto.PosLineRequest;
 import com.bayport.dto.PosReceiptDto;
-import com.bayport.dto.PosSaleHistoryDto;
+import com.bayport.entity.Appointment;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.BillingRecord;
 import com.bayport.entity.Pet;
@@ -27,7 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @Service
 @Transactional
@@ -66,6 +71,25 @@ public class PosService {
         this.billingRecordRepository = billingRecordRepository;
     }
 
+    /**
+     * Ignore a client-supplied appointment id unless it matches the pet on this sale.
+     * Prevents stale browser session keys from affecting checkout (older servers threw here).
+     */
+    private Long effectiveAppointmentIdForCheckout(Long appointmentId, Long salePetId) {
+        if (appointmentId == null || salePetId == null) {
+            return null;
+        }
+        Optional<Appointment> appt = bayportService.getAppointmentById(appointmentId);
+        if (appt.isEmpty()) {
+            return null;
+        }
+        Long apptPetId = appt.get().getPetId();
+        if (apptPetId == null || !salePetId.equals(apptPetId)) {
+            return null;
+        }
+        return appointmentId;
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public PosCheckoutResponse checkout(PosCheckoutRequest request) {
         if (request.getLines() == null || request.getLines().isEmpty()) {
@@ -80,7 +104,7 @@ public class PosService {
         BigDecimal total = BigDecimal.ZERO;
         List<String> parts = new ArrayList<>();
         List<SaleLine> lineEntities = new ArrayList<>();
-        List<Long> billingIdsToSettle = new ArrayList<>();
+        Set<Long> billingIdsToSettle = new LinkedHashSet<>();
 
         for (PosLineRequest line : request.getLines()) {
             int q = line.getQuantity();
@@ -129,16 +153,33 @@ public class PosService {
             sl.setUnitPrice(unit);
             sl.setLineTotal(MoneyUtils.normalize(lineTotal));
             lineEntities.add(sl);
+            if (line.getBillingRecordId() != null) {
+                billingIdsToSettle.add(line.getBillingRecordId());
+            }
         }
 
         total = MoneyUtils.normalize(total);
+        BigDecimal discount = request.getDiscountAmount() != null
+                ? MoneyUtils.normalize(request.getDiscountAmount())
+                : BigDecimal.ZERO;
+        if (discount.signum() < 0) {
+            throw new IllegalArgumentException("Discount cannot be negative");
+        }
+        if (discount.compareTo(total) > 0) {
+            discount = total;
+        }
+        total = MoneyUtils.normalize(total.subtract(discount));
 
         String petName = null;
         if (request.getPetId() != null) {
             petName = petRepository.findById(request.getPetId()).map(Pet::getName).orElse("Pet #" + request.getPetId());
         }
 
-        String note = "Payment: " + payment + ". " + String.join(" | ", parts);
+        String note = "Payment: " + payment;
+        if (discount.signum() > 0) {
+            note += ". Discount: -" + MoneyUtils.formatPeso(discount);
+        }
+        note += ". " + String.join(" | ", parts);
         final int maxNote = 12_000;
         if (note.length() > maxNote) {
             note = note.substring(0, maxNote - 3) + "...";
@@ -189,6 +230,9 @@ public class PosService {
             }
         }
 
+        Long apptToComplete = effectiveAppointmentIdForCheckout(request.getAppointmentId(), request.getPetId());
+        bayportService.tryMarkAppointmentDoneAfterPosCheckout(apptToComplete, request.getPetId());
+
         return new PosCheckoutResponse(saved.getId(), total, note);
     }
 
@@ -196,28 +240,31 @@ public class PosService {
      * Recent POS checkouts for the sales history panel (newest first).
      */
     @Transactional(readOnly = true)
-    public List<PosSaleHistoryDto> recentPosSales(int limit) {
+    public List<Map<String, Object>> recentPosSales(int limit) {
         posSaleLineBackfillService.backfillMissingLines();
         int cap = Math.max(1, Math.min(limit, 200));
         Pageable pg = PageRequest.of(0, cap, Sort.Direction.DESC, "occurredAt");
         Page<Sale> page = saleRepository.findRecentPosPage(pg);
-        List<PosSaleHistoryDto> out = new ArrayList<>();
+        List<Map<String, Object>> out = new ArrayList<>();
         for (Sale s : page.getContent()) {
-            PosSaleHistoryDto row = new PosSaleHistoryDto();
-            row.saleId = s.getId() != null ? s.getId() : 0L;
-            row.occurredAt = s.getOccurredAt() != null ? s.getOccurredAt().toString() : "";
-            row.petName = s.getPetName() != null && !s.getPetName().isBlank() ? s.getPetName() : "—";
-            row.total = s.getAmount();
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("saleId", s.getId() != null ? s.getId() : 0L);
+            row.put("occurredAt", s.getOccurredAt() != null ? s.getOccurredAt().toString() : "");
+            row.put("petName", s.getPetName() != null && !s.getPetName().isBlank() ? s.getPetName() : "—");
+            row.put("total", s.getAmount());
+            row.put("note", s.getNote() != null ? s.getNote() : "");
+            List<Map<String, Object>> lines = new ArrayList<>();
             for (SaleLine sl : saleLineRepository.findBySale_IdOrderByIdAsc(s.getId())) {
-                PosSaleHistoryDto.Line l = new PosSaleHistoryDto.Line();
-                l.itemName = sl.getItemName();
-                l.sku = sl.getSku();
-                l.quantity = sl.getQuantity();
-                l.unitPrice = sl.getUnitPrice();
-                l.lineTotal = sl.getLineTotal();
-                l.lineKind = sl.getLineKind();
-                row.lines.add(l);
+                Map<String, Object> l = new LinkedHashMap<>();
+                l.put("itemName", sl.getItemName());
+                l.put("sku", sl.getSku());
+                l.put("quantity", sl.getQuantity());
+                l.put("unitPrice", sl.getUnitPrice());
+                l.put("lineTotal", sl.getLineTotal());
+                l.put("lineKind", sl.getLineKind());
+                lines.add(l);
             }
+            row.put("lines", lines);
             out.add(row);
         }
         return out;
@@ -231,6 +278,9 @@ public class PosService {
         dto.saleId = sale.getId();
         dto.occurredAt = sale.getOccurredAt() != null ? sale.getOccurredAt().toString() : "";
         dto.petName = sale.getPetName() != null && !sale.getPetName().isBlank() ? sale.getPetName() : "Walk-in";
+        dto.ownerName = sale.getPetId() != null
+                ? petRepository.findById(sale.getPetId()).map(Pet::getOwner).orElse("—")
+                : "—";
         dto.total = sale.getAmount();
         dto.note = sale.getNote();
         dto.paymentMethod = extractPaymentMethod(sale.getNote());

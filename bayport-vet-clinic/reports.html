@@ -1,429 +1,990 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Reports - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --soft-teal: #0057b8;
+      --bill-green: #059669;
+      --bill-amber: #d97706;
+      --bill-red: #dc2626;
+    }
+    body {
+      font-family: Inter, system-ui, sans-serif;
+    }
+    .donut-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+  </style>
 </head>
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-<div id="reportToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
-<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-  <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain" alt=""><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
-  <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
-</header>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800">
+  <div id="repToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[300] hidden text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
+  <header id="bpAppHeader"></header>
 
-<div class="flex flex-1">
-  <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Reports</h2>
-    <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
-  </aside>
+  <div class="flex flex-1 min-h-0">
+    <aside id="repAside" class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 transition-[width,padding] duration-200 overflow-hidden">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Menu</h2>
+      <nav id="sidebarNav" class="flex flex-col gap-1 text-sm"></nav>
+      <button type="button" id="btnCollapseNav" class="mt-6 w-full text-left text-xs text-slate-500 hover:text-slate-700 py-2 border-t border-slate-100">
+        Hide menu
+      </button>
+    </aside>
 
-  <main class="flex-1 p-8">
-    <div class="bg-white rounded-2xl shadow-soft p-8">
-      <div class="flex items-end gap-4 flex-wrap">
-        <div>
-          <label class="text-sm text-gray-600">Period</label>
-          <select id="period" class="border border-gray-300 rounded-md p-3 w-56">
-            <option value="day">Today</option>
-            <option value="week">This Week</option>
-            <option value="month" selected>This Month</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
-        <div id="customDates" class="hidden items-end gap-3">
-          <label class="text-sm text-gray-600">From
-            <input id="from" type="date" class="border border-gray-300 rounded-md p-3">
-          </label>
-          <label class="text-sm text-gray-600">To
-            <input id="to" type="date" class="border border-gray-300 rounded-md p-3">
-          </label>
-        </div>
-        <button id="runBtn" class="bg-[var(--soft-teal)] text-white px-6 py-3 rounded-md hover:brightness-95">Run</button>
-        <button id="printBtn" class="border px-6 py-3 rounded-md hover:bg-gray-50">Print PDF</button>
-        <button id="excelBtn" class="border px-6 py-3 rounded-md hover:bg-gray-50">Export Excel (CSV)</button>
-      </div>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-        <div class="rounded-xl border p-5">
-          <div class="text-sm text-gray-500">Appointments Done</div>
-          <div id="kpiAppt" class="text-3xl font-semibold mt-1">0</div>
-        </div>
-        <div class="rounded-xl border p-5">
-          <div class="text-sm text-gray-500">Prescriptions Dispensed</div>
-          <div id="kpiRx" class="text-3xl font-semibold mt-1">0</div>
-        </div>
-        <div class="rounded-xl border p-5">
-          <div class="text-sm text-gray-500">New Pets Added</div>
-          <div id="kpiPets" class="text-3xl font-semibold mt-1">0</div>
-        </div>
-      </div>
-
-      <div class="mt-8">
-        <h3 class="text-xl font-semibold text-gray-800 mb-3 flex items-center justify-between">
-          <span>POS sales trend (last 14 days)</span>
-          <span class="text-sm text-gray-500" id="salesStatus"></span>
-        </h3>
-        <div class="bg-white border rounded-xl p-4">
-          <div class="h-[22rem] md:h-[26rem]">
-            <canvas id="salesChart" class="w-full h-full"></canvas>
+    <main class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
+      <div class="max-w-7xl mx-auto space-y-6">
+        <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Reports</h1>
+          </div>
+          <div class="flex flex-wrap items-end gap-2 shrink-0">
+            <div>
+              <label class="text-xs font-medium text-slate-500">Period</label>
+              <select id="period" class="mt-1 block w-44 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none">
+                <option value="day">Today</option>
+                <option value="week">This week</option>
+                <option value="month" selected>This month</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div id="customDates" class="hidden flex flex-wrap items-end gap-2">
+              <label class="text-xs text-slate-600">
+                From
+                <input id="from" type="date" class="mt-1 block border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              </label>
+              <label class="text-xs text-slate-600">
+                To
+                <input id="to" type="date" class="mt-1 block border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+              </label>
+            </div>
+            <button type="button" id="runBtn" class="mt-5 lg:mt-6 px-5 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white text-sm font-semibold hover:brightness-110 shadow-sm">Run</button>
+            <button type="button" id="printBtn" class="mt-5 lg:mt-6 px-4 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] text-sm font-semibold hover:bg-blue-50">Print PDF</button>
+            <button type="button" id="excelBtn" class="mt-5 lg:mt-6 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export Excel (CSV)</button>
           </div>
         </div>
-      </div>
 
-      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">New Patients</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse">
-          <thead><tr class="text-left text-gray-600 border-b">
-            <th class="py-3">Added At</th><th class="py-3">Pet Name</th><th class="py-3">Owner Name</th>
-          </tr></thead>
-          <tbody id="rowsNew"></tbody>
-        </table>
-      </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpiRow"></div>
 
-      <h3 class="text-xl font-semibold text-gray-800 mt-8 mb-3">Sales</h3>
-      
-      <div class="mb-6">
-        <h4 class="text-lg font-semibold text-gray-700 mb-3">Procedures</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse">
-            <thead><tr class="text-left text-gray-600 border-b">
-              <th class="py-3">Date &amp; time</th><th class="py-3">Pet</th><th class="py-3">Item</th><th class="py-3">SKU</th><th class="py-3">Qty</th><th class="py-3">Unit (₱)</th><th class="py-3">Line (₱)</th>
-            </tr></thead>
-            <tbody id="rowsPosProcedures"></tbody>
-          </table>
-          <div class="text-right mt-3 font-semibold">Procedures subtotal: ₱ <span id="totalProcedureSales">0.00</span></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <h2 class="text-base font-bold text-slate-900">POS sales trend</h2>
+              <div class="flex items-center gap-2 text-xs text-slate-500">
+                <button type="button" id="chartRefresh" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Refresh chart" aria-label="Refresh chart">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+                <span id="salesStatus" class="tabular-nums cursor-pointer hover:text-slate-700" title="Click to refresh">Last updated —</span>
+              </div>
+            </div>
+            <div class="h-64 md:h-80">
+              <canvas id="salesChart"></canvas>
+            </div>
+          </section>
+
+          <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
+            <h2 class="text-base font-bold text-slate-900 mb-3">Sales by payment method</h2>
+            <div class="relative h-64 md:h-72 mx-auto max-w-xs">
+              <canvas id="payChart"></canvas>
+              <div class="donut-center text-center px-4">
+                <div class="text-xs text-slate-500">Total</div>
+                <div id="donutTotal" class="text-lg font-bold text-slate-900 tabular-nums">₱0.00</div>
+              </div>
+            </div>
+            <ul id="payLegend" class="mt-4 space-y-2 text-sm"></ul>
+          </section>
         </div>
-      </div>
 
-      <div class="mb-6">
-        <h4 class="text-lg font-semibold text-gray-700 mb-3">Products</h4>
-        <div class="overflow-x-auto">
-          <table class="w-full border-collapse">
-            <thead><tr class="text-left text-gray-600 border-b">
-              <th class="py-3">Date &amp; time</th><th class="py-3">Pet</th><th class="py-3">Item</th><th class="py-3">SKU</th><th class="py-3">Qty</th><th class="py-3">Unit (₱)</th><th class="py-3">Line (₱)</th>
-            </tr></thead>
-            <tbody id="rowsPosProducts"></tbody>
-          </table>
-          <div class="text-right mt-3 font-semibold">Products subtotal: ₱ <span id="totalPosSales">0.00</span></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section id="daily-summary" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-100">
+              <h2 class="text-base font-bold text-slate-900">POS sales summary</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-3 py-2.5 text-left">Date</th>
+                    <th class="px-3 py-2.5 text-right">Transactions</th>
+                    <th class="px-3 py-2.5 text-right">Total (₱)</th>
+                    <th class="px-3 py-2.5 text-right">Paid (₱)</th>
+                    <th class="px-3 py-2.5 text-right">Pending (₱)</th>
+                    <th class="px-3 py-2.5 text-right">Voided (₱)</th>
+                  </tr>
+                </thead>
+                <tbody id="dailyRows" class="divide-y divide-slate-100"></tbody>
+                <tfoot id="dailyFoot" class="bg-slate-50 font-semibold text-slate-900"></tfoot>
+              </table>
+            </div>
+            <div id="dailyExpandBar" class="hidden px-4 py-2.5 border-t border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-center gap-4">
+              <button type="button" id="btnExpandDaily" class="text-sm font-semibold text-[var(--soft-teal)] hover:underline">View all</button>
+              <a href="#recent-tx" class="text-xs font-medium text-slate-500 hover:text-slate-800">Recent activity →</a>
+            </div>
+          </section>
+
+          <section id="top-items" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-100">
+              <h2 class="text-base font-bold text-slate-900">Top selling items (by sales)</h2>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-3 py-2.5 text-left">Item</th>
+                    <th class="px-3 py-2.5 text-left">Category</th>
+                    <th class="px-3 py-2.5 text-right">Qty sold</th>
+                    <th class="px-3 py-2.5 text-right">Total (₱)</th>
+                  </tr>
+                </thead>
+                <tbody id="topRows" class="divide-y divide-slate-100"></tbody>
+              </table>
+            </div>
+            <div id="topExpandBar" class="hidden px-4 py-2.5 border-t border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-center gap-4">
+              <button type="button" id="btnExpandTop" class="text-sm font-semibold text-[var(--soft-teal)] hover:underline">View all</button>
+              <a href="inventory.html" class="text-xs font-medium text-slate-500 hover:text-slate-800">Inventory →</a>
+            </div>
+          </section>
         </div>
+
+        <section id="recent-tx" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-100">
+            <h2 class="text-base font-bold text-slate-900">Recent activity</h2>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                <tr>
+                  <th class="px-3 py-2.5 text-left">Date &amp; time</th>
+                  <th class="px-3 py-2.5 text-left">Receipt / ref</th>
+                  <th class="px-3 py-2.5 text-left">Pet</th>
+                  <th class="px-3 py-2.5 text-left">Owner</th>
+                  <th class="px-3 py-2.5 text-right">Amount (₱)</th>
+                  <th class="px-3 py-2.5 text-left">Status</th>
+                  <th class="px-3 py-2.5 text-left">Cashier</th>
+                </tr>
+              </thead>
+              <tbody id="recentRows" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+          <div id="recentExpandBar" class="hidden px-4 py-2.5 border-t border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-center gap-4">
+            <button type="button" id="btnExpandRecent" class="text-sm font-semibold text-[var(--soft-teal)] hover:underline">View all</button>
+            <a href="billing.html" class="text-xs font-medium text-slate-500 hover:text-slate-800">Open billing →</a>
+          </div>
+        </section>
       </div>
+    </main>
+  </div>
 
-      <div class="text-right mt-4 pt-4 border-t-2 border-gray-300">
-        <div class="text-xl font-bold text-[var(--soft-teal)]">Total POS sales (period): ₱ <span id="totalSales">0.00</span></div>
-      </div>
-    </div>
-  </main>
-</div>
+  <script src="assets/deploy-env.js"></script>
+  <script>window.USE_API = true;</script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
+  <script>
+    guard("reports");
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
+    const role = getRole();
+    renderSidebar(document.getElementById("sidebarNav"), role, "reports.html");
 
-<script src="assets/deploy-env.js"></script>
-<script>window.USE_API=true;</script>
-<script src="assets/api.js"></script>
-<script src="assets/app.js"></script>
-<script>
-  guard('reports');
-  const role = getRole();
-  renderSidebar(document.getElementById('sidebarNav'), role, 'reports.html');
-
-  const periodSel = document.getElementById('period');
-  const custom = document.getElementById('customDates');
-  const rowsNew = document.getElementById('rowsNew');
-  const rowsPosProcedures = document.getElementById('rowsPosProcedures');
-  const rowsPosProducts = document.getElementById('rowsPosProducts');
-  const salesCtx = document.getElementById('salesChart').getContext('2d');
-  let salesChart;
-  const SALES_DAYS = 14;
-  function notify(msg, isError) {
-    const el = document.getElementById('reportToast');
-    if (!el) return;
-    el.textContent = msg;
-    el.classList.remove('hidden', 'bg-emerald-700', 'bg-rose-700');
-    el.classList.add(isError ? 'bg-rose-700' : 'bg-emerald-700');
-    clearTimeout(notify._t);
-    notify._t = setTimeout(() => el.classList.add('hidden'), 3500);
-  }
-
-  periodSel.addEventListener('change', () => {
-    custom.classList.toggle('hidden', periodSel.value !== 'custom');
-  });
-
-  async function run(){
-    const period = periodSel.value;
-    let data;
-    if(period==='custom'){
-      const from = document.getElementById('from').value;
-      const to = document.getElementById('to').value;
-      if(!from || !to){ notify('Select from and to date.', true); return; }
-      data = await repoSummary('custom', from, to);
-    } else {
-      data = await repoSummary(period);
-    }
-    document.getElementById('kpiAppt').innerText = data.appointmentsDone;
-    document.getElementById('kpiRx').innerText = data.prescriptionsDispensed;
-    document.getElementById('kpiPets').innerText = data.petsAdded;
-    rowsNew.innerHTML = (data.newPatients||[]).map(n => `
-      <tr class="border-b">
-        <td class="py-3">${n.addedAt?.slice(0,10)||''}</td>
-        <td class="py-3">${n.petName||''}</td>
-        <td class="py-3">${n.ownerName||''}</td>
-      </tr>`).join('') || `<tr><td class="py-3" colspan="3">No new patients in period.</td></tr>`;
-    function fmtReportDateTime(iso) {
-      if (!iso) return '—';
-      const d = new Date(iso);
-      if (!Number.isNaN(d.getTime())) {
-        return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'medium' });
+    let navCollapsed = false;
+    document.getElementById("btnCollapseNav").onclick = () => {
+      navCollapsed = !navCollapsed;
+      const a = document.getElementById("repAside");
+      if (navCollapsed) {
+        a.classList.add("w-0", "!p-0", "border-0");
+        a.classList.remove("w-72", "p-5");
+      } else {
+        a.classList.remove("w-0", "!p-0", "border-0");
+        a.classList.add("w-72", "p-5");
       }
-      return String(iso).replace('T', ' ').slice(0, 19);
-    }
-    function fmtPosRow(r) {
-      const d = fmtReportDateTime(r.date);
-      return `<tr class="border-b">
-        <td class="py-3">${d}</td>
-        <td class="py-3">${r.petName ?? '—'}</td>
-        <td class="py-3">${r.itemName || ''}</td>
-        <td class="py-3">${r.sku || '—'}</td>
-        <td class="py-3">${r.quantity ?? ''}</td>
-        <td class="py-3">${formatPrice(r.unitPrice ?? 0)}</td>
-        <td class="py-3">${formatPrice(r.lineTotal ?? 0)}</td>
-      </tr>`;
-    }
-    const procLines = data.posProcedureLines || [];
-    const prodLines = data.posProductLines || [];
-    rowsPosProcedures.innerHTML = procLines.length
-      ? procLines.map(fmtPosRow).join('')
-      : `<tr><td class="py-6 text-center text-gray-400" colspan="7">—</td></tr>`;
-    rowsPosProducts.innerHTML = prodLines.length
-      ? prodLines.map(fmtPosRow).join('')
-      : `<tr><td class="py-6 text-center text-gray-400" colspan="7">—</td></tr>`;
+    };
 
-    const procedureTotal = Number(data.posProcedureRevenue ?? 0);
-    const productTotal = Number(data.posProductRevenue ?? 0);
-    document.getElementById('totalProcedureSales').innerText = formatPrice(procedureTotal);
-    document.getElementById('totalPosSales').innerText = formatPrice(productTotal);
-    const posTotal = Number(data.posSales ?? procedureTotal + productTotal);
-    document.getElementById('totalSales').innerText = formatPrice(isNaN(posTotal) ? 0 : posTotal);
-    
-    window._lastReport = data;
-  }
-  document.getElementById('runBtn').onclick = run;
+    const periodSel = document.getElementById("period");
+    const customDates = document.getElementById("customDates");
+    periodSel.addEventListener("change", () => {
+      customDates.classList.toggle("hidden", periodSel.value !== "custom");
+    });
 
-  document.getElementById('printBtn').onclick = async ()=>{
-    const r = window._lastReport;
-    if (!r) {
-      notify('Generate a report first.', true);
-      return;
+    function toast(msg, isError) {
+      const el = document.getElementById("repToast");
+      el.textContent = msg;
+      el.classList.remove("hidden", "bg-emerald-600", "bg-rose-600");
+      el.classList.add(isError ? "bg-rose-600" : "bg-emerald-600");
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => el.classList.add("hidden"), 3200);
     }
-    
-    try {
-      // Get current user for "Prepared by" field
-      const username = localStorage.getItem('username') || 'Admin';
-      
-      // Build query parameters
-      const params = new URLSearchParams({
-        period: r.period || 'day',
-        preparedBy: username
-      });
-      if (r.from) params.append('from', r.from);
-      if (r.to) params.append('to', r.to);
-      
-      // Fetch PDF from backend
-      const response = await fetch(`${window.API_BASE}/reports/summary/pdf?${params.toString()}`, {
-        headers: {
-          'Accept': 'application/pdf',
-          'Authorization': `Bearer ${localStorage.getItem('jwt') || localStorage.getItem('token') || ''}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate PDF');
-      }
-      
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Bayport_Summary_${r.from || ''}_${r.to || ''}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (err) {
-      console.error('PDF generation error:', err);
-      notify('Unable to generate PDF: ' + (err.message || 'Unexpected error'), true);
-    }
-  };
 
-  function csvEscape(value) {
-    const raw = value == null ? '' : String(value);
-    return `"${raw.replace(/"/g, '""')}"`;
-  }
-  function downloadCsv(filename, rows) {
-    const content = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 500);
-  }
-  document.getElementById('excelBtn').onclick = () => {
-    const r = window._lastReport;
-    if (!r) {
-      notify('Generate a report first.', true);
-      return;
+    function esc(s) {
+      if (s == null) return "";
+      return String(s)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
-    const rows = [
-      ['Bayport Veterinary Clinic'],
-      ['Period', r.period || '', 'From', r.from || '', 'To', r.to || ''],
-      ['Appointments Done', r.appointmentsDone ?? 0],
-      ['Prescriptions Dispensed', r.prescriptionsDispensed ?? 0],
-      ['New Pets Added', r.petsAdded ?? 0],
-      ['POS Procedures Revenue', formatPrice(r.posProcedureRevenue ?? 0)],
-      ['POS Products Revenue', formatPrice(r.posProductRevenue ?? 0)],
-      ['Total POS Sales', formatPrice(r.posSales ?? 0)],
-      [],
-      ['Procedures'],
-      ['Date & Time', 'Pet', 'Item', 'SKU', 'Qty', 'Unit', 'Line'],
-      ...((r.posProcedureLines || []).map((x) => [x.date || '', x.petName || '', x.itemName || '', x.sku || '', x.quantity ?? '', formatPrice(x.unitPrice ?? 0), formatPrice(x.lineTotal ?? 0)])),
-      [],
-      ['Products'],
-      ['Date & Time', 'Pet', 'Item', 'SKU', 'Qty', 'Unit', 'Line'],
-      ...((r.posProductLines || []).map((x) => [x.date || '', x.petName || '', x.itemName || '', x.sku || '', x.quantity ?? '', formatPrice(x.unitPrice ?? 0), formatPrice(x.lineTotal ?? 0)])),
-      [],
-      ['New Patients'],
-      ['Added At', 'Pet Name', 'Owner Name'],
-      ...((r.newPatients || []).map((x) => [x.addedAt || '', x.petName || '', x.ownerName || '']))
-    ];
-    downloadCsv(`Bayport_Summary_${r.from || ''}_${r.to || ''}.csv`, rows);
-    notify('CSV exported. Open it in Excel and print.', false);
-  };
 
-  async function loadSalesChart(){
-    try{
-      document.getElementById('salesStatus').textContent = 'Updating...';
-      
-      // Daily totals from POS sales in the last SALES_DAYS
+    function parsePaymentMethod(note) {
+      if (!note) return "Cash";
+      const marker = "Payment:";
+      const idx = note.indexOf(marker);
+      if (idx < 0) return "Cash";
+      const from = idx + marker.length;
+      const end = note.indexOf(".", from);
+      const value = end > from ? note.substring(from, end) : note.substring(from);
+      const trimmed = value.trim();
+      return trimmed || "Cash";
+    }
+
+    function bucketPay(method) {
+      const m = (method || "").toLowerCase();
+      if (m.includes("card") || m.includes("credit") || m.includes("debit")) return "Card";
+      if (m.includes("cash")) return "Cash";
+      return "Other";
+    }
+
+    function receiptNo(sale) {
+      if (!sale || !sale.id) return "—";
+      const y = sale.occurredAt ? localDateKeyFromIso(sale.occurredAt).slice(0, 4) : String(new Date().getFullYear());
+      return `RCPT-${y}-${String(sale.id).padStart(4, "0")}`;
+    }
+
+    function endOfDay(d) {
+      const x = new Date(d);
+      x.setHours(23, 59, 59, 999);
+      return x;
+    }
+
+    function startOfDay(d) {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x;
+    }
+
+    /** Local calendar date YYYY-MM-DD (avoid UTC shift from toISOString). */
+    function localDateKey(d) {
+      const x = d instanceof Date ? d : new Date(d);
+      const y = x.getFullYear();
+      const m = String(x.getMonth() + 1).padStart(2, "0");
+      const day = String(x.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function localDateKeyFromIso(iso) {
+      if (!iso) return "";
+      const x = new Date(iso);
+      if (Number.isNaN(x.getTime())) return String(iso).slice(0, 10);
+      return localDateKey(x);
+    }
+
+    /** Mirror backend /reports/summary period rules */
+    function resolveRange() {
+      const period = periodSel.value;
       const today = new Date();
-      const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - (SALES_DAYS - 1));
-      startDate.setHours(0, 0, 0, 0);
-      
-      // Get report summary for the last SALES_DAYS
-      const profitByDate = {};
-      try {
-        const sales = await Api.sales.list();
-        if (sales && Array.isArray(sales)) {
-          for (const s of sales) {
-            if ((s.source || '') !== 'POS' || !s.amount) continue;
-            const raw = s.occurredAt || '';
-            const dateKey = raw.split('T')[0] || raw.slice(0, 10);
-            if (!dateKey) continue;
-            const amt = Number(s.amount || 0);
-            if (isNaN(amt) || amt <= 0) continue;
-            const d = new Date(dateKey);
-            d.setHours(0, 0, 0, 0);
-            if (d >= startDate && d <= today) {
-              profitByDate[dateKey] = (profitByDate[dateKey] || 0) + amt;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Error fetching sales for chart:', err);
+      const t0 = startOfDay(today);
+      let start;
+      let end = t0;
+      if (period === "day") {
+        start = new Date(t0);
+      } else if (period === "week") {
+        start = new Date(t0);
+        start.setDate(start.getDate() - 6);
+      } else if (period === "month") {
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+      } else {
+        const f = document.getElementById("from").value;
+        const t = document.getElementById("to").value;
+        if (!f || !t) return null;
+        const pFrom = f.split("-").map(Number);
+        const pTo = t.split("-").map(Number);
+        start = startOfDay(new Date(pFrom[0], pFrom[1] - 1, pFrom[2]));
+        end = endOfDay(new Date(pTo[0], pTo[1] - 1, pTo[2]));
       }
-      
-      // Create labels and values for all days in range
-      const labels = [];
-      const values = [];
-      for (let i = 0; i < SALES_DAYS; i++) {
-        const date = new Date(startDate);
-        date.setDate(date.getDate() + i);
-        const dateKey = date.toISOString().split('T')[0];
-        labels.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        values.push(profitByDate[dateKey] || 0);
+      start = startOfDay(start);
+      if (period !== "custom") end = endOfDay(end);
+      return { start, end, period };
+    }
+
+    function inRange(iso, start, end) {
+      if (!iso) return false;
+      const t = new Date(iso).getTime();
+      return t >= start.getTime() && t <= end.getTime();
+    }
+
+    function sumPosSalesInRange(sales, start, end) {
+      let sum = 0;
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        sum += Number(s.amount) || 0;
       }
-      
-      if(!salesChart){
-        salesChart = new Chart(salesCtx,{
-          type:'line',
-          data:{ 
-            labels, 
-            datasets:[{ 
-              label:'₱ POS sales', 
-              data:values, 
-              borderColor:'#0057b8', 
-              backgroundColor:'rgba(0,87,184,0.15)', 
-              tension:0.3, 
-              fill:true 
-            }] 
+      return sum;
+    }
+
+    function pendingBillingTotal(billing, start, end) {
+      let sum = 0;
+      for (const b of billing) {
+        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
+        const t = b.issuedAt || b.createdAt;
+        if (!inRange(t, start, end)) continue;
+        sum += Number(b.amount) || 0;
+      }
+      return sum;
+    }
+
+    let salesChart;
+    let payChart;
+    const salesCtx = document.getElementById("salesChart").getContext("2d");
+    const payCtx = document.getElementById("payChart").getContext("2d");
+
+    function renderKpis(totalPos, pending) {
+      const voided = 0;
+      document.getElementById("kpiRow").innerHTML = `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
+          <div class="w-10 h-10 rounded-lg bg-blue-50 text-[var(--soft-teal)] flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total POS sales</div>
+            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(totalPos)}</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
+          <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Paid (POS)</div>
+            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(totalPos)}</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
+          <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending (billing)</div>
+            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(pending)}</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
+          <div class="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Voided</div>
+            <div class="text-2xl font-bold text-slate-400 mt-0.5 tabular-nums">₱${formatPrice(voided)}</div>
+          </div>
+        </div>`;
+    }
+
+    function eachDay(start, end) {
+      const out = [];
+      const d = startOfDay(new Date(start));
+      const last = startOfDay(new Date(end));
+      while (d.getTime() <= last.getTime()) {
+        out.push(new Date(d));
+        d.setDate(d.getDate() + 1);
+      }
+      return out;
+    }
+
+    function updateLineChart(sales, start, end) {
+      const days = eachDay(start, end);
+      const byDay = {};
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        const key = localDateKeyFromIso(s.occurredAt);
+        byDay[key] = (byDay[key] || 0) + (Number(s.amount) || 0);
+      }
+      const labels = days.map((d) =>
+        d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      );
+      const values = days.map((d) => byDay[localDateKey(d)] || 0);
+
+      if (!salesChart) {
+        salesChart = new Chart(salesCtx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "POS sales",
+                data: values,
+                borderColor: "#0057b8",
+                backgroundColor: "rgba(0,87,184,0.12)",
+                tension: 0.35,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+              },
+            ],
           },
-          options:{ 
+          options: {
             responsive: true,
             maintainAspectRatio: false,
-            scales:{ 
-              y:{ 
-                ticks:{ 
-                  callback:(v)=>`₱ ${formatPrice(v)}` 
-                }, 
-                beginAtZero: true 
-              } 
-            }, 
-            plugins:{ 
-              legend:{ display:false },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  callback: (v) => "₱" + formatPrice(v),
+                },
+              },
+            },
+            plugins: {
+              legend: { display: false },
               tooltip: {
                 callbacks: {
-                  label: function(context) {
-                    return '₱ ' + formatPrice(context.parsed.y);
-                  }
-                }
-              }
-            } 
-          }
+                  label: (ctx) => "₱" + formatPrice(ctx.parsed.y),
+                },
+              },
+            },
+          },
         });
-      }else{
+      } else {
         salesChart.data.labels = labels;
         salesChart.data.datasets[0].data = values;
-        salesChart.data.datasets[0].label = '₱ POS sales';
-        salesChart.update('active'); // Force update with animation
+        salesChart.update("active");
       }
-      document.getElementById('salesStatus').textContent = `Last updated ${new Date().toLocaleTimeString()}`;
-    }catch(err){
-      document.getElementById('salesStatus').textContent = 'Unable to load profit data';
-      console.error('Chart error:', err);
     }
-  }
 
-  // Store original run function
-  const originalRun = run;
-  
-  // Override run to reload chart when report is generated
-  run = async function() {
-    await originalRun();
-    // Reload chart to sync with latest profit data
-    await loadSalesChart();
-  };
-  
-  // Add refresh button for chart
-  const salesStatusEl = document.getElementById('salesStatus');
-  if (salesStatusEl) {
-    salesStatusEl.style.cursor = 'pointer';
-    salesStatusEl.title = 'Click to refresh chart';
-    salesStatusEl.addEventListener('click', () => {
-      loadSalesChart();
+    function updatePayChart(sales, start, end) {
+      const buckets = { Cash: 0, Card: 0, Other: 0 };
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        const b = bucketPay(parsePaymentMethod(s.note));
+        buckets[b] = (buckets[b] || 0) + (Number(s.amount) || 0);
+      }
+      const total = buckets.Cash + buckets.Card + buckets.Other;
+      document.getElementById("donutTotal").textContent = "₱" + formatPrice(total);
+
+      const parts = [
+        { key: "Cash", color: "#0057b8", amt: buckets.Cash },
+        { key: "Card", color: "#059669", amt: buckets.Card },
+        { key: "Other", color: "#94a3b8", amt: buckets.Other },
+      ];
+      document.getElementById("payLegend").innerHTML = parts
+        .map((p) => {
+          const pct = total > 0 ? ((p.amt / total) * 100).toFixed(0) : "0";
+          return `<li class="flex items-center justify-between gap-2">
+            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${p.color}"></span>${esc(p.key)}</span>
+            <span class="text-slate-700 tabular-nums">₱${formatPrice(p.amt)} <span class="text-slate-400">(${pct}%)</span></span>
+          </li>`;
+        })
+        .join("");
+
+      if (!payChart) {
+        payChart = new Chart(payCtx, {
+          type: "doughnut",
+          data: {
+            labels: parts.map((p) => p.key),
+            datasets: [
+              {
+                data: parts.map((p) => p.amt),
+                backgroundColor: parts.map((p) => p.color),
+                borderWidth: 2,
+                borderColor: "#fff",
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "68%",
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: (ctx) => {
+                    const v = ctx.parsed;
+                    const pct = total > 0 ? ((v / total) * 100).toFixed(1) : "0";
+                    return ` ₱${formatPrice(v)} (${pct}%)`;
+                  },
+                },
+              },
+            },
+          },
+        });
+      } else {
+        payChart.data.datasets[0].data = parts.map((p) => p.amt);
+        payChart.update("active");
+      }
+    }
+
+    function inferCategory(itemName, kind) {
+      const n = (itemName || "").toLowerCase();
+      if (kind === "procedure" || /consult|visit|exam|service|fee|lab|x-ray|ultrasound|dental|surgery|therapy|test/i.test(n)) return "Service";
+      if (/vacc|dhpp|rabies|shot/i.test(n)) return "Vaccine";
+      if (/tick|flea|worm|med|tablet|capsule|mg|ml|rx|antibiotic/i.test(n)) return "Medication";
+      return "Product";
+    }
+
+    function aggregateTopItems(summary) {
+      const map = new Map();
+      function addRow(r, kind) {
+        const name = (r.itemName || "").trim() || "Item";
+        const prev = map.get(name) || { name, cat: "", qty: 0, total: 0 };
+        prev.qty += Number(r.quantity) || 0;
+        prev.total += Number(r.lineTotal) || 0;
+        if (kind === "procedure") prev.cat = inferCategory(name, "procedure");
+        else if (!prev.cat) prev.cat = inferCategory(name, "product");
+        map.set(name, prev);
+      }
+      for (const r of summary.posProcedureLines || []) addRow(r, "procedure");
+      for (const r of summary.posProductLines || []) addRow(r, "product");
+      return [...map.values()].sort((a, b) => b.total - a.total).slice(0, 200);
+    }
+
+    /** When /reports/summary is down, approximate top lines from POS sale notes (same shape as checkout). */
+    function parsePosNoteLines(note) {
+      if (!note || typeof note !== "string") return [];
+      let body = note.replace(/^\s*Payment:\s*[^.]*\.\s*/i, "");
+      body = body.replace(/\s*Discount:\s*[^.]+\.\s*/i, "").trim();
+      if (!body) return [];
+      const out = [];
+      for (const segment of body.split(/\s*\|\s*/)) {
+        const seg = segment.trim();
+        const m = seg.match(/^(.+?)\s*[×xX](\d+)\s*@\s*(?:₱|\u20B1)?\s*([\d,]+(?:\.\d+)?)\s*$/i);
+        if (!m) continue;
+        const name = m[1].trim();
+        const qty = parseInt(m[2], 10) || 0;
+        const unit = parseFloat(String(m[3]).replace(/,/g, "")) || 0;
+        if (qty <= 0 || unit <= 0) continue;
+        out.push({ name, qty, lineTotal: unit * qty });
+      }
+      return out;
+    }
+
+    function aggregateTopFromSales(sales, start, end) {
+      const map = new Map();
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        for (const line of parsePosNoteLines(s.note || "")) {
+          const prev = map.get(line.name) || { name: line.name, cat: "", qty: 0, total: 0 };
+          prev.qty += line.qty;
+          prev.total += line.lineTotal;
+          prev.cat = inferCategory(line.name, "product");
+          map.set(line.name, prev);
+        }
+      }
+      return [...map.values()].sort((a, b) => b.total - a.total).slice(0, 200);
+    }
+
+    function emptySummaryFallback(period, fromStr, toStr) {
+      return {
+        period,
+        from: fromStr,
+        to: toStr,
+        appointmentsDone: 0,
+        prescriptionsDispensed: 0,
+        petsAdded: 0,
+        posProcedureLines: [],
+        posProductLines: [],
+        posSales: 0,
+        posProcedureRevenue: 0,
+        posProductRevenue: 0,
+        newPatients: [],
+        events: [],
+      };
+    }
+
+    const REPORT_ROW_PREVIEW = 6;
+    const reportTables = {
+      dailyTrs: [],
+      topItems: [],
+      recentHtmls: [],
+      expanded: { daily: false, top: false, recent: false },
+    };
+
+    function applyDailyTableBody() {
+      const tbody = document.getElementById("dailyRows");
+      const bar = document.getElementById("dailyExpandBar");
+      const btn = document.getElementById("btnExpandDaily");
+      const trs = reportTables.dailyTrs;
+      if (!trs.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No POS or pending billing activity in this range.</td></tr>`;
+        bar.classList.add("hidden");
+        return;
+      }
+      const n = reportTables.expanded.daily ? trs.length : Math.min(REPORT_ROW_PREVIEW, trs.length);
+      tbody.innerHTML = trs.slice(0, n).join("");
+      if (trs.length > REPORT_ROW_PREVIEW) {
+        bar.classList.remove("hidden");
+        btn.textContent = reportTables.expanded.daily ? "Show less" : "View all";
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function applyTopRows() {
+      const top = reportTables.topItems;
+      const tbody = document.getElementById("topRows");
+      const bar = document.getElementById("topExpandBar");
+      const btn = document.getElementById("btnExpandTop");
+      if (!top.length) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-4 py-10 text-center text-slate-400">No line-level POS data in this period.</td></tr>`;
+        bar.classList.add("hidden");
+        return;
+      }
+      const n = reportTables.expanded.top ? top.length : Math.min(REPORT_ROW_PREVIEW, top.length);
+      tbody.innerHTML = top
+        .slice(0, n)
+        .map(
+          (r) => `<tr>
+            <td class="px-3 py-2 font-medium text-slate-900">${esc(r.name)}</td>
+            <td class="px-3 py-2 text-slate-600">${esc(r.cat)}</td>
+            <td class="px-3 py-2 text-right tabular-nums">${r.qty}</td>
+            <td class="px-3 py-2 text-right font-semibold tabular-nums">₱${formatPrice(r.total)}</td>
+          </tr>`,
+        )
+        .join("");
+      if (top.length > REPORT_ROW_PREVIEW) {
+        bar.classList.remove("hidden");
+        btn.textContent = reportTables.expanded.top ? "Show less" : "View all";
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function applyRecentRows() {
+      const htmls = reportTables.recentHtmls;
+      const tbody = document.getElementById("recentRows");
+      const bar = document.getElementById("recentExpandBar");
+      const btn = document.getElementById("btnExpandRecent");
+      if (!htmls.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No recent activity.</td></tr>`;
+        bar.classList.add("hidden");
+        return;
+      }
+      const n = reportTables.expanded.recent ? htmls.length : Math.min(REPORT_ROW_PREVIEW, htmls.length);
+      tbody.innerHTML = htmls.slice(0, n).join("");
+      if (htmls.length > REPORT_ROW_PREVIEW) {
+        bar.classList.remove("hidden");
+        btn.textContent = reportTables.expanded.recent ? "Show less" : "View all";
+      } else {
+        bar.classList.add("hidden");
+      }
+    }
+
+    function renderDailyTable(sales, billing, start, end) {
+      const days = eachDay(start, end);
+      const pendingByDay = {};
+      for (const b of billing) {
+        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
+        const t = b.issuedAt || b.createdAt;
+        if (!t) continue;
+        const key = localDateKeyFromIso(t);
+        if (!inRange(t, start, end)) continue;
+        pendingByDay[key] = (pendingByDay[key] || 0) + (Number(b.amount) || 0);
+      }
+
+      let sumTx = 0;
+      let sumTot = 0;
+      let sumPaid = 0;
+      let sumPend = 0;
+
+      const rowStrings = days
+        .map((d) => {
+          const key = localDateKey(d);
+          let tx = 0;
+          let tot = 0;
+          for (const s of sales) {
+            if ((s.source || "") !== "POS") continue;
+            if (localDateKeyFromIso(s.occurredAt) !== key) continue;
+            tx++;
+            tot += Number(s.amount) || 0;
+          }
+          const pend = pendingByDay[key] || 0;
+          sumTx += tx;
+          sumTot += tot;
+          sumPaid += tot;
+          sumPend += pend;
+          if (tx === 0 && tot === 0 && pend === 0) return "";
+          return `<tr>
+            <td class="px-3 py-2 text-slate-700">${esc(d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }))}</td>
+            <td class="px-3 py-2 text-right tabular-nums">${tx}</td>
+            <td class="px-3 py-2 text-right font-medium tabular-nums">₱${formatPrice(tot)}</td>
+            <td class="px-3 py-2 text-right text-emerald-700 tabular-nums">₱${formatPrice(tot)}</td>
+            <td class="px-3 py-2 text-right text-amber-700 tabular-nums">₱${formatPrice(pend)}</td>
+            <td class="px-3 py-2 text-right text-slate-400 tabular-nums">₱0.00</td>
+          </tr>`;
+        })
+        .filter(Boolean);
+
+      reportTables.dailyTrs = rowStrings;
+      reportTables.expanded.daily = false;
+      applyDailyTableBody();
+
+      document.getElementById("dailyFoot").innerHTML = `<tr>
+        <td class="px-3 py-2.5">Total</td>
+        <td class="px-3 py-2.5 text-right tabular-nums">${sumTx}</td>
+        <td class="px-3 py-2.5 text-right tabular-nums">₱${formatPrice(sumTot)}</td>
+        <td class="px-3 py-2.5 text-right text-emerald-800 tabular-nums">₱${formatPrice(sumPaid)}</td>
+        <td class="px-3 py-2.5 text-right text-amber-800 tabular-nums">₱${formatPrice(sumPend)}</td>
+        <td class="px-3 py-2.5 text-right text-slate-400 tabular-nums">₱0.00</td>
+      </tr>`;
+    }
+
+    function statusPill(st) {
+      const u = String(st || "").toUpperCase();
+      if (u === "PAID") return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Paid</span>`;
+      if (u === "PENDING") return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Pending</span>`;
+      return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">${esc(u)}</span>`;
+    }
+
+    function fmtDT(iso) {
+      if (!iso) return "—";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return esc(String(iso).replace("T", " ").slice(0, 19));
+      return esc(
+        d.toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        }),
+      );
+    }
+
+    function renderRecent(sales, billing, petsById, start, end) {
+      const rows = [];
+      const cashier = typeof getUserName === "function" ? getUserName() : localStorage.getItem("username") || "—";
+
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        const petId = s.petId;
+        const pet = petId != null ? petsById.get(Number(petId)) : null;
+        const owner = pet && (pet.owner || pet.ownerName) ? pet.owner || pet.ownerName : "—";
+        rows.push({
+          t: new Date(s.occurredAt).getTime(),
+          html: `<tr>
+            <td class="px-3 py-2 text-slate-600 whitespace-nowrap">${fmtDT(s.occurredAt)}</td>
+            <td class="px-3 py-2 font-medium text-[var(--soft-teal)]">${esc(receiptNo(s))}</td>
+            <td class="px-3 py-2 font-medium text-slate-900">${esc(s.petName || "—")}</td>
+            <td class="px-3 py-2 text-slate-600">${esc(owner)}</td>
+            <td class="px-3 py-2 text-right font-semibold tabular-nums">₱${formatPrice(s.amount)}</td>
+            <td class="px-3 py-2">${statusPill("PAID")}</td>
+            <td class="px-3 py-2 text-slate-600">${esc(cashier)}</td>
+          </tr>`,
+        });
+      }
+
+      for (const b of billing) {
+        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
+        const t = b.issuedAt || b.createdAt;
+        if (!inRange(t, start, end)) continue;
+        const y = localDateKeyFromIso(t).slice(0, 4) || String(new Date().getFullYear());
+        const inv = `INV-${y}-${String(b.id).padStart(4, "0")}`;
+        rows.push({
+          t: new Date(t).getTime(),
+          html: `<tr class="bg-amber-50/40">
+            <td class="px-3 py-2 text-slate-600 whitespace-nowrap">${fmtDT(t)}</td>
+            <td class="px-3 py-2 font-medium text-amber-800">${esc(inv)}</td>
+            <td class="px-3 py-2 font-medium text-slate-900">${esc(b.petName || "—")}</td>
+            <td class="px-3 py-2 text-slate-600">${esc(b.ownerName || "—")}</td>
+            <td class="px-3 py-2 text-right font-semibold tabular-nums">₱${formatPrice(b.amount)}</td>
+            <td class="px-3 py-2">${statusPill("PENDING")}</td>
+            <td class="px-3 py-2 text-slate-500">—</td>
+          </tr>`,
+        });
+      }
+
+      rows.sort((a, b) => b.t - a.t);
+      reportTables.recentHtmls = rows.map((x) => x.html);
+      reportTables.expanded.recent = false;
+      applyRecentRows();
+    }
+
+    let loadSeq = 0;
+    async function loadReport() {
+      const range = resolveRange();
+      if (!range) {
+        toast("Select from and to for a custom period.", true);
+        return;
+      }
+      const { start, end, period } = range;
+      const seq = ++loadSeq;
+      document.getElementById("salesStatus").textContent = "Updating…";
+
+      try {
+        const fromStr = localDateKey(start);
+        const toStr = localDateKey(end);
+        const [sales, billing, pets] = await Promise.all([
+          Api.sales.list(),
+          Api.billing.list(),
+          Api.pets.list().catch(() => []),
+        ]);
+        if (seq !== loadSeq) return;
+
+        let summary;
+        let summaryErrMsg = "";
+        try {
+          summary =
+            period === "custom"
+              ? await Api.reports.summary("custom", fromStr, toStr)
+              : await Api.reports.summary(period);
+        } catch (err) {
+          summaryErrMsg = err && err.message ? String(err.message) : "unknown error";
+          summary = emptySummaryFallback(period, fromStr, toStr);
+        }
+
+        window._lastReport = summary;
+        const petsById = new Map();
+        for (const p of pets || []) {
+          if (p && p.id != null) petsById.set(Number(p.id), p);
+        }
+
+        const totalPos = sumPosSalesInRange(sales, start, end);
+        const pending = pendingBillingTotal(billing, start, end);
+        renderKpis(totalPos, pending);
+
+        updateLineChart(sales, start, end);
+        updatePayChart(sales, start, end);
+
+        renderDailyTable(sales, billing, start, end);
+
+        let top = aggregateTopItems(summary);
+        if (!top.length) top = aggregateTopFromSales(sales, start, end);
+        reportTables.topItems = top;
+        reportTables.expanded.top = false;
+        applyTopRows();
+
+        renderRecent(sales, billing, petsById, start, end);
+
+        document.getElementById("salesStatus").textContent = `Last updated ${new Date().toLocaleTimeString()}`;
+        if (summaryErrMsg) {
+          console.warn("reports/summary failed (using live POS + fallback)", summaryErrMsg);
+        }
+      } catch (e) {
+        if (seq !== loadSeq) return;
+        document.getElementById("salesStatus").textContent = "Unable to load";
+        toast((e.message || "Failed to load reports").slice(0, 180), true);
+      }
+    }
+
+    document.getElementById("btnExpandDaily").onclick = () => {
+      reportTables.expanded.daily = !reportTables.expanded.daily;
+      applyDailyTableBody();
+    };
+    document.getElementById("btnExpandTop").onclick = () => {
+      reportTables.expanded.top = !reportTables.expanded.top;
+      applyTopRows();
+    };
+    document.getElementById("btnExpandRecent").onclick = () => {
+      reportTables.expanded.recent = !reportTables.expanded.recent;
+      applyRecentRows();
+    };
+
+    document.getElementById("runBtn").onclick = () => loadReport();
+    document.getElementById("chartRefresh").onclick = () => loadReport();
+    document.getElementById("salesStatus").onclick = () => loadReport();
+
+    document.getElementById("printBtn").onclick = async () => {
+      const r = window._lastReport;
+      if (!r) {
+        toast("Run the report first.", true);
+        return;
+      }
+      try {
+        const username = localStorage.getItem("username") || "Admin";
+        const params = new URLSearchParams({
+          period: r.period || "month",
+          preparedBy: username,
+        });
+        if (r.from) params.append("from", r.from);
+        if (r.to) params.append("to", r.to);
+        const response = await fetch(`${window.API_BASE}/reports/summary/pdf?${params.toString()}`, {
+          headers: {
+            Accept: "application/pdf",
+            Authorization: `Bearer ${localStorage.getItem("jwt") || localStorage.getItem("token") || ""}`,
+          },
+        });
+        if (!response.ok) throw new Error("PDF request failed");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `Bayport_Summary_${r.from || ""}_${r.to || ""}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (err) {
+        toast("Unable to generate PDF: " + (err.message || "error"), true);
+      }
+    };
+
+    function csvEscape(value) {
+      const raw = value == null ? "" : String(value);
+      return `"${raw.replace(/"/g, '""')}"`;
+    }
+    function downloadCsv(filename, rows) {
+      const content = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    }
+
+    document.getElementById("excelBtn").onclick = async () => {
+      const r = window._lastReport;
+      if (!r) {
+        toast("Run the report first.", true);
+        return;
+      }
+      const range = resolveRange();
+      if (!range) return;
+      const { start, end } = range;
+      const sales = await Api.sales.list().catch(() => []);
+      const billing = await Api.billing.list().catch(() => []);
+      const totalPos = sumPosSalesInRange(sales, start, end);
+      const pending = pendingBillingTotal(billing, start, end);
+      const top = aggregateTopItems(r);
+
+      const rows = [
+        ["Bayport Veterinary Clinic — reports export"],
+        ["Period", r.period || "", "From", r.from || "", "To", r.to || ""],
+        ["Total POS sales (range)", formatPrice(totalPos)],
+        ["Pending billing (range)", formatPrice(pending)],
+        [],
+        ["Top items", "Category", "Qty", "Total"],
+        ...top.map((x) => [x.name, x.cat, x.qty, formatPrice(x.total)]),
+        [],
+        ["Backend summary — POS procedures lines"],
+        ...((r.posProcedureLines || []).map((x) => [x.date, x.petName, x.itemName, x.sku, x.quantity, formatPrice(x.lineTotal)])),
+        [],
+        ["Backend summary — POS product lines"],
+        ...((r.posProductLines || []).map((x) => [x.date, x.petName, x.itemName, x.sku, x.quantity, formatPrice(x.lineTotal)])),
+      ];
+      downloadCsv(`Bayport_Reports_${r.from || ""}_${r.to || ""}.csv`, rows);
+      toast("CSV exported.", false);
+    };
+
+    loadReport();
+    setInterval(() => {
+      if (document.visibilityState === "visible") loadReport();
+    }, 45000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadReport();
     });
-  }
-  
-  // default load
-  run();
-  // Load chart after a short delay to ensure DOM is ready
-  setTimeout(() => {
-    loadSalesChart();
-  }, 500);
-</script>
+  </script>
 </body>
 </html>

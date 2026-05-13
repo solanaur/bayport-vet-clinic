@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Pet Records - Bayport</title>
+  <title>Pet profiles - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -10,17 +10,19 @@
     .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
     .shadow-card{box-shadow:0 2px 8px rgba(0,0,0,.08)}
     :root{--soft-teal:#0057b8}
+    .pet-card-actions > summary{list-style:none}
+    .pet-card-actions > summary::-webkit-details-marker{display:none}
+    .pet-card-actions[open] > summary{z-index:30}
+    #petFiltersPanel > summary{list-style:none}
+    #petFiltersPanel > summary::-webkit-details-marker{display:none}
   </style>
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-    <div class="flex items-center space-x-5"><img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain"><div><h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1><p class="text-sm text-gray-100/90">Caring for your pets with compassion and expertise</p></div></div>
-    <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50 transition-all duration-200" onclick="logout()">Logout</button>
-  </header>
+  <header id="bpAppHeader"></header>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet Records</h2>
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet profiles</h2>
       <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
     </aside>
 
@@ -28,11 +30,11 @@
       <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
           <div>
-            <h3 class="text-2xl font-semibold text-gray-800 mb-1">Pet Records</h3>
+            <h3 class="text-2xl font-semibold text-gray-800 mb-1">Pet profiles</h3>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <div class="relative flex-1 min-w-[200px]">
-              <input id="petSearch" class="w-full border-2 border-gray-200 rounded-lg p-3 pl-10 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search by name or owner">
+              <input id="petSearch" class="w-full border-2 border-gray-200 rounded-lg p-3 pl-10 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search name, owner, breed, species…">
               <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
@@ -52,268 +54,419 @@
           </div>
         </div>
 
-        <!-- Filters and View Toggle -->
-        <div class="mb-6 flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-gray-200">
-          <div class="flex flex-wrap items-center gap-3">
-            <span class="text-sm font-medium text-gray-700">Filter by Species:</span>
-            <button onclick="filterBySpecies(null)" id="filter-all" class="px-4 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm">All</button>
-            <button onclick="filterBySpecies('Canine')" id="filter-canine" class="px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">Canine</button>
-            <button onclick="filterBySpecies('Feline')" id="filter-feline" class="px-4 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200">Feline</button>
+        <!-- Filters (collapsible to reduce clutter) -->
+        <details id="petFiltersPanel" class="mb-4 rounded-xl border border-gray-200 bg-gray-50/80 group">
+          <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-gray-800 flex items-center justify-between gap-2 hover:bg-gray-100/80 rounded-xl [&::-webkit-details-marker]:hidden">
+            <span class="flex items-center gap-2">
+              <svg class="w-4 h-4 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+              Filters
+            </span>
+            <span class="text-xs font-normal text-gray-500">Species · Age · Last visit · Attention</span>
+          </summary>
+          <div class="border-t border-gray-200 px-4 pb-4 pt-2 space-y-3">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <span class="font-semibold text-gray-700">Species</span>
+              <label class="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" id="species-canine" class="rounded border-gray-300 species-cb"> Canine</label>
+              <label class="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" id="species-feline" class="rounded border-gray-300 species-cb"> Feline</label>
+              <label class="inline-flex items-center gap-2 cursor-pointer"><input type="checkbox" id="species-other" class="rounded border-gray-300 species-cb"> Other</label>
+            </div>
+            <div class="flex flex-wrap items-end gap-4 text-sm">
+              <label class="block">Age
+                <select id="filter-age" class="mt-1 border-2 border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[9rem]">
+                  <option value="all">Any age</option>
+                  <option value="0-1">0–1 years</option>
+                  <option value="1-7">1–7 years</option>
+                  <option value="7+">7+ years</option>
+                  <option value="unknown">Age not set</option>
+                </select>
+              </label>
+              <label class="block">Last visit
+                <select id="filter-lastvisit" class="mt-1 border-2 border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[11rem]">
+                  <option value="all">Any</option>
+                  <option value="30d">Within 30 days</option>
+                  <option value="90d">Within 90 days</option>
+                  <option value="1y">Within 1 year</option>
+                  <option value="older">Over 1 year ago</option>
+                  <option value="never">No visits recorded</option>
+                </select>
+              </label>
+              <label class="block">Attention
+                <select id="filter-status" class="mt-1 border-2 border-gray-200 rounded-lg px-3 py-2 bg-white min-w-[12rem]">
+                  <option value="all">All pets</option>
+                  <option value="attention">Needs attention (any badge)</option>
+                  <option value="vacc">Vaccination due</option>
+                  <option value="appt">Appointment soon</option>
+                  <option value="follow">Follow-up suggested</option>
+                </select>
+              </label>
+              <button type="button" id="clearFiltersBtn" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-white">Clear filters</button>
+            </div>
           </div>
+        </details>
+
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p id="petCountLabel" class="text-sm text-gray-600"></p>
           <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-gray-700">View:</span>
-            <button onclick="setViewMode('grid')" id="view-grid" class="px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm" title="Grid View">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
-              </svg>
+            <span class="text-sm font-medium text-gray-700">View</span>
+            <button type="button" onclick="setViewMode('grid')" id="view-grid" class="px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm" title="Compact grid">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
             </button>
-            <button onclick="setViewMode('list')" id="view-list" class="px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="List View">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-              </svg>
+            <button type="button" onclick="setViewMode('list')" id="view-list" class="px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="List">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
           </div>
         </div>
 
-        <!-- Pet Cards Grid / List View -->
-        <div id="rows" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <!-- Pet cards will be rendered here -->
+        <div id="rows" class="grid gap-3"></div>
+
+        <div id="paginationBar" class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 hidden">
+          <button type="button" id="pagePrev" class="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-40">Previous</button>
+          <span id="pageInfo" class="text-sm text-gray-600"></span>
+          <button type="button" id="pageNext" class="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium hover:bg-gray-50 disabled:opacity-40">Next</button>
         </div>
       </div>
     </main>
   </div>
 
   <div id="modalRoot"></div>
+  <div id="toastRoot" class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none max-w-sm"></div>
 
   <script src="assets/deploy-env.js"></script>
 <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
     guard('pet-records');
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     renderSidebar(document.getElementById('sidebarNav'), getRole(), 'pet-records.html');
 
-    const rows=document.getElementById('rows');
-    const q=document.getElementById('petSearch');
-    const modalRoot=document.getElementById('modalRoot');
-    let lastRawFile=null;
-    let allPets = [];
-    let selectedSpeciesFilter = null;
-    let currentViewMode = 'grid'; // 'grid' or 'list'
-    
-    // Load view mode from localStorage
+    const rows = document.getElementById('rows');
+    const q = document.getElementById('petSearch');
+    const modalRoot = document.getElementById('modalRoot');
+    const toastRoot = document.getElementById('toastRoot');
+    const petCountLabel = document.getElementById('petCountLabel');
+    const paginationBar = document.getElementById('paginationBar');
+    const pagePrev = document.getElementById('pagePrev');
+    const pageNext = document.getElementById('pageNext');
+    const pageInfo = document.getElementById('pageInfo');
+    let lastRawFile = null;
+    const PAGE_SIZE = 24;
+    let currentPage = 1;
+    let currentViewMode = 'grid';
+
+    window.showToast = function (msg) {
+      if (!toastRoot) return;
+      const el = document.createElement('div');
+      el.className = 'pointer-events-auto rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800 shadow-lg';
+      el.textContent = msg;
+      toastRoot.appendChild(el);
+      setTimeout(() => el.remove(), 3200);
+    };
+
     const savedViewMode = localStorage.getItem('petRecordsViewMode');
-    if (savedViewMode === 'list' || savedViewMode === 'grid') {
-      currentViewMode = savedViewMode;
+    if (savedViewMode === 'list' || savedViewMode === 'grid') currentViewMode = savedViewMode;
+
+    function lastProcedureDate(p) {
+      const procs = p.procedures || [];
+      if (!procs.length) return null;
+      let best = '';
+      procs.forEach((pr) => {
+        const d = pr.performedAt || '';
+        if (d && d > best) best = d;
+      });
+      return best || null;
     }
-    
-    // Make setViewMode globally accessible
+
+    function daysBetween(isoA, isoB) {
+      const a = new Date(isoA + 'T12:00:00').getTime();
+      const b = new Date(isoB + 'T12:00:00').getTime();
+      return Math.floor((b - a) / 86400000);
+    }
+
+    function parseAgeYears(age) {
+      if (age == null || age === '') return null;
+      const n = Number(String(age).replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function computeBadges(p, apptsForPet) {
+      const badges = [];
+      const today = new Date().toISOString().slice(0, 10);
+      const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+      for (const a of apptsForPet || []) {
+        const d = String(a.date || '').slice(0, 10);
+        const st = String(a.status || '').toLowerCase();
+        if (d && d >= today && d <= weekEnd && st !== 'done') {
+          badges.push({ lbl: 'Appt soon', cls: 'bg-sky-600 text-white' });
+          break;
+        }
+      }
+      const procs = p.procedures || [];
+      let lastVacc = '';
+      for (const pr of procs) {
+        const d = pr.performedAt || '';
+        if (!d) continue;
+        const cat = String(pr.category || '').toLowerCase();
+        const nm = String(pr.name || '').toLowerCase();
+        if (cat.includes('vaccin') || nm.includes('vaccin') || nm.includes('rabies')) {
+          if (!lastVacc || d > lastVacc) lastVacc = d;
+        }
+      }
+      if (lastVacc && daysBetween(lastVacc, today) > 330) {
+        badges.push({ lbl: 'Vaccination due', cls: 'bg-amber-500 text-white' });
+      }
+      const last = lastProcedureDate(p);
+      if (last && daysBetween(last, today) > 180) {
+        badges.push({ lbl: 'Follow-up?', cls: 'bg-violet-600 text-white' });
+      }
+      if (procs.length && (p.notes || '').toLowerCase().includes('follow')) {
+        badges.push({ lbl: 'Follow-up', cls: 'bg-rose-600 text-white' });
+      }
+      return badges.slice(0, 3);
+    }
+
+    let lastFilteredTotal = 0;
+
+    function badgesHtml(badges) {
+      if (!badges || !badges.length) return '';
+      return `<div class="absolute top-1 right-1 z-10 flex max-w-[65%] flex-wrap justify-end gap-0.5 pointer-events-none">${badges.map((b) => `<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow ${b.cls}">${b.lbl}</span>`).join('')}</div>`;
+    }
+
+    /** Primary: view profile; optional start consultation (vet/admin); then record tools. */
+    function cardCareMenuHtml(p, layout) {
+      const fo = typeof window.isFrontOffice === "function" && window.isFrontOffice(window.getRole());
+      const consultRow = fo
+        ? ""
+        : `<a href="consultations.html?petId=${p.id}" class="block w-full px-3 py-2 text-left text-gray-700 hover:bg-[var(--soft-teal)]/10">Start consultation</a>`;
+      const wrapCls = layout === 'list' ? 'pet-card-actions relative shrink-0 z-20' : 'pet-card-actions relative z-20 mt-auto border-t border-gray-100';
+      const sumCls =
+        layout === 'list'
+          ? 'list-none cursor-pointer rounded-md border border-gray-200 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-600 hover:bg-gray-50'
+          : 'list-none cursor-pointer w-full py-2 px-2 text-left text-xs font-semibold text-[var(--soft-teal)] hover:bg-gray-50 flex items-center justify-between gap-2';
+      const panelCls = layout === 'list' ? 'absolute right-0 mt-1 w-48' : 'absolute left-0 right-0 top-full mt-0.5';
+      return `<details class="${wrapCls}" onclick="event.stopPropagation()"><summary class="${sumCls}">${layout === 'list' ? 'Menu' : '<span>Actions</span><span class="text-[10px] font-normal text-gray-400">▼</span>'}</summary><div class="${panelCls} rounded-lg border border-gray-200 bg-white py-1 shadow-xl text-xs z-30"><a href="pet-profile.html?id=${p.id}" class="block w-full px-3 py-2.5 text-left font-semibold text-gray-900 hover:bg-gray-50 border-b border-gray-100">View profile</a>${consultRow}<hr class="my-0.5 border-gray-100"><button type="button" class="block w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50" onclick="openForm(${p.id})">Edit record</button><button type="button" class="block w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50" onclick="printPetProfile(${p.id})">Print PDF</button><button type="button" class="block w-full text-left px-3 py-2 text-red-600 hover:bg-red-50" onclick="delPet(${p.id})">Delete</button></div></details>`;
+    }
+
+    function speciesMatchesMulti(p) {
+      const c = document.getElementById('species-canine')?.checked;
+      const f = document.getElementById('species-feline')?.checked;
+      const o = document.getElementById('species-other')?.checked;
+      if (!c && !f && !o) return true;
+      const sp = String(p.species || '').toLowerCase();
+      const isC = sp.includes('canine') || sp.includes('dog');
+      const isF = sp.includes('feline') || sp.includes('cat');
+      if (c && isC) return true;
+      if (f && isF) return true;
+      if (o && !isC && !isF && sp) return true;
+      if (o && !sp) return true;
+      return false;
+    }
+
+    function ageMatches(p, filterVal) {
+      if (!filterVal || filterVal === 'all') return true;
+      const y = parseAgeYears(p.age);
+      if (filterVal === 'unknown') return y == null;
+      if (y == null) return false;
+      if (filterVal === '0-1') return y >= 0 && y <= 1;
+      if (filterVal === '1-7') return y > 1 && y <= 7;
+      if (filterVal === '7+') return y > 7;
+      return true;
+    }
+
+    function lastVisitMatches(p, filterVal, lastIso) {
+      if (!filterVal || filterVal === 'all') return true;
+      const today = new Date().toISOString().slice(0, 10);
+      if (filterVal === 'never') return !lastIso;
+      if (!lastIso) return filterVal === 'never';
+      const days = daysBetween(lastIso, today);
+      if (filterVal === '30d') return days <= 30;
+      if (filterVal === '90d') return days <= 90;
+      if (filterVal === '1y') return days <= 365;
+      if (filterVal === 'older') return days > 365;
+      return true;
+    }
+
     window.setViewMode = function setViewMode(mode) {
       currentViewMode = mode;
       localStorage.setItem('petRecordsViewMode', mode);
-      
-      // Update button styles
       const gridBtn = document.getElementById('view-grid');
       const listBtn = document.getElementById('view-list');
       if (gridBtn && listBtn) {
         if (mode === 'grid') {
-          gridBtn.classList.remove('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
-          gridBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-          listBtn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-          listBtn.classList.add('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+          gridBtn.className = 'px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm';
+          listBtn.className = 'px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200';
         } else {
-          listBtn.classList.remove('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
-          listBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-          gridBtn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-          gridBtn.classList.add('border-gray-300', 'text-gray-700', 'hover:bg-gray-50', 'hover:border-gray-400');
+          listBtn.className = 'px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] bg-[var(--soft-teal)] text-white font-medium transition-all duration-200 shadow-sm';
+          gridBtn.className = 'px-3 py-2 rounded-lg border-2 border-gray-300 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200';
         }
       }
-      
-      // Re-render with new view mode
       render();
     };
 
-    async function render(){
-      try{
-      const term=(q.value||'').toLowerCase();
-      const pets=await repoListPets();
-        const safe = Array.isArray(pets) ? pets : [];
-        const filtered = safe.filter(p=>{
-          try{ return JSON.stringify(p).toLowerCase().includes(term); }catch{ return false; }
-        });
-        const withOwnerNames = await Promise.all(filtered.map(async p=>{
-          let ownerName = p.owner||'';
-          if(!ownerName && p.ownerId){ const o = await repoGetOwner(p.ownerId); ownerName = o? o.fullName : ''; }
-          return { ...p, _ownerName: ownerName };
-        }));
-        
-        if (filtered.length === 0) {
-          rows.innerHTML = `
-            <div class="col-span-full py-16 text-center">
-              <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-              </svg>
-              <p class="text-gray-400 text-lg font-medium mb-2">No pets found</p>
-              <p class="text-gray-300 text-sm">${term ? 'Try a different search term' : 'Add your first pet record to get started'}</p>
-            </div>
-          `;
-          return;
-        }
-        
-        // Store all pets for filtering
-        allPets = withOwnerNames;
-        
-        // Apply species filter
-        let filteredPets = withOwnerNames;
-        if (selectedSpeciesFilter) {
-          filteredPets = withOwnerNames.filter(p => (p.species || '').toLowerCase() === selectedSpeciesFilter.toLowerCase());
-        }
-        
-        if (filteredPets.length === 0) {
-          rows.innerHTML = `
-            <div class="col-span-full py-16 text-center">
-              <svg class="w-20 h-20 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-              </svg>
-              <p class="text-gray-400 text-lg font-medium mb-2">No pets found</p>
-              <p class="text-gray-300 text-sm">${selectedSpeciesFilter ? `No ${selectedSpeciesFilter} pets found` : 'Try a different search term'}</p>
-            </div>
-          `;
-          return;
-        }
-        
-        // Render based on current view mode
-        if (currentViewMode === 'list') {
-          rows.className = 'space-y-3';
-          rows.innerHTML = `
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm mb-3">
-              <div class="grid grid-cols-12 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-700 uppercase tracking-wide">
-                <div class="col-span-2">Pet Name</div>
-                <div class="col-span-2">Species</div>
-                <div class="col-span-2">Breed</div>
-                <div class="col-span-2">Owner</div>
-                <div class="col-span-1 text-center">Age</div>
-                <div class="col-span-3 text-right">Actions</div>
-              </div>
-            </div>
-            ${filteredPets.map(p => {
-            const photoSrc = p.photo ? resolveAssetUrl(p.photo) : 'assets/cutie.jpg';
-            return `
-            <div class="bg-white rounded-lg border border-gray-200 hover:border-[var(--soft-teal)]/50 hover:shadow-md transition-all duration-200">
-              <div class="grid grid-cols-12 gap-4 px-6 py-5 items-center">
-                <div class="col-span-2 flex items-center gap-4">
-                  <div class="w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 border border-gray-200 shadow-sm">
-                    <img src="${photoSrc}" class="w-full h-full object-cover" alt="Pet photo"
-                         onerror="this.onerror=null;this.src='assets/cutie.jpg';">
-                  </div>
-                  <div>
-                    <div class="font-semibold text-gray-800 text-base">${p.name||'Unnamed Pet'}</div>
-                  </div>
-                </div>
-                <div class="col-span-2">
-                  <span class="px-3 py-1.5 bg-[var(--soft-teal)]/10 text-[var(--soft-teal)] rounded-md text-sm font-medium">${p.species||'N/A'}</span>
-                </div>
-                <div class="col-span-2 text-base text-gray-700">${p.breed||'Unknown Breed'}</div>
-                <div class="col-span-2 text-base text-gray-700">${p._ownerName||'No Owner'}</div>
-                <div class="col-span-1 text-center text-base text-gray-600 font-medium">${p.age ? `${p.age} ${p.age === 1 ? 'yr' : 'yrs'}` : 'N/A'}</div>
-                <div class="col-span-3 flex items-center justify-end gap-2">
-                  <button onclick="viewPet(${p.id})" class="px-4 py-2 bg-[var(--soft-teal)] text-white rounded-md text-sm font-medium hover:bg-[#158a8a] shadow-sm hover:shadow transition-all duration-200 flex items-center gap-1.5" title="View">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                    </svg>
-                    View
-                  </button>
-                  <button onclick="printPetProfile(${p.id})" class="px-3 py-2 border border-blue-300 text-blue-600 rounded-md text-sm font-medium hover:bg-blue-50 hover:border-blue-400 transition-all duration-200" title="Print Profile">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                    </svg>
-                  </button>
-                  <button onclick="openForm(${p.id})" class="px-3 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="Edit">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                    </svg>
-                  </button>
-                  <button onclick="delPet(${p.id})" class="px-3 py-2 border border-red-200 text-red-600 rounded-md text-sm font-medium hover:bg-red-50 hover:border-red-300 transition-all duration-200" title="Delete">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>`;
-          }).join('')}
-          `;
-        } else {
-          rows.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4';
-          rows.innerHTML = filteredPets.map(p=>{
-            const photoSrc = p.photo ? resolveAssetUrl(p.photo) : 'assets/cutie.jpg';
-            return `
-        <div class="bg-white rounded-xl shadow-card border border-gray-100 hover:shadow-lg hover:border-[var(--soft-teal)]/30 transition-all duration-300 overflow-hidden group">
-          <div class="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden">
-            <img src="${photoSrc}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Pet photo"
-                 onerror="this.onerror=null;this.src='assets/cutie.jpg';">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
-            <div class="absolute top-3 right-3">
-              <span class="px-2.5 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-700">${p.species||'N/A'}</span>
-            </div>
-          </div>
-          <div class="p-4">
-            <h4 class="text-lg font-bold text-gray-800 mb-1">${p.name||'Unnamed Pet'}</h4>
-            <div class="space-y-1.5 mb-3">
-              <div class="flex items-center gap-2 text-xs text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
-                </svg>
-                <span class="truncate">${p.breed||'Unknown Breed'}</span>
-              </div>
-              <div class="flex items-center gap-2 text-xs text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
-                </svg>
-                <span class="truncate">${p._ownerName||'No Owner'}</span>
-              </div>
-              ${p.age ? `
-              <div class="flex items-center gap-2 text-xs text-gray-600">
-                <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                </svg>
-                <span>${p.age} ${p.age === 1 ? 'year' : 'years'}</span>
-              </div>
-              ` : ''}
-            </div>
-            <div class="flex gap-2 pt-3 border-t border-gray-100">
-              <button onclick="viewPet(${p.id})" class="flex-1 px-3 py-2 bg-[var(--soft-teal)] text-white rounded-lg text-xs font-medium hover:bg-[#158a8a] shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                </svg>
-                View
-              </button>
-              <button onclick="printPetProfile(${p.id})" class="px-3 py-2 border-2 border-blue-300 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-50 hover:border-blue-400 transition-all duration-200" title="Print Profile">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                </svg>
-              </button>
-              <button onclick="openForm(${p.id})" class="px-3 py-2 border-2 border-gray-300 text-gray-700 rounded-lg text-xs font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" title="Edit">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                </svg>
-              </button>
-              <button onclick="delPet(${p.id})" class="px-3 py-2 border-2 border-red-200 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 hover:border-red-300 transition-all duration-200" title="Delete">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>`;
-          }).join('');
-        }
-      }catch(err){
-        console.error('Pet records render error', err);
-        rows.innerHTML = `<div class="col-span-full py-16 text-center"><p class="text-red-600 font-medium">Unable to load pet records from the server.</p></div>`;
+    function renderCompactCard(p) {
+      const photoBlock =
+        typeof renderPetPhotoHtml === 'function'
+          ? renderPetPhotoHtml(p.photo, 'relative h-20 w-full shrink-0', 'object-cover w-full h-full')
+          : `<div class="relative h-20 w-full shrink-0 bg-[var(--soft-teal)]"></div>`;
+      const breed = p.breed ? String(p.breed) : '';
+      const owner = p._ownerName || p.owner || '';
+      const nm = p.name || 'Unnamed';
+      const ageDisp = p.age != null && String(p.age).trim() !== '' ? String(p.age) : '—';
+      return `
+<div class="relative flex h-full min-h-[168px] flex-col rounded-lg border border-gray-200 bg-white shadow-card transition hover:border-[var(--soft-teal)]/40 hover:shadow-md overflow-visible group cursor-pointer" title="Open pet profile" onclick="viewPet(${p.id})">
+  <div class="relative h-20 shrink-0 w-full overflow-hidden">
+    ${photoBlock}
+    ${badgesHtml(p._badges)}
+  </div>
+  <div class="flex flex-1 flex-col px-2.5 pt-2 pb-1 min-h-0">
+    <h4 class="truncate text-sm font-bold text-gray-900">${nm}</h4>
+    ${owner ? `<p class="truncate text-xs text-gray-600">${owner}</p>` : '<p class="text-xs text-gray-400">No owner</p>'}
+    ${breed ? `<p class="truncate text-xs text-gray-500">${breed}</p>` : ''}
+    <p class="text-xs text-gray-500 mt-0.5"><span class="text-gray-400">Age</span> ${ageDisp}</p>
+  </div>
+  ${cardCareMenuHtml(p, 'grid')}
+</div>`;
+    }
+
+    function renderListRow(p) {
+      const photoBlock =
+        typeof renderPetPhotoHtml === 'function'
+          ? renderPetPhotoHtml(p.photo, 'relative h-11 w-11 shrink-0 rounded-md overflow-hidden', 'object-cover w-full h-full')
+          : `<div class="relative h-11 w-11 shrink-0 rounded-md bg-[var(--soft-teal)]"></div>`;
+      const ageDisp = p.age != null && String(p.age).trim() !== '' ? `${p.age}` : '—';
+      const breedDisp = p.breed ? String(p.breed) : '—';
+      return `
+<div class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5 hover:border-[var(--soft-teal)]/40 cursor-pointer" title="Open pet profile" onclick="viewPet(${p.id})">
+  <div class="relative h-11 w-11 shrink-0">
+    ${photoBlock}
+    ${p._badges && p._badges.length ? `<span class="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" title="Needs attention"></span>` : ''}
+  </div>
+  <div class="min-w-0 flex-1 grid grid-cols-12 gap-2 items-center text-sm">
+    <div class="col-span-12 sm:col-span-3 font-semibold text-gray-900 truncate">${p.name || 'Unnamed'}</div>
+    <div class="col-span-6 sm:col-span-3 text-xs text-gray-600 truncate">${p._ownerName || '—'}</div>
+    <div class="col-span-6 sm:col-span-2 text-xs text-gray-600 truncate">${breedDisp}</div>
+    <div class="col-span-4 sm:col-span-1 text-xs text-gray-500">${ageDisp}</div>
+    <div class="col-span-8 sm:col-span-3 flex justify-end">${cardCareMenuHtml(p, 'list')}</div>
+  </div>
+</div>`;
+    }
+
+    function updatePagination(total) {
+      lastFilteredTotal = total;
+      const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      if (!paginationBar || !pagePrev || !pageNext || !pageInfo) return;
+      if (total <= PAGE_SIZE) {
+        paginationBar.classList.add('hidden');
+        return;
       }
+      paginationBar.classList.remove('hidden');
+      pagePrev.disabled = currentPage <= 1;
+      pageNext.disabled = currentPage >= totalPages;
+      pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${total} pets)`;
+    }
+
+    async function render() {
+      try {
+        const term = (q.value || '').trim().toLowerCase();
+        const [petsRaw, apptsRaw] = await Promise.all([repoListPets(), Api.appts.list().catch(() => [])]);
+        const pets = Array.isArray(petsRaw) ? petsRaw : [];
+        const appts = Array.isArray(apptsRaw) ? apptsRaw : [];
+        const apptsByPet = new Map();
+        appts.forEach((a) => {
+          const id = Number(a.petId);
+          if (!id) return;
+          if (!apptsByPet.has(id)) apptsByPet.set(id, []);
+          apptsByPet.get(id).push(a);
+        });
+
+        let rowsData = await Promise.all(
+          pets.map(async (p) => {
+            let ownerName = p.owner || '';
+            if (!ownerName && p.ownerId) {
+              const o = await repoGetOwner(p.ownerId);
+              ownerName = o ? o.fullName : '';
+            }
+            const ap = apptsByPet.get(Number(p.id)) || [];
+            const badges = computeBadges(p, ap);
+            const last = lastProcedureDate(p);
+            return { ...p, _ownerName: ownerName, _badges: badges, _lastVisit: last };
+          }),
+        );
+
+        if (term) {
+          rowsData = rowsData.filter((p) => {
+            const blob = [p.name, p.breed, p.species, p._ownerName, String(p.age || '')].join(' ').toLowerCase();
+            return blob.includes(term);
+          });
+        }
+
+        rowsData = rowsData.filter((p) => speciesMatchesMulti(p));
+
+        const ageF = document.getElementById('filter-age')?.value || 'all';
+        rowsData = rowsData.filter((p) => ageMatches(p, ageF));
+
+        const lv = document.getElementById('filter-lastvisit')?.value || 'all';
+        rowsData = rowsData.filter((p) => lastVisitMatches(p, lv, p._lastVisit));
+
+        const st = document.getElementById('filter-status')?.value || 'all';
+        if (st === 'attention') rowsData = rowsData.filter((p) => (p._badges || []).length > 0);
+        else if (st === 'vacc') rowsData = rowsData.filter((p) => (p._badges || []).some((b) => b.lbl === 'Vaccination due'));
+        else if (st === 'appt') rowsData = rowsData.filter((p) => (p._badges || []).some((b) => b.lbl === 'Appt soon'));
+        else if (st === 'follow') rowsData = rowsData.filter((p) => (p._badges || []).some((b) => b.lbl === 'Follow-up?' || b.lbl === 'Follow-up'));
+
+        const total = rowsData.length;
+        if (petCountLabel) {
+          petCountLabel.textContent = total === 1 ? '1 pet matches filters' : `${total} pets match filters`;
+        }
+
+        if (total === 0) {
+          rows.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500">No pets match your search or filters.</div>`;
+          updatePagination(0);
+          return;
+        }
+
+        updatePagination(total);
+        const start = (currentPage - 1) * PAGE_SIZE;
+        const pageSlice = rowsData.slice(start, start + PAGE_SIZE);
+
+        if (currentViewMode === 'list') {
+          rows.className = 'space-y-2';
+          rows.innerHTML = pageSlice.map((p) => renderListRow(p)).join('');
+        } else {
+          rows.className =
+            'grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8';
+          rows.innerHTML = pageSlice.map((p) => renderCompactCard(p)).join('');
+        }
+      } catch (err) {
+        console.error('Pet records render error', err);
+        rows.innerHTML = `<div class="col-span-full py-12 text-center text-red-600">Unable to load pet records.</div>`;
+      }
+    }
+
+    function wireFilters() {
+      document.querySelectorAll('.species-cb').forEach((el) => el.addEventListener('change', () => { currentPage = 1; render(); }));
+      ['filter-age', 'filter-lastvisit', 'filter-status'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('change', () => { currentPage = 1; render(); });
+      });
+      document.getElementById('clearFiltersBtn')?.addEventListener('click', () => {
+        document.getElementById('species-canine').checked = false;
+        document.getElementById('species-feline').checked = false;
+        document.getElementById('species-other').checked = false;
+        document.getElementById('filter-age').value = 'all';
+        document.getElementById('filter-lastvisit').value = 'all';
+        document.getElementById('filter-status').value = 'all';
+        q.value = '';
+        currentPage = 1;
+        render();
+      });
+      pagePrev?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; render(); } });
+      pageNext?.addEventListener('click', () => {
+        const totalPages = Math.max(1, Math.ceil(lastFilteredTotal / PAGE_SIZE));
+        if (currentPage < totalPages) { currentPage++; render(); }
+      });
     }
     function viewPet(id){ location.href=`pet-profile.html?id=${id}`; }
     
@@ -367,19 +520,44 @@
       }
     }
     
-    async function delPet(id){ 
-      if(confirm('Delete this pet?')){ 
-        await repoDeletePet(id); 
-        render(); 
-      } 
+    async function delPet(id) {
+      if (!confirm('Delete this pet?')) return;
+      await repoDeletePet(id);
+      if (typeof window.showToast === 'function') window.showToast('Pet record deleted');
+      render();
+    }
+
+    function petDobInputValue(p) {
+      const v = p && p.dateOfBirth;
+      if (!v) return '';
+      if (typeof v === 'string') return v.slice(0, 10);
+      if (Array.isArray(v) && v.length >= 3) {
+        return `${v[0]}-${String(v[1]).padStart(2, '0')}-${String(v[2]).padStart(2, '0')}`;
+      }
+      return '';
+    }
+    function readPetDobSave() {
+      const v = (document.getElementById('f_dateOfBirth')?.value || '').trim();
+      return v || null;
     }
 
     async function openForm(id){
+      function weightKgDisplay(w) {
+        if (w == null || w === '') return '';
+        const s = String(w).trim();
+        const m = s.match(/^(\d+(?:\.\d+)?)/);
+        if (m) return m[1];
+        return s.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+      }
       try{
       const editing = id ? await repoGetPet(id) : null;
+      const dobVal = petDobInputValue(editing);
       let currentPhoto = editing?.photo || null;
-      let currentPhotoPreview = editing?.photo ? resolveAssetUrl(editing.photo) : 'assets/cutie.jpg';
       lastRawFile = null;
+      const initialPhotoSlot =
+        typeof renderPetPhotoHtml === 'function'
+          ? renderPetPhotoHtml(editing?.photo, 'w-full h-full', 'object-cover w-full h-full')
+          : `<div class="w-full h-full bg-[var(--soft-teal)]" aria-hidden="true"></div>`;
 
       modalRoot.innerHTML=`
         <div class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
@@ -404,19 +582,25 @@
               </label>
               ${selectField('gender','Gender',editing?.gender||'Female',['Female','Male'])}
               ${field('age','Age',editing?.age,'number')}
+              ${field('color','Color',editing?.color || '')}
+              <label class="text-sm font-medium text-gray-700">Weight (kg)
+                <input id="f_weight" type="text" inputmode="decimal" autocomplete="off" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="e.g. 12.5" value="${weightKgDisplay(editing?.weight)}">
+                <span class="text-xs text-gray-500 mt-1 block">Numbers only; weight is always stored in kilograms.</span>
+              </label>
+              ${field('dateOfBirth','Date of birth', dobVal, 'date')}
               <div class="md:col-span-2 border-2 border-gray-200 rounded-lg p-4 bg-gray-50/50">
                 <div class="flex items-center justify-between mb-3">
                   <div class="text-sm font-medium text-gray-700">Owner</div>
                   <select id="ownerMode" class="border-2 border-gray-300 rounded-lg p-2 text-sm focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
-                    <option value="select">Select Existing</option>
-                    <option value="create">Create New</option>
+                    <option value="create" ${editing?.ownerId ? '' : 'selected'}>Create new</option>
+                    <option value="select" ${editing?.ownerId ? 'selected' : ''}>Select existing</option>
                   </select>
                 </div>
-                <div id="ownerSelect">
+                <div id="ownerSelect" class="${editing?.ownerId ? '' : 'hidden'}">
                   <input id="f_ownerSearch" class="w-full border-2 border-gray-300 rounded-lg p-2.5 mb-2 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search name or phone">
                   <div id="ownerResults" class="max-h-32 overflow-auto border-2 border-gray-200 rounded-lg"></div>
                 </div>
-                <div id="ownerCreate" class="hidden grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div id="ownerCreate" class="grid grid-cols-1 md:grid-cols-2 gap-3 ${editing?.ownerId ? 'hidden' : ''}">
                   ${field('ownerName','Full Name','')}
                   ${field('ownerPhone','Phone','')}
                   ${field('ownerEmail','Email','', 'email')}
@@ -430,15 +614,36 @@
               ${selectField('federation','Federation',editing?.federation||'N/A',['FCCI','FCPI','N/A'])}
               <div class="col-span-1 md:col-span-2">
                 <div class="text-sm font-medium text-gray-700 mb-2">Photo</div>
-                <div class="flex items-center gap-4">
-                  <div id="photoPreview" class="w-32 h-32 rounded-xl bg-gray-100 border-2 border-gray-200 flex items-center justify-center text-gray-400 overflow-hidden shadow-sm">
-                    <img src="${currentPhotoPreview}" class="w-full h-full object-cover" alt="Pet photo preview"
-                         onerror="this.onerror=null;this.src='assets/cutie.jpg';">
+                <div class="flex flex-wrap items-start gap-4">
+                  <div id="photoPreview" class="relative w-32 h-32 shrink-0 rounded-xl border-2 border-gray-200 overflow-hidden shadow-sm">
+                    ${initialPhotoSlot}
                   </div>
-                  <input id="photoInput" type="file" accept="image/*" class="border-2 border-gray-300 rounded-lg p-2 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
+                  <div class="flex min-w-0 flex-1 flex-col gap-2">
+                    <input id="photoInput" type="file" accept="image/*" class="hidden">
+                    <div class="flex flex-wrap gap-2">
+                      <button type="button" id="photoChooseBtn" class="px-3 py-2 rounded-lg border-2 border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">Choose from files</button>
+                      <button type="button" id="photoWebcamBtn" class="px-3 py-2 rounded-lg border-2 border-[var(--soft-teal)] text-sm font-semibold text-[var(--soft-teal)] hover:bg-blue-50">Use webcam</button>
+                    </div>
+                    <p class="text-xs text-gray-500">Upload a file or capture with your camera.</p>
+                  </div>
                 </div>
               </div>
             </div>
+            </div>
+            <div id="webcamCaptureRoot" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4" aria-hidden="true">
+              <div class="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="webcamTitle">
+                <div class="mb-3 flex items-center justify-between gap-2">
+                  <h4 id="webcamTitle" class="text-lg font-semibold text-gray-800">Take photo</h4>
+                  <button type="button" id="webcamCloseBtn" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-800" aria-label="Close camera">✕</button>
+                </div>
+                <video id="webcamVideo" class="aspect-video w-full rounded-xl bg-black object-cover" playsinline muted autoplay></video>
+                <canvas id="webcamCanvas" class="hidden"></canvas>
+                <p id="webcamErr" class="mt-2 hidden text-sm text-red-600"></p>
+                <div class="mt-4 flex flex-wrap justify-end gap-2">
+                  <button type="button" id="webcamCancelBtn" class="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                  <button type="button" id="webcamSnapBtn" class="px-4 py-2 rounded-lg bg-[var(--soft-teal)] text-sm font-semibold text-white hover:brightness-95">Capture</button>
+                </div>
+              </div>
             </div>
             <div class="mt-6 flex justify-end gap-3 border-t pt-4">
               <button class="px-5 py-2.5 border-2 border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-all duration-200" onclick="closeModal()">Cancel</button>
@@ -451,9 +656,126 @@
       function selectField(id,label,selected,options){const opts=options.map(o=>`<option ${o===selected?'selected':''}>${o}</option>`).join('');return `<label class="text-sm font-medium text-gray-700">${label}<select id="f_${id}" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">${opts}</select></label>`;}
       function gv(k){return document.getElementById('f_'+k).value;}
 
-      const photoInput=document.getElementById('photoInput');
-      const photoPreview=document.getElementById('photoPreview');
-      photoInput?.addEventListener('change',async(e)=>{const f=e.target.files?.[0];if(!f)return; try{ lastRawFile=f; const previewSrc = window.USE_API ? URL.createObjectURL(f) : await fileToDataURL(f); if(!window.USE_API){ currentPhoto = previewSrc; } currentPhotoPreview = previewSrc; photoPreview.innerHTML=`<img src="${currentPhotoPreview}" class="w-full h-full object-cover">`; }catch{ alert('Could not read image'); }});
+      let previewObjectUrl = null;
+      function revokePreviewObjectUrl() {
+        if (previewObjectUrl) {
+          try {
+            URL.revokeObjectURL(previewObjectUrl);
+          } catch (_) {}
+          previewObjectUrl = null;
+        }
+      }
+      function stopPetWebcam() {
+        const video = document.getElementById('webcamVideo');
+        if (video && video.srcObject) {
+          try {
+            video.srcObject.getTracks().forEach((t) => t.stop());
+          } catch (_) {}
+          video.srcObject = null;
+        }
+        document.getElementById('webcamCaptureRoot')?.classList.add('hidden');
+      }
+
+      const photoInput = document.getElementById('photoInput');
+      const photoPreview = document.getElementById('photoPreview');
+      document.getElementById('photoChooseBtn')?.addEventListener('click', () => photoInput?.click());
+      photoInput?.addEventListener('change', async (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        try {
+          lastRawFile = f;
+          revokePreviewObjectUrl();
+          if (window.USE_API) {
+            previewObjectUrl = URL.createObjectURL(f);
+            photoPreview.innerHTML = `<img src="${previewObjectUrl}" class="absolute inset-0 z-10 w-full h-full object-cover" alt="">`;
+          } else {
+            currentPhoto = await fileToDataURL(f);
+            photoPreview.innerHTML = `<img src="${currentPhoto}" class="absolute inset-0 z-10 w-full h-full object-cover" alt="">`;
+          }
+        } catch (_) {
+          alert('Could not read image');
+        }
+        e.target.value = '';
+      });
+
+      const webcamRoot = document.getElementById('webcamCaptureRoot');
+      const webcamErr = document.getElementById('webcamErr');
+      function showWebcamErr(msg) {
+        if (!webcamErr) return;
+        webcamErr.textContent = msg;
+        webcamErr.classList.remove('hidden');
+      }
+      document.getElementById('photoWebcamBtn')?.addEventListener('click', async () => {
+        webcamErr?.classList.add('hidden');
+        if (!navigator.mediaDevices?.getUserMedia) {
+          showWebcamErr('Camera is not supported in this browser.');
+          return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+          const video = document.getElementById('webcamVideo');
+          if (video) {
+            video.srcObject = stream;
+            await video.play().catch(() => {});
+          }
+          webcamRoot?.classList.remove('hidden');
+        } catch (err) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            const video = document.getElementById('webcamVideo');
+            if (video) {
+              video.srcObject = stream;
+              await video.play().catch(() => {});
+            }
+            webcamRoot?.classList.remove('hidden');
+          } catch (err2) {
+            showWebcamErr(err2.message || err.message || 'Could not access camera. Try HTTPS, allow permission, or use Choose from files.');
+          }
+        }
+      });
+      function closeWebcamPanel() {
+        stopPetWebcam();
+        webcamErr?.classList.add('hidden');
+      }
+      document.getElementById('webcamCloseBtn')?.addEventListener('click', closeWebcamPanel);
+      document.getElementById('webcamCancelBtn')?.addEventListener('click', closeWebcamPanel);
+      webcamRoot?.addEventListener('click', (ev) => {
+        if (ev.target === webcamRoot) closeWebcamPanel();
+      });
+      document.getElementById('webcamSnapBtn')?.addEventListener('click', () => {
+        const video = document.getElementById('webcamVideo');
+        const canvas = document.getElementById('webcamCanvas');
+        if (!video || !canvas || !photoPreview) return;
+        if (!video.videoWidth) {
+          showWebcamErr('Camera is still starting — wait a moment and try again.');
+          return;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(video, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              alert('Could not capture image');
+              return;
+            }
+            lastRawFile = new File([blob], 'webcam-capture.jpg', { type: 'image/jpeg' });
+            revokePreviewObjectUrl();
+            if (window.USE_API) {
+              previewObjectUrl = URL.createObjectURL(lastRawFile);
+              photoPreview.innerHTML = `<img src="${previewObjectUrl}" class="absolute inset-0 z-10 w-full h-full object-cover" alt="">`;
+            } else {
+              currentPhoto = canvas.toDataURL('image/jpeg', 0.92);
+              photoPreview.innerHTML = `<img src="${currentPhoto}" class="absolute inset-0 z-10 w-full h-full object-cover" alt="">`;
+            }
+            closeWebcamPanel();
+          },
+          'image/jpeg',
+          0.92,
+        );
+      });
 
       const addressInput = document.getElementById('f_address');
       const ownerAddressInput = document.getElementById('f_ownerAddress');
@@ -468,6 +790,16 @@
       function onKey(e){ if(e.key==='Enter'){ e.preventDefault(); savePet(editing ? editing.id : undefined); } if(e.key==='Escape'){ e.preventDefault(); closeModal(); } }
       wrap.addEventListener('keydown', onKey);
       document.getElementById('f_name').focus();
+
+      const weightInp = document.getElementById('f_weight');
+      if (weightInp) {
+        weightInp.addEventListener('input', (e) => {
+          let v = (e.target.value || '').replace(/[^\d.]/g, '');
+          const parts = v.split('.');
+          if (parts.length > 2) v = parts[0] + '.' + parts.slice(1).join('');
+          e.target.value = v;
+        });
+      }
 
       // Species → Breed dependent dropdown
       const speciesEl = document.getElementById('f_species');
@@ -620,7 +952,11 @@
       };
       ownerSearch.addEventListener('input', renderOwnerSearch);
 
-      window.closeModal=()=>modalRoot.innerHTML='';
+      window.closeModal = () => {
+        stopPetWebcam();
+        revokePreviewObjectUrl();
+        modalRoot.innerHTML = '';
+      };
       window.savePet=async(editId)=>{
         // Determine owner
         let ownerId = selectedOwnerId;
@@ -642,6 +978,9 @@
           const o = await repoGetOwner(ownerId); ownerName = o? o.fullName : '';
         }
 
+        let prevPet = null;
+        if (editId) prevPet = await repoGetPet(editId);
+
         let breedValue = gv('breed');
         if(breedValue==='Others'){ breedValue = (document.getElementById('f_breedOther').value||'').trim(); }
         const base={
@@ -650,52 +989,46 @@
           breed:breedValue,
           gender:gv('gender'),
           age:Number(gv('age')||0),
+          color:(gv('color')||'').trim(),
+          weight:(gv('weight')||'').trim(),
+          dateOfBirth: readPetDobSave(),
+          microchip: editId ? prevPet?.microchip ?? null : null,
           owner:ownerName,
           address:addressInput?.value||'',
           federation:gv('federation')||'N/A',
-          photo: window.USE_API ? null : currentPhoto,
+          photo: window.USE_API ? (prevPet?.photo ?? null) : currentPhoto,
           ownerId
         };
         let savedPetId = editId;
-        if(editId){
-          const prev=await repoGetPet(editId);
-          await repoUpdatePet({...base,id:Number(editId),procedures:prev?.procedures||[]}, window.USE_API ? lastRawFile : currentPhoto);
-        } else {
-          const created = await repoAddPet({...base,procedures:[]}, window.USE_API ? lastRawFile : currentPhoto);
-          savedPetId = created?.id ?? savedPetId;
+        try {
+          if (editId) {
+            await repoUpdatePet({ ...base, id: Number(editId), procedures: prevPet?.procedures || [] }, window.USE_API ? lastRawFile : currentPhoto);
+          } else {
+            const created = await repoAddPet({ ...base, procedures: [] }, window.USE_API ? lastRawFile : currentPhoto);
+            savedPetId = created?.id ?? savedPetId;
+          }
+        } catch (e) {
+          console.error(e);
+          const msg = e?.message || 'Could not save pet or photo';
+          if (typeof window.showToast === 'function') window.showToast(msg);
+          else alert(msg);
+          return;
         }
-        closeModal(); render();
-        if(savedPetId){ viewPet(savedPetId); }
+        closeModal();
+        if (typeof window.showToast === 'function') {
+          window.showToast(editId ? 'Profile updated successfully' : 'Pet record added');
+        }
+        render();
+        if (savedPetId) viewPet(savedPetId);
       };
       } catch(err){ console.error(err); alert('Error opening form: '+err.message); modalRoot.innerHTML=''; }
     }
 
-    window.filterBySpecies = function(species) {
-      selectedSpeciesFilter = species;
-      // Update filter button styles
-      document.querySelectorAll('[id^="filter-"]').forEach(btn => {
-        btn.classList.remove('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-        btn.classList.add('border-gray-300', 'text-gray-700');
-      });
-      const activeBtn = species === null ? document.getElementById('filter-all') : 
-                       species === 'Canine' ? document.getElementById('filter-canine') : 
-                       document.getElementById('filter-feline');
-      if (activeBtn) {
-        activeBtn.classList.remove('border-gray-300', 'text-gray-700');
-        activeBtn.classList.add('border-[var(--soft-teal)]', 'bg-[var(--soft-teal)]', 'text-white', 'shadow-sm');
-      }
-      render();
-    };
-    
-    document.getElementById('addBtn').onclick=()=>openForm();
-    q.addEventListener('input',()=>render());
-    
-    // Initialize view mode buttons on page load
-    setTimeout(() => {
-      setViewMode(currentViewMode);
-    }, 100);
-    
-    render();
+    document.getElementById('addBtn').onclick = () => openForm();
+    wireFilters();
+    q.addEventListener('input', () => { currentPage = 1; render(); });
+
+    setViewMode(currentViewMode);
   </script>
 </body>
 </html>

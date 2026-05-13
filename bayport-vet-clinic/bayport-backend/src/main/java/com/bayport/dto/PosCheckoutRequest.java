@@ -2,6 +2,8 @@ package com.bayport.dto;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,7 +13,17 @@ import java.util.List;
 public class PosCheckoutRequest {
 
     private Long petId;
+
+    /**
+     * When set, marks this appointment {@code Done} after a successful checkout
+     * (same browser session links consultation → POS).
+     */
+    private Long appointmentId;
+
     private String paymentMethod; // Cash, Card, GCash, etc.
+
+    /** Optional flat discount in peso (applied after line totals, before recording sale). */
+    private BigDecimal discountAmount;
 
     @NotEmpty
     @Valid
@@ -28,12 +40,28 @@ public class PosCheckoutRequest {
         this.petId = petId;
     }
 
+    public Long getAppointmentId() {
+        return appointmentId;
+    }
+
+    public void setAppointmentId(Long appointmentId) {
+        this.appointmentId = appointmentId;
+    }
+
     public String getPaymentMethod() {
         return paymentMethod;
     }
 
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
     }
 
     public List<PosLineRequest> getLines() {

@@ -3,327 +3,789 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Billing - Bayport</title>
+  <title>Billing &amp; payments - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>:root{--soft-teal:#0057b8}body{font-family:Inter,system-ui,sans-serif}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --soft-teal: #0057b8; --bill-green: #059669; --bill-amber: #d97706; --bill-red: #dc2626; }
+    body { font-family: Inter, system-ui, sans-serif; }
+    .bill-drawer { transform: translateX(100%); transition: transform 0.25s ease; }
+    .bill-drawer.open { transform: translateX(0); }
+  </style>
 </head>
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-  <header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-8 py-4 shadow">
-    <div class="flex items-center gap-3">
-      <img src="assets/logo.png" class="w-10 h-10 rounded bg-white p-0.5" alt="">
-      <div>
-        <h1 class="text-xl font-semibold">Billing</h1>
-        <p class="text-xs text-white/80">Payment history and receipt printing</p>
-      </div>
-    </div>
-    <button class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md font-semibold hover:bg-gray-50" onclick="logout()">Logout</button>
-  </header>
+<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800">
+  <header id="bpAppHeader"></header>
 
-  <div id="billToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 hidden z-50 text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
+  <div id="billToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 hidden z-[300] text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
 
-  <div class="flex flex-1">
-    <aside class="w-72 bg-white border-r border-gray-200 p-6">
-      <h2 class="text-lg font-semibold text-[var(--soft-teal)] uppercase mb-4">Menu</h2>
-      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  <div class="flex flex-1 min-h-0">
+    <aside id="billAside" class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 transition-[width,padding] duration-200 overflow-hidden">
+      <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Menu</h2>
+      <nav id="sidebarNav" class="flex flex-col gap-1 text-sm"></nav>
+      <button type="button" id="btnCollapseNav" class="mt-6 w-full text-left text-xs text-slate-500 hover:text-slate-700 py-2 border-t border-slate-100">
+        Hide menu
+      </button>
     </aside>
 
-    <main class="flex-1 p-6">
-      <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-        <div class="flex flex-wrap gap-3 items-end">
-          <div>
-            <label class="text-xs text-gray-600">Search</label>
-            <input id="searchInp" class="border rounded-md px-3 py-2 w-64" placeholder="Pet, owner, description" />
+    <main class="flex-1 min-w-0 flex flex-col">
+      <div class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
+        <div class="max-w-6xl mx-auto space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Billing &amp; payments</h1>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 shrink-0">
+              <button type="button" id="btnReceivePayment" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-semibold text-sm hover:bg-blue-50 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>
+                Receive payment
+              </button>
+              <button type="button" id="btnNewInvoice" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white font-semibold text-sm hover:brightness-110 shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                New invoice
+              </button>
+            </div>
           </div>
-          <div>
-            <label class="text-xs text-gray-600">Status</label>
-            <select id="statusSel" class="border rounded-md px-3 py-2">
-              <option value="">All</option>
-              <option value="PENDING">Pending</option>
-              <option value="PAID">Paid</option>
-            </select>
-          </div>
-          <button id="refreshBtn" class="border rounded-md px-4 py-2 hover:bg-gray-50">Refresh</button>
-          <button id="openPosBtn" class="border border-emerald-600 text-emerald-700 rounded-md px-4 py-2 hover:bg-emerald-50 font-semibold">Open Cashier POS</button>
-          <button id="newBtn" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 hover:brightness-95">New Billing</button>
-        </div>
 
-        <div class="overflow-x-auto mt-5">
-          <table class="w-full border-collapse text-sm">
-            <thead>
-              <tr class="text-left text-gray-600 border-b">
-                <th class="py-3">Issued</th>
-                <th class="py-3">Pet / Owner</th>
-                <th class="py-3">Description</th>
-                <th class="py-3">Amount</th>
-                <th class="py-3">Status</th>
-                <th class="py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="billingRows"></tbody>
-          </table>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpiRow"></div>
+
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5 space-y-4">
+            <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
+              <div class="flex-1 min-w-0">
+                <label class="text-xs font-medium text-slate-500">Search</label>
+                <input id="searchInp" type="search" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none" placeholder="Invoice #, pet, owner, description…" />
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1">
+                <div>
+                  <label class="text-xs font-medium text-slate-500">From</label>
+                  <input id="dateFrom" type="date" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-slate-500">To</label>
+                  <input id="dateTo" type="date" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label class="text-xs font-medium text-slate-500">Status</label>
+                  <select id="statusSel" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                    <option value="">All status</option>
+                    <option value="PAID">Paid</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="VOIDED">Voided</option>
+                  </select>
+                </div>
+              </div>
+              <div class="flex gap-2 shrink-0">
+                <button type="button" id="btnFilters" class="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                  Filters
+                </button>
+                <button type="button" id="refreshBtn" class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-semibold text-slate-800 hover:bg-slate-200">Refresh</button>
+              </div>
+            </div>
+
+            <div id="filterExtra" class="hidden pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Tip: data refreshes when you return from the POS. Use <strong>Refresh</strong> to pull the latest payments.
+            </div>
+
+            <div class="flex flex-wrap gap-2 border-b border-slate-100 pb-3" id="tabRow"></div>
+
+            <div class="overflow-x-auto rounded-lg border border-slate-100">
+              <table class="w-full text-sm text-left">
+                <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                  <tr>
+                    <th class="px-3 py-3 w-10"><input type="checkbox" id="chkAll" class="rounded border-slate-300" /></th>
+                    <th class="px-3 py-3">Invoice #</th>
+                    <th class="px-3 py-3">Pet / owner</th>
+                    <th class="px-3 py-3 hidden md:table-cell">Date &amp; time</th>
+                    <th class="px-3 py-3 text-right">Amount</th>
+                    <th class="px-3 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody id="billingRows" class="divide-y divide-slate-100 bg-white"></tbody>
+              </table>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-slate-600">
+              <span id="pageSummary">Showing 0 invoices</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="pagePrev" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled>Previous</button>
+                <span id="pageNum" class="tabular-nums font-medium px-2">1</span>
+                <button type="button" id="pageNext" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled>Next</button>
+                <label class="ml-2 flex items-center gap-2 text-xs">
+                  Rows
+                  <select id="pageSize" class="border border-slate-200 rounded-md px-2 py-1 text-sm bg-white">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </main>
   </div>
-  <div id="newBillModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-5">
-      <h3 class="text-lg font-semibold mb-3">New Billing Record</h3>
-      <div class="space-y-3">
-        <input id="billPet" class="w-full border rounded-md px-3 py-2" placeholder="Pet name" />
-        <input id="billOwner" class="w-full border rounded-md px-3 py-2" placeholder="Owner name" />
-        <input id="billDesc" class="w-full border rounded-md px-3 py-2" placeholder="Description" />
-        <input id="billAmount" type="number" min="0" step="0.01" class="w-full border rounded-md px-3 py-2" placeholder="Amount" />
-      </div>
-      <div class="flex justify-end gap-2 mt-4">
-        <button id="billCancel" class="border rounded-md px-4 py-2 hover:bg-gray-50">Cancel</button>
-        <button id="billSave" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 hover:brightness-95">Save</button>
-      </div>
-    </div>
-  </div>
-  <div id="previewModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-50">
+
+      <!-- Detail drawer (overlay) -->
+      <aside id="detailDrawer" class="bill-drawer fixed inset-y-0 right-0 z-[120] w-full max-w-md bg-white border-l border-slate-200 shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 class="text-lg font-bold text-slate-900">Invoice details</h2>
+          <button type="button" id="closeDrawer" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500" aria-label="Close">&times;</button>
+        </div>
+        <div id="drawerBody" class="flex-1 overflow-y-auto px-5 py-4 text-sm text-slate-600"></div>
+        <div id="drawerFooter" class="p-4 border-t border-slate-100 space-y-2 bg-slate-50/80"></div>
+      </aside>
+
+  <div id="backdrop" class="fixed inset-0 bg-black/30 z-[110] hidden"></div>
+
+  <div id="previewModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-[200]">
     <div class="bg-white rounded-xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl">
       <div class="flex items-center justify-between px-4 py-3 border-b">
-        <h3 class="font-semibold">Receipt Preview</h3>
-        <button id="closePreviewBtn" class="border rounded-md px-3 py-1.5 hover:bg-gray-50">Close</button>
+        <h3 class="font-semibold">Receipt preview</h3>
+        <button type="button" id="closePreviewBtn" class="border rounded-md px-3 py-1.5 hover:bg-gray-50">Close</button>
       </div>
-      <iframe id="previewFrame" class="w-full flex-1"></iframe>
+      <iframe id="previewFrame" class="w-full flex-1" title="Receipt preview"></iframe>
+    </div>
+  </div>
+
+  <!-- New invoice modal -->
+  <div id="newInvModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-[200]">
+    <div class="bg-white rounded-xl w-full max-w-lg shadow-xl p-6 space-y-4">
+      <h3 class="text-lg font-bold text-slate-900">New invoice</h3>
+      <p class="text-xs text-slate-500">Creates a pending charge. Collect payment in the POS to sync with sales.</p>
+      <label class="block text-xs font-medium text-slate-600">Pet ID <span class="text-red-500">*</span></label>
+      <input id="niPetId" type="number" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g. 12" />
+      <label class="block text-xs font-medium text-slate-600">Description</label>
+      <input id="niDesc" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Service description" />
+      <label class="block text-xs font-medium text-slate-600">Amount (₱)</label>
+      <input id="niAmount" type="number" step="0.01" min="0" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" id="niCancel" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50">Cancel</button>
+        <button type="button" id="niSave" class="px-4 py-2 rounded-lg bg-[var(--soft-teal)] text-white text-sm font-semibold hover:brightness-105">Create</button>
+      </div>
     </div>
   </div>
 
   <script src="assets/deploy-env.js"></script>
-<script>window.USE_API=true;</script>
+  <script>window.USE_API = true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
   <script>
-    guard('billing');
-    renderSidebar(document.getElementById('sidebarNav'), getRole(), 'billing.html');
+    guard("billing");
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
+    renderSidebar(document.getElementById("sidebarNav"), getRole(), "billing.html");
+
     let billing = [];
+    let sales = [];
+    let selectedId = null;
+    let tab = "all";
+    let page = 1;
+    let pageSize = 10;
+    let navCollapsed = false;
 
     function toast(msg, isError) {
-      const el = document.getElementById('billToast');
+      const el = document.getElementById("billToast");
       el.textContent = msg;
-      el.classList.remove('hidden', 'bg-emerald-700', 'bg-rose-700');
-      el.classList.add(isError ? 'bg-rose-700' : 'bg-emerald-700');
+      el.classList.remove("hidden", "bg-emerald-600", "bg-rose-600");
+      el.classList.add(isError ? "bg-rose-600" : "bg-emerald-600");
       clearTimeout(toast._t);
-      toast._t = setTimeout(() => el.classList.add('hidden'), 3800);
+      toast._t = setTimeout(() => el.classList.add("hidden"), 3800);
     }
-    function fmtDate(v) {
-      if (!v) return '—';
-      const d = new Date(v);
-      if (Number.isNaN(d.getTime())) return String(v).replace('T',' ').slice(0,19);
-      return d.toLocaleString(undefined,{dateStyle:'short',timeStyle:'short'});
-    }
+
     function esc(v) {
-      return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
     }
+
+    function fmtMoney(n) {
+      const x = Number(n) || 0;
+      return x.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDateTime(v) {
+      if (!v) return "—";
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return String(v).replace("T", " ").slice(0, 19);
+      return d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" });
+    }
+
+    function invoiceNo(r) {
+      const y = r.issuedAt ? new Date(r.issuedAt).getFullYear() : new Date().getFullYear();
+      return `INV-${y}-${String(r.id).padStart(4, "0")}`;
+    }
+
+    function parsePaymentMethod(note) {
+      const n = String(note || "");
+      const m = n.match(/Payment:\s*([^.|]+)/i);
+      return m && m[1] ? m[1].trim() : "—";
+    }
+
+    /** POS sales do not always set billingId; match paid billing to a sale by pet, amount, and time. */
+    function findSaleForBilling(r) {
+      if (String(r.status || "").toUpperCase() !== "PAID" || !r.paidAt) return null;
+      const paid = new Date(r.paidAt).getTime();
+      const amt = Number(r.amount) || 0;
+      let best = null;
+      let bestDelta = Infinity;
+      for (const s of sales) {
+        if (String(s.source || "").toUpperCase() !== "POS") continue;
+        if (s.billingId != null && Number(s.billingId) === Number(r.id)) {
+          return s;
+        }
+        if (s.petId == null || Number(s.petId) !== Number(r.petId)) continue;
+        const sa = Number(s.amount) || 0;
+        if (Math.abs(sa - amt) > 0.02) continue;
+        const oc = s.occurredAt ? new Date(s.occurredAt).getTime() : 0;
+        const d = Math.abs(oc - paid);
+        if (d < bestDelta && d < 120000) {
+          bestDelta = d;
+          best = s;
+        }
+      }
+      return best;
+    }
+
+    function receiptNo(sale) {
+      if (!sale || !sale.id) return "—";
+      const y = sale.occurredAt ? new Date(sale.occurredAt).getFullYear() : new Date().getFullYear();
+      return `RCPT-${y}-${String(sale.id).padStart(4, "0")}`;
+    }
+
+    function startOfDay(d) {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x.getTime();
+    }
+
+    function endOfDay(d) {
+      const x = new Date(d);
+      x.setHours(23, 59, 59, 999);
+      return x.getTime();
+    }
+
+    function initDateRange() {
+      const to = new Date();
+      const from = new Date();
+      from.setDate(from.getDate() - 13);
+      document.getElementById("dateTo").value = to.toISOString().slice(0, 10);
+      document.getElementById("dateFrom").value = from.toISOString().slice(0, 10);
+    }
+
+    function inDateRange(r) {
+      const from = document.getElementById("dateFrom").value;
+      const to = document.getElementById("dateTo").value;
+      if (!from && !to) return true;
+      const t = r.issuedAt ? new Date(r.issuedAt).getTime() : 0;
+      if (from && t < startOfDay(from)) return false;
+      if (to && t > endOfDay(to)) return false;
+      return true;
+    }
+
     function filteredRows() {
-      const q = (document.getElementById('searchInp').value || '').trim().toLowerCase();
-      const s = document.getElementById('statusSel').value;
+      const q = (document.getElementById("searchInp").value || "").trim().toLowerCase();
+      const s = document.getElementById("statusSel").value;
       return billing.filter((r) => {
-        if (s && r.status !== s) return false;
+        if (!inDateRange(r)) return false;
+        const st = String(r.status || "").toUpperCase();
+        if (s === "VOIDED") return false;
+        if (s && st !== s) return false;
         if (!q) return true;
-        const str = `${r.petName || ''} ${r.ownerName || ''} ${r.description || ''}`.toLowerCase();
+        const inv = invoiceNo(r).toLowerCase();
+        const str = `${inv} ${r.petName || ""} ${r.ownerName || ""} ${r.description || ""}`.toLowerCase();
         return str.includes(q);
       });
     }
-    function renderRows() {
-      const rows = filteredRows();
-      const body = document.getElementById('billingRows');
-      if (!rows.length) {
-        body.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-gray-400">No billing records.</td></tr>`;
+
+    function counts() {
+      const rows = billing.filter(inDateRange);
+      const paid = rows.filter((r) => String(r.status).toUpperCase() === "PAID");
+      const pend = rows.filter((r) => String(r.status).toUpperCase() === "PENDING");
+      return { all: rows.length, paid: paid.length, pending: pend.length, voided: 0 };
+    }
+
+    function sumAmount(arr) {
+      return arr.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+    }
+
+    function renderKpis() {
+      const rows = billing.filter(inDateRange);
+      const paidRows = rows.filter((r) => String(r.status).toUpperCase() === "PAID");
+      const pendRows = rows.filter((r) => String(r.status).toUpperCase() === "PENDING");
+      const today = new Date();
+      const t0 = startOfDay(today);
+      const t1 = endOfDay(today);
+      const paidToday = paidRows.filter((r) => {
+        const pt = r.paidAt ? new Date(r.paidAt).getTime() : 0;
+        return pt >= t0 && pt <= t1;
+      });
+      const totalToday = sumAmount(paidToday);
+      const totalPaid = sumAmount(paidRows);
+      const totalPend = sumAmount(pendRows);
+
+      document.getElementById("kpiRow").innerHTML = `
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total sales (today)</div>
+          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalToday)}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Paid</div>
+          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalPaid)}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
+          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalPend)}</div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Voided</div>
+          <div class="text-2xl font-bold text-slate-400 mt-1">₱0.00</div>
+        </div>`;
+
+      const base = "px-3 py-2 rounded-full text-sm font-medium border transition-colors";
+      const cts = counts();
+      document.getElementById("tabRow").innerHTML = [
+        ["all", `All (${cts.all})`],
+        ["PAID", `Paid (${cts.paid})`],
+        ["PENDING", `Pending (${cts.pending})`],
+        ["VOIDED", `Voided (${cts.voided})`],
+      ]
+        .map(
+          ([key, label]) =>
+            `<button type="button" data-tab="${key}" class="${base} ${
+              tab === key ? "bg-[var(--soft-teal)] text-white border-[var(--soft-teal)]" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }">${esc(label)}</button>`,
+        )
+        .join("");
+    }
+
+    function tabFilter(rows) {
+      if (tab === "all") return rows;
+      if (tab === "VOIDED") return [];
+      return rows.filter((r) => String(r.status || "").toUpperCase() === tab);
+    }
+
+    function statusPill(st) {
+      const u = String(st || "").toUpperCase();
+      if (u === "PAID") return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">PAID</span>`;
+      if (u === "PENDING") return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">PENDING</span>`;
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">${esc(u)}</span>`;
+    }
+
+    function renderTable() {
+      let rows = tabFilter(filteredRows());
+      rows.sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")));
+      const total = rows.length;
+      const pages = Math.max(1, Math.ceil(total / pageSize));
+      if (page > pages) page = pages;
+      const start = (page - 1) * pageSize;
+      const slice = rows.slice(start, start + pageSize);
+
+      document.getElementById("pageSummary").textContent =
+        total === 0 ? "No invoices in this view" : `Showing ${start + 1} to ${Math.min(start + pageSize, total)} of ${total} invoices`;
+      document.getElementById("pageNum").textContent = String(page);
+      document.getElementById("pagePrev").disabled = page <= 1;
+      document.getElementById("pageNext").disabled = page >= pages;
+
+      const body = document.getElementById("billingRows");
+      const chkAll = document.getElementById("chkAll");
+      if (chkAll) {
+        chkAll.checked = false;
+        chkAll.indeterminate = false;
+      }
+      if (!slice.length) {
+        body.innerHTML = `<tr><td colspan="6" class="px-4 py-12 text-center text-slate-400">No billing records match your filters.</td></tr>`;
         return;
       }
-      body.innerHTML = rows.map((r) => `
-        <tr class="border-b">
-          <td class="py-3">${fmtDate(r.issuedAt)}</td>
-          <td class="py-3">${esc(r.petName || '—')}<div class="text-xs text-gray-500">${esc(r.ownerName || '—')}</div></td>
-          <td class="py-3">${esc(r.description || '')}</td>
-          <td class="py-3 font-semibold">₱${formatPrice(r.amount || 0)}</td>
-          <td class="py-3">${esc(r.status || 'PENDING')}</td>
-          <td class="py-3 text-right">
-            ${r.status !== 'PAID' ? `<button class="bill-pay text-xs font-semibold text-emerald-700 hover:underline mr-3" data-id="${r.id}">Mark Paid</button>` : ''}
-            <button class="bill-preview text-xs font-semibold text-indigo-700 hover:underline mr-3" data-id="${r.id}">Preview</button>
-            <button class="bill-print text-xs font-semibold text-sky-700 hover:underline" data-id="${r.id}">Print</button>
-          </td>
-        </tr>
-      `).join('');
+      body.innerHTML = slice
+        .map((r) => {
+          const inv = invoiceNo(r);
+          return `<tr class="hover:bg-slate-50/80 cursor-pointer bill-row" data-id="${r.id}">
+            <td class="px-3 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="rounded border-slate-300 bill-chk" data-id="${r.id}" /></td>
+            <td class="px-3 py-3 font-semibold text-[var(--soft-teal)]">${esc(inv)}</td>
+            <td class="px-3 py-3">
+              <div class="font-semibold text-slate-900">${esc(r.petName || "—")}</div>
+              <div class="text-xs text-slate-500">${esc(r.ownerName || "—")}</div>
+            </td>
+            <td class="px-3 py-3 text-slate-600 hidden md:table-cell whitespace-nowrap">${esc(fmtDateTime(r.issuedAt))}</td>
+            <td class="px-3 py-3 text-right font-semibold tabular-nums">₱${fmtMoney(r.amount)}</td>
+            <td class="px-3 py-3">${statusPill(r.status)}</td>
+          </tr>`;
+        })
+        .join("");
     }
-    async function loadBilling() {
-      try {
-        billing = await Api.billing.list();
-        billing = Array.isArray(billing) ? billing : [];
-        billing.sort((a,b)=> String(b.issuedAt||'').localeCompare(String(a.issuedAt||'')));
-        renderRows();
-      } catch (e) {
-        toast((e.message || 'Unable to load billing').slice(0,140), true);
-      }
+
+    function openDrawer(id) {
+      selectedId = id;
+      const r = billing.find((x) => String(x.id) === String(id));
+      if (!r) return;
+      const sale = findSaleForBilling(r);
+      const isPaid = String(r.status || "").toUpperCase() === "PAID";
+      const pay = sale ? parsePaymentMethod(sale.note) : isPaid ? "Recorded" : "—";
+
+      document.getElementById("drawerBody").innerHTML = `
+        <div class="mb-4">${statusPill(r.status)}</div>
+        <div class="text-xs text-slate-500 uppercase tracking-wide">Invoice</div>
+        <div class="text-lg font-bold text-slate-900">${esc(invoiceNo(r))}</div>
+        <div class="text-xs text-slate-500 mt-1">${esc(fmtDateTime(r.issuedAt))}</div>
+        <div class="mt-6 flex gap-3">
+          <div class="w-14 h-14 rounded-full bg-slate-200 shrink-0 relative overflow-hidden flex items-center justify-center">
+            <span id="billDrawerPetInitial" class="text-slate-600 font-bold text-lg relative z-0">${esc((r.petName || "?").slice(0, 1))}</span>
+            <img id="billDrawerPetImg" class="absolute inset-0 z-10 w-full h-full object-cover hidden" alt="" decoding="async" />
+          </div>
+          <div>
+            <div class="font-semibold text-slate-900">${esc(r.petName || "—")}</div>
+            <div class="text-xs text-slate-500">${esc(r.description || "Service")}</div>
+          </div>
+        </div>
+        <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
+          <div class="text-xs font-medium text-slate-500">Owner</div>
+          <div class="font-semibold text-slate-900">${esc(r.ownerName || "—")}</div>
+        </div>
+        <div class="mt-6 space-y-2 border-t border-slate-100 pt-4">
+          <div class="flex justify-between"><span>Subtotal</span><span class="font-medium tabular-nums">₱${fmtMoney(r.amount)}</span></div>
+          <div class="flex justify-between text-slate-500"><span>Discount</span><span>₱0.00</span></div>
+          <div class="flex justify-between text-slate-500"><span>Tax</span><span>0%</span></div>
+          <div class="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100"><span>Total</span><span class="tabular-nums">₱${fmtMoney(r.amount)}</span></div>
+          <div class="flex justify-between text-emerald-700 font-semibold"><span>Amount paid</span><span class="tabular-nums">${isPaid ? "₱" + fmtMoney(r.amount) : "—"}</span></div>
+          <div class="flex justify-between"><span>Balance</span><span class="tabular-nums">${isPaid ? "₱0.00" : "₱" + fmtMoney(r.amount)}</span></div>
+        </div>
+        <div class="mt-6 space-y-2 text-xs">
+          <div><span class="text-slate-500">Payment method</span><div class="font-medium text-slate-800">${esc(pay)}</div></div>
+          <div><span class="text-slate-500">Paid at</span><div class="font-medium text-slate-800">${esc(isPaid ? fmtDateTime(r.paidAt || r.issuedAt) : "—")}</div></div>
+          <div><span class="text-slate-500">Receipt no.</span><div class="font-medium text-slate-800">${esc(receiptNo(sale))}</div></div>
+          <div><span class="text-slate-500">Linked sale</span><div class="font-medium text-slate-800">${sale && sale.id ? "#" + sale.id + " (POS)" : isPaid ? "Manual / other" : "—"}</div></div>
+        </div>`;
+
+      document.getElementById("drawerFooter").innerHTML = `
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" class="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white bill-preview" data-id="${r.id}">View invoice</button>
+          <button type="button" class="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white bill-print" data-id="${r.id}" ${isPaid ? "" : "disabled"}>Print invoice</button>
+        </div>
+        ${
+          isPaid
+            ? ""
+            : `<button type="button" class="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-800 text-sm font-semibold hover:bg-emerald-50 bill-open-pos-drawer" data-id="${r.id}">Receive in POS</button>`
+        }
+        <button type="button" disabled title="Refunds are not available in this build" class="w-full py-2.5 rounded-lg border-2 border-rose-200 text-rose-600 text-sm font-semibold opacity-50 cursor-not-allowed">Refund</button>`;
+
+      const d = document.getElementById("detailDrawer");
+      const bd = document.getElementById("backdrop");
+      d.classList.add("open");
+      bd.classList.remove("hidden");
+      document.body.classList.add("overflow-hidden");
+
+      hydrateDrawerPetPhoto(r.petId);
     }
-    async function markPaid(id) {
-      try {
-        await Api.billing.pay(id);
-        toast('Billing record marked as paid.', false);
-        await loadBilling();
-      } catch (e) {
-        toast((e.message || 'Unable to mark paid').slice(0,140), true);
-      }
+
+    function hydrateDrawerPetPhoto(petId) {
+      const img = document.getElementById("billDrawerPetImg");
+      const initial = document.getElementById("billDrawerPetInitial");
+      if (!img) return;
+      img.classList.add("hidden");
+      img.removeAttribute("src");
+      if (initial) initial.classList.remove("hidden");
+      if (petId == null || petId === "" || Number.isNaN(Number(petId))) return;
+      (async () => {
+        try {
+          const pet = await Api.pets.get(Number(petId));
+          const raw = pet && pet.photo != null ? String(pet.photo).trim() : "";
+          if (!raw) return;
+          const url =
+            typeof window.resolveAssetUrl === "function" ? window.resolveAssetUrl(raw) : raw;
+          if (!url) return;
+          const showPhoto = () => {
+            img.classList.remove("hidden");
+            if (initial) initial.classList.add("hidden");
+          };
+          img.onerror = () => {
+            img.classList.add("hidden");
+            if (initial) initial.classList.remove("hidden");
+          };
+          img.onload = showPhoto;
+          img.src = url;
+          if (img.complete && img.naturalWidth > 0) showPhoto();
+        } catch (_) {
+          /* keep initial */
+        }
+      })();
     }
+
+    function closeDrawer() {
+      document.getElementById("detailDrawer").classList.remove("open");
+      document.getElementById("backdrop").classList.add("hidden");
+      document.body.classList.remove("overflow-hidden");
+      selectedId = null;
+    }
+
     function billReceiptHtml(r) {
-      const clinic = getClinicSettings?.() || {};
-      const clinicName = esc(clinic.name || 'Bayport Veterinary Clinic');
-      const clinicAddress = esc(clinic.address || '');
-      const logoSrc = new URL('assets/logo.png', window.location.href).href;
-      const logo = `<img src="${logoSrc}" alt="Clinic logo" style="max-height:58px;max-width:180px;display:block;margin-bottom:8px;" />`;
-      const issueDate = fmtDate(r.issuedAt);
-      const paidDate = fmtDate(r.paidAt || r.issuedAt);
-      const status = esc(r.status || 'PENDING');
+      const clinic = typeof getClinicSettings === "function" ? getClinicSettings() : {};
+      const clinicName = esc(clinic.name || "Bayport Veterinary Clinic");
+      const clinicAddress = esc(clinic.address || "");
+      const logoSrc = new URL("assets/logo.png", window.location.href).href;
+      const logo = `<img src="${logoSrc}" alt="" style="max-height:58px;max-width:180px;display:block;margin-bottom:8px;" />`;
+      const inv = invoiceNo(r);
       return `<!doctype html><html><head><meta charset="utf-8"/><style>
-      body{font-family:Arial,sans-serif;font-size:12px;padding:22px;color:#1f2937}
-      .head{display:flex;justify-content:space-between;gap:20px;border-top:3px solid #1f4fa4;padding-top:10px}
-      .invoice{font-size:36px;font-weight:800;color:#1f4fa4;letter-spacing:1px;margin:0 0 10px 0}
-      .muted{color:#4b5563;font-size:11px}
-      .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px}
-      .label{font-weight:700;color:#111827}
-      table{width:100%;border-collapse:collapse;margin-top:16px}
-      th{font-size:11px;text-transform:uppercase;color:#1f4fa4;border-bottom:2px solid #1f4fa4;padding:6px 4px;text-align:left}
-      td{padding:8px 4px;border-bottom:1px solid #e5e7eb}
-      .right{text-align:right}
-      .totalRow td{font-weight:700;border-top:2px solid #1f4fa4}
+        body{font-family:Arial,sans-serif;font-size:12px;padding:22px;color:#1f2937}
+        .head{display:flex;justify-content:space-between;gap:20px;border-top:3px solid #1f4fa4;padding-top:10px}
+        .invoice{font-size:28px;font-weight:800;color:#1f4fa4;margin:0 0 10px 0}
+        .muted{color:#4b5563;font-size:11px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th{font-size:11px;text-transform:uppercase;color:#1f4fa4;border-bottom:2px solid #1f4fa4;padding:6px 4px;text-align:left}
+        td{padding:8px 4px;border-bottom:1px solid #e5e7eb}
+        .right{text-align:right}
+        .totalRow td{font-weight:700;border-top:2px solid #1f4fa4}
       </style></head><body>
       <div class="head">
         <div>
-          <p class="invoice">INVOICE</p>
+          <p class="invoice">${inv}</p>
           ${logo}
-          <p><span class="label">${clinicName}</span></p>
+          <p><strong>${clinicName}</strong></p>
           <p class="muted">${clinicAddress}</p>
         </div>
         <div>
-          <p><span class="label">Invoice No:</span> ${r.id}</p>
-          <p><span class="label">Issue Date:</span> ${issueDate}</p>
-          <p><span class="label">Paid Date:</span> ${paidDate}</p>
-          <p><span class="label">Status:</span> ${status}</p>
+          <p><strong>Issue</strong> ${esc(fmtDateTime(r.issuedAt))}</p>
+          <p><strong>Status</strong> ${esc(r.status)}</p>
+          <p><strong>Paid</strong> ${esc(fmtDateTime(r.paidAt))}</p>
         </div>
       </div>
-      <div class="grid">
-        <div>
-          <p class="label">Billed To</p>
-          <p>${esc(r.ownerName || 'Walk-in Client')}</p>
-        </div>
-        <div>
-          <p class="label">Patient</p>
-          <p>${esc(r.petName || 'Walk-in')}</p>
-        </div>
-      </div>
+      <p class="mt-4"><strong>Patient</strong> ${esc(r.petName)} · <strong>Owner</strong> ${esc(r.ownerName)}</p>
       <table>
-        <thead>
-          <tr><th>Item Details</th><th class="right">Qty</th><th class="right">Unit Price</th><th class="right">Total</th></tr>
-        </thead>
+        <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Amount</th></tr></thead>
         <tbody>
-          <tr>
-            <td>${esc(r.description || 'Veterinary service')}</td>
-            <td class="right">1</td>
-            <td class="right">₱${formatPrice(r.amount || 0)}</td>
-            <td class="right">₱${formatPrice(r.amount || 0)}</td>
-          </tr>
-          <tr class="totalRow">
-            <td colspan="3" class="right">Grand Total</td>
-            <td class="right">₱${formatPrice(r.amount || 0)}</td>
-          </tr>
+          <tr><td>${esc(r.description || "Service")}</td><td class="right">1</td><td class="right">₱${fmtMoney(r.amount)}</td></tr>
+          <tr class="totalRow"><td colspan="2" class="right">Total</td><td class="right">₱${fmtMoney(r.amount)}</td></tr>
         </tbody>
       </table>
       </body></html>`;
     }
+
     async function printBilling(id) {
       const row = billing.find((x) => String(x.id) === String(id));
       if (!row) return;
-      const preferredPrinter = getPreferredReceiptPrinter?.() || '';
       const html = billReceiptHtml(row);
+      const preferredPrinter = typeof getPreferredReceiptPrinter === "function" ? getPreferredReceiptPrinter() : "";
       if (window.desktopBridge?.printReceipt) {
         const res = await window.desktopBridge.printReceipt({ html, silent: false, deviceName: preferredPrinter || undefined });
         if (!res || !res.ok) {
           await queueCloudPrint(html, preferredPrinter || "");
-          toast('Local print failed; queued to cloud print agent.', true);
+          toast("Local print failed; queued to cloud print.", true);
           return;
         }
       } else {
         await queueCloudPrint(html, preferredPrinter || "");
-        toast('Receipt queued for cloud print agent.', false);
+        toast("Receipt queued for cloud print.", false);
       }
     }
+
     function previewBilling(id) {
       const row = billing.find((x) => String(x.id) === String(id));
       if (!row) return;
-      const html = billReceiptHtml(row);
-      const modal = document.getElementById('previewModal');
-      const frame = document.getElementById('previewFrame');
-      frame.srcdoc = html;
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+      const modal = document.getElementById("previewModal");
+      const frame = document.getElementById("previewFrame");
+      frame.srcdoc = billReceiptHtml(row);
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
     }
-    document.getElementById('closePreviewBtn').onclick = () => {
-      const modal = document.getElementById('previewModal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      document.getElementById('previewFrame').srcdoc = '';
+
+    function openBillingInPos(id) {
+      const row = billing.find((x) => String(x.id) === String(id));
+      if (!row) return;
+      if (row.petId != null) sessionStorage.setItem("posPrefillPetId", String(row.petId));
+      sessionStorage.setItem("posFocusPendingBilling", "1");
+      location.href = "pos.html";
+    }
+
+    async function loadAll() {
+      try {
+        const [b, s] = await Promise.all([Api.billing.list(), Api.sales.list()]);
+        billing = Array.isArray(b) ? b : [];
+        sales = Array.isArray(s) ? s : [];
+        billing.sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")));
+        renderKpis();
+        renderTable();
+        if (selectedId) {
+          const still = billing.some((x) => String(x.id) === String(selectedId));
+          if (still) openDrawer(selectedId);
+          else closeDrawer();
+        }
+      } catch (e) {
+        toast((e.message || "Unable to load billing").slice(0, 160), true);
+      }
+    }
+
+    document.getElementById("closePreviewBtn").onclick = () => {
+      const modal = document.getElementById("previewModal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      document.getElementById("previewFrame").srcdoc = "";
     };
 
-    document.getElementById('searchInp').addEventListener('input', renderRows);
-    document.getElementById('statusSel').addEventListener('change', renderRows);
-    document.getElementById('refreshBtn').onclick = loadBilling;
-    document.getElementById('openPosBtn').onclick = () => { location.href = 'pos.html'; };
-    const modal = document.getElementById('newBillModal');
-    function openNewModal() {
-      document.getElementById('billPet').value = '';
-      document.getElementById('billOwner').value = '';
-      document.getElementById('billDesc').value = '';
-      document.getElementById('billAmount').value = '';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-    }
-    function closeNewModal() {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    }
-    document.getElementById('newBtn').onclick = openNewModal;
-    document.getElementById('billCancel').onclick = closeNewModal;
-    document.getElementById('billSave').onclick = async () => {
-      const petName = document.getElementById('billPet').value.trim();
-      const ownerName = document.getElementById('billOwner').value.trim();
-      const description = document.getElementById('billDesc').value.trim();
-      const amount = Number(document.getElementById('billAmount').value);
-      if (!petName) {
-        toast('Pet name is required.', true);
-        return;
-      }
-      if (!Number.isFinite(amount) || amount <= 0) {
-        toast('Enter a valid amount.', true);
-        return;
-      }
-      try {
-        await Api.billing.create({ petName, ownerName, description, amount, status: 'PENDING' });
-        toast('Billing record created.', false);
-        closeNewModal();
-        await loadBilling();
-      } catch (e) {
-        toast((e.message || 'Create failed').slice(0,140), true);
+    document.getElementById("searchInp").addEventListener("input", () => {
+      page = 1;
+      renderKpis();
+      renderTable();
+    });
+    document.getElementById("statusSel").addEventListener("change", () => {
+      page = 1;
+      renderKpis();
+      renderTable();
+    });
+    document.getElementById("dateFrom").addEventListener("change", () => {
+      page = 1;
+      renderKpis();
+      renderTable();
+    });
+    document.getElementById("dateTo").addEventListener("change", () => {
+      page = 1;
+      renderKpis();
+      renderTable();
+    });
+    document.getElementById("refreshBtn").onclick = loadAll;
+    document.getElementById("pagePrev").onclick = () => {
+      if (page > 1) {
+        page--;
+        renderTable();
       }
     };
-    document.getElementById('billingRows').addEventListener('click', async (e) => {
-      const payBtn = e.target.closest('.bill-pay');
-      if (payBtn) await markPaid(payBtn.getAttribute('data-id'));
-      const printBtn = e.target.closest('.bill-print');
-      const previewBtn = e.target.closest('.bill-preview');
-      if (previewBtn) previewBilling(previewBtn.getAttribute('data-id'));
-      if (printBtn) {
-        try {
-          await printBilling(printBtn.getAttribute('data-id'));
-          toast('Billing receipt sent to printer.', false);
-        } catch (err) {
-          toast((err.message || 'Print failed').slice(0,140), true);
-        }
+    document.getElementById("pageNext").onclick = () => {
+      page++;
+      renderTable();
+    };
+    document.getElementById("pageSize").addEventListener("change", (e) => {
+      pageSize = Number(e.target.value) || 10;
+      page = 1;
+      renderTable();
+    });
+
+    document.getElementById("tabRow").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-tab]");
+      if (!btn) return;
+      tab = btn.getAttribute("data-tab");
+      page = 1;
+      renderKpis();
+      renderTable();
+    });
+
+    document.getElementById("billingRows").addEventListener("click", (e) => {
+      const row = e.target.closest(".bill-row");
+      if (row && !e.target.closest("input")) openDrawer(row.getAttribute("data-id"));
+    });
+
+    document.getElementById("drawerFooter").addEventListener("click", (e) => {
+      const posBtn = e.target.closest(".bill-open-pos-drawer");
+      if (posBtn) openBillingInPos(posBtn.getAttribute("data-id"));
+      const previewBtn = e.target.closest(".bill-preview");
+      const printBtn = e.target.closest(".bill-print");
+      if (previewBtn) previewBilling(previewBtn.getAttribute("data-id"));
+      if (printBtn && !printBtn.disabled) {
+        printBilling(printBtn.getAttribute("data-id"))
+          .then(() => toast("Sent to printer queue.", false))
+          .catch((err) => toast((err.message || "Print failed").slice(0, 140), true));
       }
     });
 
-    loadBilling();
+    document.getElementById("closeDrawer").onclick = closeDrawer;
+    document.getElementById("backdrop").onclick = closeDrawer;
+
+    document.getElementById("btnReceivePayment").onclick = () => {
+      location.href = "pos.html";
+    };
+
+    document.getElementById("chkAll").addEventListener("change", (e) => {
+      const on = e.target.checked;
+      document.querySelectorAll("#billingRows .bill-chk").forEach((c) => {
+        c.checked = on;
+      });
+    });
+
+    document.getElementById("billingRows").addEventListener("change", (e) => {
+      if (!e.target.classList.contains("bill-chk")) return;
+      const boxes = [...document.querySelectorAll("#billingRows .bill-chk")];
+      const ca = document.getElementById("chkAll");
+      if (!boxes.length || !ca) return;
+      const n = boxes.filter((b) => b.checked).length;
+      ca.checked = n === boxes.length;
+      ca.indeterminate = n > 0 && n < boxes.length;
+    });
+
+    document.getElementById("btnFilters").onclick = () => {
+      document.getElementById("filterExtra").classList.toggle("hidden");
+    };
+
+    document.getElementById("btnCollapseNav").onclick = () => {
+      navCollapsed = !navCollapsed;
+      const a = document.getElementById("billAside");
+      if (navCollapsed) {
+        a.classList.add("w-0", "!p-0", "border-0");
+        a.classList.remove("w-72", "p-5");
+      } else {
+        a.classList.remove("w-0", "!p-0", "border-0");
+        a.classList.add("w-72", "p-5");
+      }
+    };
+
+    document.getElementById("btnNewInvoice").onclick = () => {
+      document.getElementById("newInvModal").classList.remove("hidden");
+      document.getElementById("newInvModal").classList.add("flex");
+    };
+    document.getElementById("niCancel").onclick = () => {
+      document.getElementById("newInvModal").classList.add("hidden");
+      document.getElementById("newInvModal").classList.remove("flex");
+    };
+    document.getElementById("niSave").onclick = async () => {
+      const petId = Number(document.getElementById("niPetId").value);
+      const amount = Number(document.getElementById("niAmount").value);
+      const description = (document.getElementById("niDesc").value || "").trim() || "Invoice line";
+      if (!petId || amount <= 0) {
+        toast("Enter a valid pet ID and amount.", true);
+        return;
+      }
+      try {
+        let pet;
+        try {
+          pet = await Api.pets.get(petId);
+        } catch {
+          pet = null;
+        }
+        if (!pet) {
+          toast("Pet not found for that ID.", true);
+          return;
+        }
+        await Api.billing.create({
+          petId,
+          ownerId: pet.ownerId || null,
+          ownerName: pet.owner || "",
+          petName: pet.name || "",
+          description,
+          amount,
+          status: "PENDING",
+          referenceType: "MANUAL",
+          referenceId: null,
+        });
+        document.getElementById("niCancel").click();
+        document.getElementById("niPetId").value = "";
+        document.getElementById("niAmount").value = "";
+        document.getElementById("niDesc").value = "";
+        toast("Invoice created. Collect payment in POS.", false);
+        await loadAll();
+      } catch (err) {
+        toast((err.message || "Create failed").slice(0, 160), true);
+      }
+    };
+
+    document.getElementById("newInvModal").addEventListener("click", (e) => {
+      if (e.target.id === "newInvModal") document.getElementById("niCancel").click();
+    });
+
+    initDateRange();
+    loadAll();
+    setInterval(loadAll, 60000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") loadAll();
+    });
   </script>
 </body>
 </html>

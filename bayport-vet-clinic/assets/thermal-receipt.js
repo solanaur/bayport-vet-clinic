@@ -72,6 +72,16 @@
     return out;
   }
 
+  function twoCol(left, right, width) {
+    var l = String(left || "").trim();
+    var r = String(right || "").trim();
+    if (!r) return l.slice(0, width);
+    if (l.length + 1 + r.length <= width) {
+      return l + " ".repeat(width - l.length - r.length) + r;
+    }
+    return l.slice(0, Math.max(0, width - r.length - 1)) + " " + r;
+  }
+
   /**
    * @param {object} receipt - API receipt DTO (saleId, lines[], total, petName, paymentMethod, occurredAt, …)
    * @param {object} clinic - { name, address }
@@ -79,16 +89,17 @@
   function buildPlainText(receipt, clinic) {
     var c = clinic || {};
     var W = RECEIPT_CHARS;
+    var SEP = "-".repeat(W);
     var out = [];
 
+    out.push(SEP);
     out.push(centerLine(c.name || "Bayport Veterinary Clinic", W));
-    wrapWords(c.address || "", W).forEach(function (ln) {
+    wrapWords((c.address || "322 Quirino Ave., Brgy. Don Galo, Parañaque City").replace(/\s+/g, " ").trim(), W).forEach(function (ln) {
       out.push(ln);
     });
-    out.push("-".repeat(W));
+    out.push(SEP);
 
     var sid = receipt && receipt.saleId != null ? String(receipt.saleId) : "";
-    out.push("Sale #" + sid);
     var occurred = receipt && receipt.occurredAt;
     if (occurred) {
       try {
@@ -101,20 +112,33 @@
       }
     }
     out.push(("Pet: " + String((receipt && receipt.petName) || "Walk-in")).slice(0, W));
-    out.push(("Pay: " + String((receipt && receipt.paymentMethod) || "Cash")).slice(0, W));
-    out.push("-".repeat(W));
+    out.push(("Owner: " + String((receipt && (receipt.ownerName || receipt.owner)) || "—")).slice(0, W));
+    out.push("");
+    out.push(SEP);
 
     var lines = Array.isArray(receipt && receipt.lines) ? receipt.lines : [];
     for (var i = 0; i < lines.length; i++) {
       var l = lines[i];
-      var rows = lineItemRow(l.itemName || "", l.quantity, l.lineTotal ?? 0, W);
+      var lineName = Number(l.quantity || 0) + " x " + String(l.itemName || "").trim();
+      var amt = "\u20B1" + money(l.lineTotal ?? 0);
+      var rows = wrapWords(lineName, Math.max(8, W - amt.length - 1));
+      if (rows.length) {
+        rows[rows.length - 1] = twoCol(rows[rows.length - 1], amt, W);
+      }
       for (var r = 0; r < rows.length; r++) out.push(rows[r]);
     }
 
-    out.push("-".repeat(W));
-    out.push(padLeft("TOTAL  \u20B1" + money(receipt && receipt.total), W));
-    out.push("");
-    out.push(centerLine("Thank you for your visit.", W));
+    out.push(SEP);
+    out.push(twoCol("TOTAL", "\u20B1" + money(receipt && receipt.total), W));
+    out.push(("Paid by: " + String((receipt && receipt.paymentMethod) || "Cash")).slice(0, W));
+    out.push(SEP);
+    var txn = String((receipt && (receipt.transactionCode || receipt.txnCode)) || "");
+    if (!txn) {
+      txn = sid ? "TXN-" + sid : "TXN-NA";
+    }
+    out.push(("Transaction Code: " + txn).slice(0, W));
+    out.push(SEP);
+    out.push("Thank you for your visit!");
 
     return out.join("\n");
   }

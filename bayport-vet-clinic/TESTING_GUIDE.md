@@ -376,7 +376,7 @@ npm run desktop
      - Pet: Select from dropdown (or enter pet name)
      - Date: Select future date
      - Time: `10:00`
-     - Vet: `Dr. Andrea Cruz` (or any vet name)
+     - Vet: `Dr. Arla Hernando` (or any vet name)
    - Save
 
 3. **Expected result**:

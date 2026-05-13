@@ -73,9 +73,9 @@ public class DataInitializer implements CommandLineRunner {
     // ---------------------- DOCTORS ----------------------
     private void seedDoctors() {
         Doctor doc = new Doctor();
-        doc.setFullName("Dr. Andrea Cruz");
+        doc.setFullName("Dr. Arla Hernando");
         doc.setPhone("0917-333-4444");
-        doc.setEmail("andrea.cruz@bayportvet.com");
+        doc.setEmail("arla.hernando@bayportvet.com");
         doc.setSpecialty("Small Animal Medicine");
         doc.setLicenseNo("PRC-998877");
         doc.setHourlyRate(new BigDecimal("1200.00"));
@@ -109,13 +109,13 @@ public class DataInitializer implements CommandLineRunner {
         appointmentRepository.save(new Appointment(
             pet1.getId(), pet1.getOwner(),
             LocalDate.now().plusDays(2), "10:00",
-            "Dr. Andrea Cruz", "Pending"
+            "Dr. Arla Hernando", "Pending"
         ));
 
         Prescription prescription1 = new Prescription(
             pet1.getId(), pet1.getName(), pet1.getOwner(),
             "Amoxicillin", "250 mg", "Twice daily",
-            "Dr. Andrea Cruz", LocalDate.now()
+            "Dr. Arla Hernando", LocalDate.now()
         );
         prescriptionRepository.save(prescription1);
     }
@@ -173,8 +173,8 @@ public class DataInitializer implements CommandLineRunner {
 
         // Vet user - bypass OTP
         String vetPassword = passwordEncoder.encode("vet123");
-        User vet = new User("Dr. Andrea Cruz", "vet", "vet", vetPassword);
-        vet.setFullName("Dr. Andrea Cruz");
+        User vet = new User("Dr. Arla Hernando", "vet", "vet", vetPassword);
+        vet.setFullName("Dr. Arla Hernando");
         vet.setEmail("vet@bayportvet.com");
         vet.setPasswordHash(vetPassword);
         vet.setPassword(vetPassword);
@@ -210,7 +210,7 @@ public class DataInitializer implements CommandLineRunner {
         });
 
         ensureUserExists("admin", "Admin", "admin", passwordEncoder.encode("admin123"), adminRole, "admin@bayportvet.com", "admin123");
-        ensureUserExists("vet", "Dr. Andrea Cruz", "vet", passwordEncoder.encode("vet123"), vetRole, "vet@bayportvet.com", "vet123");
+        ensureUserExists("vet", "Dr. Arla Hernando", "vet", passwordEncoder.encode("vet123"), vetRole, "vet@bayportvet.com", "vet123");
         ensureUserExists("frontdesk", "Front Desk", "front_office", passwordEncoder.encode("frontdesk123"), frontOfficeRole, "frontdesk@bayportvet.com", "frontdesk123");
         // Migrate legacy receptionist/pharmacist logins to Front Office (same permissions)
         migrateUserToFrontOffice("recept", "Daisy", frontOfficeRole);

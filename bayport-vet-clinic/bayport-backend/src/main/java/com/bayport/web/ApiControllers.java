@@ -1,12 +1,13 @@
 package com.bayport.web;
 
 import com.bayport.dto.AppointmentRequest;
-import com.bayport.dto.PosSaleHistoryDto;
 import com.bayport.dto.ReportSummary;
 import com.bayport.entity.*;
+import com.bayport.exception.ResourceNotFoundException;
 import com.bayport.service.PdfService;
 import com.bayport.service.BayportService;
 import com.bayport.service.EmailService;
+import com.bayport.service.InventoryService;
 import com.bayport.service.PosService;
 import com.bayport.service.ReportService;
 import com.bayport.storage.FileStorageService;
@@ -35,6 +36,7 @@ public class ApiControllers {
     private final com.bayport.repository.OwnerRepository ownerRepository;
     private final EmailService emailService;
     private final PosService posService;
+    private final InventoryService inventoryService;
 
     public ApiControllers(
             BayportService bayportService,
@@ -46,6 +48,7 @@ public class ApiControllers {
             com.bayport.repository.OwnerRepository ownerRepository,
             EmailService emailService,
             PosService posService,
+            InventoryService inventoryService,
             FileStorageService fileStorageService
     ) {
         this.bayportService = bayportService;
@@ -57,6 +60,7 @@ public class ApiControllers {
         this.ownerRepository = ownerRepository;
         this.emailService = emailService;
         this.posService = posService;
+        this.inventoryService = inventoryService;
         this.fileStorageService = fileStorageService;
     }
 
@@ -71,7 +75,7 @@ public class ApiControllers {
      * registered with the primary {@code /api} controller (avoids static-resource 404 in some deployments).
      */
     @GetMapping({"/sales/pos-recent", "/sales/pos/history"})
-    public ResponseEntity<List<PosSaleHistoryDto>> salesPosRecent(
+    public ResponseEntity<List<Map<String, Object>>> salesPosRecent(
             @RequestParam(name = "limit", defaultValue = "40") int limit) {
         return ResponseEntity.ok(posService.recentPosSales(limit));
     }
@@ -150,6 +154,19 @@ public class ApiControllers {
         pet.setPhoto(photoUrl);
         bayportService.updatePet(id, pet);
         return ResponseEntity.ok(Map.of("url", pet.getPhoto()));
+    }
+
+    @PostMapping(value = "/inventory/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadInventoryPhoto(@PathVariable long id,
+                                                                    @RequestPart("file") MultipartFile file) throws IOException {
+        InventoryItem item = inventoryService.get(id);
+        if (item.getCategory() != null && "SERVICE".equalsIgnoreCase(item.getCategory().trim())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Photos are not used for service items"));
+        }
+        String photoUrl = fileStorageService.store(file);
+        item.setPhoto(photoUrl);
+        inventoryService.update(id, item);
+        return ResponseEntity.ok(Map.of("url", photoUrl));
     }
 
     @PostMapping("/pets/{id}/procedures")
@@ -253,6 +270,18 @@ public class ApiControllers {
             return ResponseEntity.ok(appointment);
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
+        }
+    }
+
+    @PostMapping("/appointments/{id}/cancel")
+    public ResponseEntity<?> cancelAppt(@PathVariable("id") long id) {
+        try {
+            Appointment appointment = bayportService.cancelAppointment(id);
+            return ResponseEntity.ok(appointment);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -537,7 +566,7 @@ public class ApiControllers {
      * Intentionally not restricted to admin — same audience as checkout.
      */
     @GetMapping("/reports/pos-sales-recent")
-    public ResponseEntity<List<PosSaleHistoryDto>> reportsPosSalesRecent(
+    public ResponseEntity<List<Map<String, Object>>> reportsPosSalesRecent(
             @RequestParam(name = "limit", defaultValue = "40") int limit) {
         return ResponseEntity.ok(posService.recentPosSales(limit));
     }

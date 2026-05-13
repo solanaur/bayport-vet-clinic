@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,13 @@ public class Pet {
     private String gender;
     private Integer age;
     private String microchip;
+
+    private String color;
+
+    private String weight;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @Column(name = "owner_name")
     private String owner;
@@ -112,6 +120,15 @@ public class Pet {
 
     public String getMicrochip() { return microchip; }
     public void setMicrochip(String microchip) { this.microchip = microchip; }
+
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
+
+    public String getWeight() { return weight; }
+    public void setWeight(String weight) { this.weight = weight; }
+
+    public LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 
     public String getOwner() { return owner; }
     public void setOwner(String owner) { this.owner = owner; }

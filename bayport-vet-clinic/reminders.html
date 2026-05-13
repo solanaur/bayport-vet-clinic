@@ -14,17 +14,7 @@
 </head>
 
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-  <div class="flex items-center space-x-5">
-    <img src="assets/logo.png" class="w-14 h-14 rounded-lg bg-white p-1 object-contain">
-    <div>
-      <h1 class="text-2xl font-semibold">Bayport Veterinary Clinic</h1>
-      <p class="text-sm text-gray-100/90">Automated Reminders & Email System</p>
-    </div>
-  </div>
-  <button class="bg-white text-[var(--soft-teal)] px-5 py-2 rounded-md font-semibold hover:bg-gray-50"
-          onclick="logout()">Logout</button>
-</header>
+<header id="bpAppHeader"></header>
 
 <div class="flex flex-1">
   <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
@@ -79,10 +69,14 @@
 <script>window.USE_API=true;</script>
 <script src="assets/api.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/app-header.js"></script>
 <script src="assets/reminder-templates.js"></script>
 
 <script>
   guard('reminders');
+  if (typeof initBayportAppHeader === "function") {
+    initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Automated reminders & email" });
+  }
   renderSidebar(document.getElementById('sidebarNav'), getRole(), 'reminders.html');
 
   const modalRoot = document.getElementById("modalRoot");

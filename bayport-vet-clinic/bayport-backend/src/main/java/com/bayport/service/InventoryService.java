@@ -1,7 +1,9 @@
 package com.bayport.service;
 
 import com.bayport.entity.InventoryItem;
+import com.bayport.entity.InventorySkuSuppression;
 import com.bayport.repository.InventoryItemRepository;
+import com.bayport.repository.InventorySkuSuppressionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,9 +14,12 @@ import java.util.List;
 public class InventoryService {
 
     private final InventoryItemRepository repository;
+    private final InventorySkuSuppressionRepository skuSuppressionRepository;
 
-    public InventoryService(InventoryItemRepository repository) {
+    public InventoryService(InventoryItemRepository repository,
+                              InventorySkuSuppressionRepository skuSuppressionRepository) {
         this.repository = repository;
+        this.skuSuppressionRepository = skuSuppressionRepository;
     }
 
     public List<InventoryItem> list() {
@@ -42,10 +47,19 @@ public class InventoryService {
         existing.setQuantity(item.getQuantity());
         existing.setReorderLevel(item.getReorderLevel());
         existing.setUnitPrice(item.getUnitPrice());
+        existing.setPhoto(item.getPhoto());
         return repository.save(existing);
     }
 
     public void delete(Long id) {
+        InventoryItem item = get(id);
+        String sku = item.getSku();
+        if (sku != null && !sku.isBlank()) {
+            String key = sku.trim().toUpperCase();
+            if (!skuSuppressionRepository.existsById(key)) {
+                skuSuppressionRepository.save(new InventorySkuSuppression(key));
+            }
+        }
         repository.deleteById(id);
     }
 

@@ -46,19 +46,19 @@ public class InMemoryRepo {
 
         Appointment a1 = new Appointment();
         a1.id = nextApptId(); a1.petId = p1.id; a1.owner = p1.owner;
-        a1.date = LocalDate.now().plusDays(2).toString(); a1.time="10:00"; a1.vet="Dr. Cruz"; a1.status="Pending";
+        a1.date = LocalDate.now().plusDays(2).toString(); a1.time="10:00"; a1.vet="Dr. Arla Hernando"; a1.status="Pending";
         appts.put(a1.id, a1);
         log("APPT_CREATED", "Appointment created for " + p1.owner + " (Choco)", p1.id);
 
         Prescription r1 = new Prescription();
         r1.id = nextRxId(); r1.petId=p1.id; r1.pet=p1.name; r1.owner=p1.owner;
         r1.drug="Amoxicillin"; r1.dosage="250 mg"; r1.directions="Twice daily";
-        r1.prescriber="Dr. Cruz"; r1.date=LocalDate.now().toString(); r1.dispensed=false;
+        r1.prescriber="Dr. Arla Hernando"; r1.date=LocalDate.now().toString(); r1.dispensed=false;
         rx.put(r1.id, r1);
         log("RX_CREATED", "Rx issued for Choco (Amoxicillin)", p1.id);
 
         users.put(nextUserId(), user("Admin","admin"));
-        users.put(nextUserId(), user("Dr. Cruz","vet"));
+        users.put(nextUserId(), user("Dr. Arla Hernando","vet"));
         users.put(nextUserId(), user("Daisy","receptionist"));
         users.put(nextUserId(), user("Paul","pharmacist"));
     }

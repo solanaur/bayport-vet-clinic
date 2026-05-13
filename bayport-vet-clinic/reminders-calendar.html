@@ -18,13 +18,7 @@
 </head>
 
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
-<header class="w-full bg-[var(--soft-teal)] text-white flex items-center justify-between px-12 py-4 shadow-soft">
-  <h1 class="text-2xl font-semibold">Reminders Calendar</h1>
-  <button onclick="location.href='dashboard.html'"
-    class="bg-white text-[var(--soft-teal)] px-4 py-2 rounded-md">
-    Back to Dashboard
-  </button>
-</header>
+<header id="bpAppHeader"></header>
 
 <div class="flex flex-1">
   <aside class="w-72 bg-white border-r p-6 shadow-soft">
@@ -41,10 +35,14 @@
 
 <script src="assets/api.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/app-header.js"></script>
 <script src="assets/reminder-templates.js"></script>
 <script>
 // Use the same permissions as the main reminders page
 guard("reminders");
+if (typeof initBayportAppHeader === "function") {
+  initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Reminders calendar" });
+}
 renderSidebar(document.getElementById("sidebarNav"), getRole(), "reminders-calendar.html");
 
 document.addEventListener('DOMContentLoaded', async function() {
