@@ -45,6 +45,22 @@ public class Prescription {
 
     private boolean archived;
 
+    @Column(name = "dispense_qty")
+    private Integer dispenseQty;
+
+    private String diagnosis;
+
+    @Column(name = "days_supply")
+    private String daysSupply;
+
+    /** DRAFT, SAVED, DONE */
+    @Column(name = "rx_status")
+    private String rxStatus;
+
+    /** Vet preference blank template / extra Rx notes (printed on PDF). */
+    @Column(name = "vet_notes", length = 2000)
+    private String vetNotes;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id", insertable = false, updatable = false)
     @JsonIgnore
@@ -114,6 +130,21 @@ public class Prescription {
 
     public boolean isArchived() { return archived; }
     public void setArchived(boolean archived) { this.archived = archived; }
+
+    public Integer getDispenseQty() { return dispenseQty; }
+    public void setDispenseQty(Integer dispenseQty) { this.dispenseQty = dispenseQty; }
+
+    public String getDiagnosis() { return diagnosis; }
+    public void setDiagnosis(String diagnosis) { this.diagnosis = diagnosis; }
+
+    public String getDaysSupply() { return daysSupply; }
+    public void setDaysSupply(String daysSupply) { this.daysSupply = daysSupply; }
+
+    public String getRxStatus() { return rxStatus; }
+    public void setRxStatus(String rxStatus) { this.rxStatus = rxStatus; }
+
+    public String getVetNotes() { return vetNotes; }
+    public void setVetNotes(String vetNotes) { this.vetNotes = vetNotes; }
 
     public Pet getPetEntity() { return petEntity; }
     public void setPetEntity(Pet petEntity) { this.petEntity = petEntity; }

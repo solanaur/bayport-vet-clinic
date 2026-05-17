@@ -669,7 +669,7 @@ public class ApiControllers {
                                                           @RequestParam(name = "group", required = false) String groupKey) {
         return bayportService.getPrescriptionById(id)
                 .map(firstPrescription -> {
-                    List<Prescription> prescriptions = resolvePrescriptionGroup(firstPrescription, groupKey);
+                    List<Prescription> prescriptions = enrichPrescriptionsForPdf(resolvePrescriptionGroup(firstPrescription, groupKey));
                     byte[] pdf = pdfService.buildPrescriptionPdf(prescriptions);
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -714,9 +714,26 @@ public class ApiControllers {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    private List<Prescription> enrichPrescriptionsForPdf(List<Prescription> prescriptions) {
+        for (Prescription rx : prescriptions) {
+            if (rx.getPetId() != null) {
+                bayportService.getPetById(rx.getPetId()).ifPresent(pet -> {
+                    rx.setPetEntity(pet);
+                    if (rx.getOwner() == null || rx.getOwner().isBlank()) {
+                        rx.setOwner(pet.getOwner());
+                    }
+                    if (rx.getPet() == null || rx.getPet().isBlank()) {
+                        rx.setPet(pet.getName());
+                    }
+                });
+            }
+        }
+        return prescriptions;
+    }
+
     private List<Prescription> resolvePrescriptionGroup(Prescription firstPrescription, String groupKey) {
         if (groupKey != null && !groupKey.isBlank()) {
-            String[] parts = groupKey.split("_");
+            String[] parts = groupKey.split("_", 3);
             if (parts.length >= 3) {
                 Long petId = Long.parseLong(parts[0]);
                 String date = parts[1];

@@ -208,6 +208,9 @@
             localStorage.setItem("jwt", res.payload.token);
           }
         }
+        if (typeof window.trustCurrentDevice === 'function' && !window.isDeviceLockEnabled()) {
+          window.trustCurrentDevice('Auto-trusted on login');
+        }
         location.href = 'dashboard.html';
       } else if(res.msg === "MFA_REQUIRED"){
         mfaUsername = res.username;

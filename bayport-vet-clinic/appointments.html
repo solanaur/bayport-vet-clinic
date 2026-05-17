@@ -79,9 +79,12 @@
               <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Appointment Queue</h2>
               <p class="text-sm text-gray-500 mt-1">Manage today&apos;s appointments in order.</p>
             </div>
-            <button type="button" id="walkInBtn" class="hidden shrink-0 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90" style="background-color: var(--bp-blue);">
-              + Add Walk-in
-            </button>
+            <div class="flex flex-wrap gap-2 shrink-0">
+              <a href="appointments-calendar.html" class="px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">Calendar view</a>
+              <button type="button" id="walkInBtn" class="hidden px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90" style="background-color: var(--bp-blue);">
+                + Add Walk-in
+              </button>
+            </div>
           </div>
 
           <div class="px-5 lg:px-6 py-3 flex flex-wrap gap-2 items-center border-b border-gray-50 bg-gray-50/50" id="filterTabs"></div>

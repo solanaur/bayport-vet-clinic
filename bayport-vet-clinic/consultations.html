@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Consultations - Bayport</title>
+  <title>Consultations &amp; Prescriptions - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
@@ -11,27 +11,30 @@
     .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
     :root{--soft-teal:#0057b8}
   </style>
+  <link rel="stylesheet" href="assets/rx-pad-editor.css">
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
   <header id="bpAppHeader"></header>
+  <div id="bpPetContext" class="hidden"></div>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Consultations</h2>
+      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Consultations &amp; Rx</h2>
       <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
     </aside>
 
     <main class="flex-1 p-8">
       <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8 max-w-6xl mx-auto">
-        <div class="mb-6 flex items-center gap-3">
+        <div class="mb-6 flex flex-wrap items-center gap-3">
           <button id="tab_start" class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm">Start Consultation</button>
           <button id="tab_finished" class="px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700">Finished Consultations</button>
+          <button id="tab_rx_records" class="px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700">Prescription Records</button>
         </div>
 
         <section id="start_view">
         <div class="mb-6">
           <h3 class="text-2xl font-semibold text-gray-800">Start Consultation</h3>
-          <p class="text-sm text-gray-500 mt-1">Work through the steps in order. You can jump back to edit earlier steps before saving.</p>
+          <p class="text-sm text-gray-500 mt-1">Diagnosis &rarr; procedures &rarr; prescriptions in one visit. Type on the Rx pad in step 3, then save to POS.</p>
         </div>
 
         <div id="consult_workflow_bar" class="mb-8 rounded-xl border border-gray-200 bg-slate-50 p-4">
@@ -40,9 +43,9 @@
             <span id="consult_step_label">Step 1 of 3</span>
           </div>
           <div class="flex gap-2">
-            <button type="button" data-consult-step="1" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm">1 · Diagnosis</button>
-            <button type="button" data-consult-step="2" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">2 · Procedures</button>
-            <button type="button" data-consult-step="3" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">3 · Prescriptions</button>
+            <button type="button" data-consult-step="1" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm">1 &middot; Diagnosis</button>
+            <button type="button" data-consult-step="2" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">2 &middot; Procedures</button>
+            <button type="button" data-consult-step="3" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">3 &middot; Prescriptions</button>
           </div>
         </div>
 
@@ -131,17 +134,9 @@
         </div>
 
         <div id="consult_step_3" class="consult-step-panel hidden">
-        <section class="border rounded-xl p-4">
-          <div class="flex items-center justify-between gap-3 mb-3">
-            <h4 class="font-semibold">Prescription lines</h4>
-            <button type="button" id="issue_rx_btn" title="Add medicines from inventory" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
-              Issue prescription
-            </button>
-          </div>
-          <div id="line_rows" class="space-y-2 text-sm text-gray-700"></div>
-          <p class="text-xs text-gray-500 mt-2">Prescription entries are clinical records only. No inventory deduction or sale is posted here.</p>
-        </section>
+        <p class="text-sm text-gray-600 mb-3">Type directly on the prescription pad below (same layout as the printed PDF).</p>
+        <div id="consult_rx_pad_mount"></div>
+        <p class="text-xs text-gray-500 mt-2">Clinical record only. Payment and inventory are handled at Point of Sale.</p>
         </div>
 
         <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6">
@@ -187,21 +182,43 @@
             </table>
           </div>
         </section>
+
+        <section id="rx_records_view" class="hidden">
+          <div class="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h3 class="text-2xl font-semibold text-gray-800 mb-1">Prescription records</h3>
+              <p class="text-gray-600 text-sm">Issued during consultations &mdash; print, edit, dispense, or archive.</p>
+            </div>
+            <button id="rxReg_issueBtn" type="button" class="hidden px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#158a8a] text-white font-semibold shadow-md flex items-center gap-2">
+              Issue prescription
+            </button>
+          </div>
+          <div class="flex gap-2 mb-6 border-b border-gray-200">
+            <button id="rxReg_tabActive" type="button" onclick="bayportRxSwitchTab('active')" class="px-4 py-2 rounded-t-lg font-medium bg-[var(--soft-teal)] text-white">Active</button>
+            <button id="rxReg_tabArchived" type="button" onclick="bayportRxSwitchTab('archived')" class="px-4 py-2 rounded-t-lg font-medium bg-gray-100 text-gray-700">Archived</button>
+          </div>
+          <div id="rxReg_activeSection" class="space-y-3"></div>
+          <div id="rxReg_archivedSection" class="space-y-3 hidden"></div>
+        </section>
       </div>
     </main>
   </div>
 
   <div id="rx_modal_root"></div>
+  <div id="rxReg_modalRoot"></div>
 
   <script src="assets/deploy-env.js"></script>
   <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
+  <script src="assets/rx-registry.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/app-header.js"></script>
+  <script src="assets/pet-context.js"></script>
+  <script src="assets/rx-pad-editor.js"></script>
   <script>
     guard('consultations');
     if (typeof initBayportAppHeader === "function") {
-      initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Consultation module" });
+      initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Consultations & prescriptions" });
     }
     renderSidebar(document.getElementById('sidebarNav'), getRole(), 'consultations.html');
 
@@ -211,6 +228,9 @@
     const finishedView = document.getElementById('finished_view');
     const tabStartBtn = document.getElementById('tab_start');
     const tabFinishedBtn = document.getElementById('tab_finished');
+    const tabRxRecordsBtn = document.getElementById('tab_rx_records');
+    const rxRecordsView = document.getElementById('rx_records_view');
+    let rxRegistryApi = null;
     const finishedRows = document.getElementById('finished_rows');
     const finishedSearchInput = document.getElementById('finished_search');
     const procedureCategorySelect = document.getElementById('c_procedure_category');
@@ -218,13 +238,11 @@
     const procedureCostInput = document.getElementById('c_procedure_cost');
     const procedureRows = document.getElementById('procedure_rows');
     const procedureTotalEl = document.getElementById('procedure_total');
-    const lineRows = document.getElementById('line_rows');
-    const rxModalRoot = document.getElementById('rx_modal_root');
+    const consultPadMount = document.getElementById('consult_rx_pad_mount');
     const consultPetSummaryWrap = document.getElementById('consult_pet_summary_wrap');
     const consultPetPhotoEl = document.getElementById('consult_pet_photo');
     const procedures = [];
-    const lines = [];
-    let inventoryItems = [];
+    let consultPadApi = null;
     let finishedConsultations = [];
     let expandedFinishedKey = null;
     let consultationPets = [];
@@ -232,9 +250,9 @@
     dateInput.value = new Date().toISOString().slice(0, 10);
 
     function consultPetDisplayDash(val) {
-      if (val == null) return '—';
+      if (val == null) return '\u2014';
       const s = String(val).trim();
-      return s ? s : '—';
+      return s ? s : '\u2014';
     }
 
     function consultPetAgeDisplay(p) {
@@ -247,7 +265,7 @@
       else if (Array.isArray(dob) && dob.length >= 3) {
         s = `${dob[0]}-${String(dob[1]).padStart(2, '0')}-${String(dob[2]).padStart(2, '0')}`;
       }
-      if (!s) return '—';
+      if (!s) return '\u2014';
       try {
         const born = new Date(s + 'T12:00:00');
         if (!Number.isNaN(born.getTime())) {
@@ -258,7 +276,7 @@
           if (yrs >= 0) return String(yrs);
         }
       } catch (_) { /* ignore */ }
-      return '—';
+      return '\u2014';
     }
 
     function consultSpeciesBadgeClass(species) {
@@ -284,7 +302,7 @@
       document.getElementById('consult_pet_name').textContent = p.name || 'Patient';
       const badge = document.getElementById('consult_pet_species_badge');
       const speciesRaw = (p.species || '').trim();
-      badge.textContent = speciesRaw || '—';
+      badge.textContent = speciesRaw || '\u2014';
       badge.className =
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ' + consultSpeciesBadgeClass(speciesRaw);
       const renderPh = typeof window.renderPetPhotoHtml === 'function' ? window.renderPetPhotoHtml : null;
@@ -325,28 +343,56 @@
       return m ? m[1].trim() : text.trim();
     }
 
-    function renderLines() {
-      if (!lines.length) {
-        lineRows.innerHTML = `<div class="text-gray-400">No lines yet.</div>`;
-      } else {
-        lineRows.innerHTML = lines.map((l, idx) => `
-          <div class="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>
-              ${l.name} x${l.qty}
-              <span class="block text-xs text-gray-500">
-                ${l.dosage || 'No dosage'} • ${l.frequency || 'No frequency'} • ${l.duration || 'No duration'}
-              </span>
-              ${l.instructions ? `<span class="block text-xs text-gray-500">Instructions: ${l.instructions}</span>` : ''}
-            </span>
-            <div class="flex items-center gap-3">
-              <button type="button" onclick="removeLine(${idx})" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm" title="Remove line">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                Remove
-              </button>
-            </div>
-          </div>
-        `).join('');
+    function prescriberName() {
+      return getUserName() || localStorage.getItem('username') || 'Vet';
+    }
+
+    async function syncConsultPadFromPet() {
+      if (!consultPadMount) return;
+      const petId = Number(petSelect.value);
+      if (!petId) return;
+      ensureConsultPad();
+      const p = consultationPets.find((x) => Number(x.id) === petId);
+      if (!p) return;
+      let owner = p.owner || '';
+      if (typeof ownerForPet === 'function') {
+        try {
+          owner = (await ownerForPet(petId)) || owner;
+        } catch (_) { /* ignore */ }
       }
+      const petInp = consultPadMount.querySelector('[data-field="pet"]');
+      const ownerInp = consultPadMount.querySelector('[data-field="owner"]');
+      const dateInp = consultPadMount.querySelector('[data-field="date"]');
+      if (petInp) {
+        petInp.value = p.name || '';
+        petInp.dataset.petId = String(petId);
+      }
+      if (ownerInp) ownerInp.value = owner;
+      if (dateInp) dateInp.value = dateInput.value || new Date().toISOString().slice(0, 10);
+    }
+
+    function ensureConsultPad() {
+      if (consultPadApi || typeof BayportRxPadEditor === 'undefined' || !consultPadMount) return consultPadApi;
+      consultPadApi = BayportRxPadEditor.mount(consultPadMount, {
+        showPetPicker: false,
+        pets: consultationPets,
+        onPetSelect(pet) {
+          if (pet?.id) {
+            petSelect.value = String(pet.id);
+            updateConsultPetSummary();
+          }
+        },
+        initialData: BayportRxPadEditor.normalizeData({
+          date: dateInput.value || new Date().toISOString().slice(0, 10),
+          prescriber: prescriberName(),
+        }),
+      });
+      syncConsultPadFromPet();
+      return consultPadApi;
+    }
+
+    function padRxLinesForSave(padData) {
+      return (padData?.lines || []).filter((l) => String(l.drug || '').trim());
     }
 
     function renderProcedures() {
@@ -412,89 +458,31 @@
       }
     }
 
-    function openIssuePrescriptionModal() {
-      rxModalRoot.innerHTML = `
-        <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div class="bg-white rounded-2xl w-full max-w-2xl p-6">
-            <h3 class="text-xl font-semibold mb-4">Issue Prescription</h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <select id="line_item" class="border border-gray-300 rounded-md p-3 md:col-span-3"></select>
-              <input id="line_qty" type="number" min="1" value="1" class="border border-gray-300 rounded-md p-3">
-              <input id="line_dosage" class="border border-gray-300 rounded-md p-3" placeholder="Dosage (e.g., 1 tablet)">
-              <input id="line_frequency" class="border border-gray-300 rounded-md p-3" placeholder="Frequency (e.g., BID)">
-              <input id="line_duration" class="border border-gray-300 rounded-md p-3" placeholder="Duration (e.g., 7 days)">
-              <input id="line_instructions" class="border border-gray-300 rounded-md p-3 md:col-span-3" placeholder="Instructions (e.g., after meals)">
-            </div>
-            <div class="mt-5 flex justify-end gap-3">
-              <button class="px-4 py-2 border rounded-md" onclick="closeIssuePrescriptionModal()">Cancel</button>
-              <button id="add_line_btn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white">Add Prescription Line</button>
-            </div>
-          </div>
-        </div>`;
-
-      const lineItemSelect = document.getElementById('line_item');
-      const lineQtyInput = document.getElementById('line_qty');
-      const lineDosageInput = document.getElementById('line_dosage');
-      const lineFrequencyInput = document.getElementById('line_frequency');
-      const lineDurationInput = document.getElementById('line_duration');
-      const lineInstructionsInput = document.getElementById('line_instructions');
-
-      lineItemSelect.innerHTML = `<option value="">Select inventory item</option>` + inventoryItems
-        .map(i => `<option value="${i.id}">${i.name} - ${php(i.unitPrice)} (${onHand(i)} in stock)</option>`)
-        .join('');
-
-      document.getElementById('add_line_btn').addEventListener('click', () => {
-        const id = Number(lineItemSelect.value);
-        const qty = Number(lineQtyInput.value || 1);
-        const dosage = (lineDosageInput.value || '').trim();
-        const frequency = (lineFrequencyInput.value || '').trim();
-        const duration = (lineDurationInput.value || '').trim();
-        const instructions = (lineInstructionsInput.value || '').trim();
-        if (!id || qty <= 0) return;
-        const item = inventoryItems.find(i => Number(i.id) === id);
-        if (!item) return;
-        if (qty > onHand(item)) {
-          alert('Quantity exceeds available stock.');
-          return;
-        }
-        lines.push({
-          id: item.id,
-          name: item.name,
-          qty,
-          dosage,
-          frequency,
-          duration,
-          instructions
-        });
-        closeIssuePrescriptionModal();
-        renderLines();
-      });
-    }
-
-    window.closeIssuePrescriptionModal = function closeIssuePrescriptionModal() {
-      rxModalRoot.innerHTML = '';
-    };
-
-    window.removeLine = function removeLine(idx) {
-      lines.splice(idx, 1);
-      renderLines();
-    };
-
     window.removeProcedure = function removeProcedure(idx) {
       procedures.splice(idx, 1);
       renderProcedures();
     };
 
+    function ensureRxRegistry() {
+      if (!rxRegistryApi && typeof initBayportRxRegistry === 'function') {
+        rxRegistryApi = initBayportRxRegistry();
+      }
+      return rxRegistryApi;
+    }
+
     function setActiveTab(tab) {
       const isStart = tab === 'start';
+      const isFinished = tab === 'finished';
+      const isRx = tab === 'rx';
       startView.classList.toggle('hidden', !isStart);
-      finishedView.classList.toggle('hidden', isStart);
-      tabStartBtn.className = isStart
-        ? 'px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm'
-        : 'px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700';
-      tabFinishedBtn.className = isStart
-        ? 'px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700'
-        : 'px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm';
+      finishedView.classList.toggle('hidden', !isFinished);
+      if (rxRecordsView) rxRecordsView.classList.toggle('hidden', !isRx);
+      const activeCls = 'px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm';
+      const idleCls = 'px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-700';
+      tabStartBtn.className = isStart ? activeCls : idleCls;
+      tabFinishedBtn.className = isFinished ? activeCls : idleCls;
+      if (tabRxRecordsBtn) tabRxRecordsBtn.className = isRx ? activeCls : idleCls;
+      if (isRx) ensureRxRegistry()?.refresh?.();
     }
 
     function renderFinishedConsultations() {
@@ -512,7 +500,7 @@
       });
       finishedRows.innerHTML = list.map(c => {
         const meds = (c.prescriptions || []).map(r => {
-          const details = [r.dosage, r.directions].filter(Boolean).join(' • ');
+          const details = [r.dosage, r.directions].filter(Boolean).join(' \u00b7 ');
           return `<div class="py-1">${escapeHtml(r.drug || '')}${details ? `<span class="text-gray-500"> (${escapeHtml(details)})</span>` : ''}</div>`;
         }).join('') || '<span class="text-gray-400">No prescription</span>';
         const procedureNames = (c.procedures || []).map(p => `<div class="py-1">${escapeHtml(p.name || '')} <span class="text-gray-500">(${php(p.cost || 0)})</span></div>`).join('');
@@ -714,10 +702,7 @@
     window.toggleFinishedDetails = toggleFinishedDetails;
 
     async function initData() {
-      const [pets, inv] = await Promise.all([
-        repoListPets(),
-        Api.inventory.list()
-      ]);
+      const pets = await repoListPets();
       consultationPets = pets || [];
       const prefilledPetId = Number(sessionStorage.getItem('consultationPetId') || new URLSearchParams(location.search).get('petId') || 0);
       sessionStorage.removeItem('consultationPetId');
@@ -729,22 +714,38 @@
       } else {
         petSelect.value = '';
       }
+      async function syncPetContextBar() {
+        const pid = Number(petSelect.value);
+        if (!pid) {
+          document.getElementById('bpPetContext')?.classList.add('hidden');
+          return;
+        }
+        try {
+          const pet = await Api.pets.get(pid);
+          if (typeof initBayportPetContextBar === 'function') {
+            initBayportPetContextBar(document.getElementById('bpPetContext'), pet);
+          }
+        } catch (_) {}
+      }
+      petSelect.addEventListener('change', syncPetContextBar);
+      await syncPetContextBar();
 
-      inventoryItems = (inv || []).filter(i => !isServiceItem(i) && onHand(i) > 0);
       populateProcedureCategories();
-      renderLines();
       renderProcedures();
       updateConsultPetSummary();
     }
-    petSelect.addEventListener('change', updateConsultPetSummary);
+    petSelect.addEventListener('change', () => {
+      updateConsultPetSummary();
+      syncConsultPadFromPet();
+    });
     procedureCategorySelect.addEventListener('change', populateProcedureServices);
     procedureServiceSelect.addEventListener('change', syncProcedureCost);
-    document.getElementById('issue_rx_btn').addEventListener('click', openIssuePrescriptionModal);
     tabStartBtn.addEventListener('click', () => setActiveTab('start'));
     tabFinishedBtn.addEventListener('click', async () => {
       setActiveTab('finished');
       await loadFinishedConsultations();
     });
+    tabRxRecordsBtn?.addEventListener('click', () => setActiveTab('rx'));
     document.getElementById('refresh_finished_btn').addEventListener('click', loadFinishedConsultations);
     finishedSearchInput.addEventListener('input', renderFinishedConsultations);
     document.getElementById('add_procedure_btn').addEventListener('click', () => {
@@ -775,7 +776,13 @@
         return;
       }
 
-      const medsSummary = lines.map(l => `${l.name} x${l.qty}`).join(', ');
+      ensureConsultPad();
+      const padData = consultPadApi?.getData() || { lines: [] };
+      const rxLines = padRxLinesForSave(padData);
+      const medsSummary = rxLines.map((l) => {
+        const qty = l.dispenseQty != null && l.dispenseQty !== '' ? ` #${l.dispenseQty}` : '';
+        return `${l.drug}${qty}`.trim();
+      }).join(', ');
       const procedurePayloads = procedures.map(p => ({
         performedAt,
         name: p.name,
@@ -801,23 +808,27 @@
         const consultationProcedureId = candidateProcedures
           .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]?.id || null;
 
-        const prescriberName = getUserName() || localStorage.getItem('username') || 'Vet';
-        const prescriptionSaves = lines.map((line) => {
-          const item = inventoryItems.find((i) => Number(i.id) === Number(line.id));
-          const unit = item ? Number(item.unitPrice || 0) : 0;
-          return Api.rx.create({
+        const vetNotes = (typeof getClinicSettings === "function" ? getClinicSettings().rxBlankTemplate : "") || "";
+        const performedAtRx = padData.date || performedAt;
+        const prescriptionSaves = rxLines.map((line, idx) => Api.rx.create({
             petId,
             consultationProcedureId,
-            drug: line.name,
+            pet: padData.pet || null,
+            owner: padData.owner || null,
+            drug: line.drug,
             dosage: line.dosage || null,
-            directions: [line.frequency, line.duration, line.instructions].filter(Boolean).join(" | ") || null,
+            directions: line.directions || null,
+            dispenseQty: line.dispenseQty != null && line.dispenseQty !== '' ? Number(line.dispenseQty) : null,
+            diagnosis: idx === 0 ? (diagnosis || null) : null,
+            daysSupply: idx === 0 ? (padData.followUp || padData.daysSupply || null) : null,
+            rxStatus: "SAVED",
+            vetNotes: idx === 0 ? (vetNotes || null) : null,
             notes: `Consultation: ${diagnosis || "N/A"}\nClinical Notes: ${notes || "N/A"}`,
-            prescriber: prescriberName,
-            date: performedAt,
+            prescriber: prescriberName(),
+            date: performedAtRx,
             dispensed: false,
-            price: unit > 0 ? unit : null,
-          });
-        });
+            price: null,
+          }));
         const savedPrescriptions = prescriptionSaves.length ? await Promise.all(prescriptionSaves) : [];
 
         const apptIdRaw = sessionStorage.getItem("consultationAppointmentId");
@@ -894,6 +905,10 @@
       if (prevBtn) prevBtn.classList.toggle('hidden', consultStep <= 1);
       if (nextBtn) nextBtn.classList.toggle('hidden', consultStep >= 3);
       if (saveBtn) saveBtn.classList.toggle('hidden', consultStep < 3);
+      if (consultStep === 3) {
+        ensureConsultPad();
+        syncConsultPadFromPet();
+      }
     }
 
     stepTabs.forEach((tab) => {
@@ -916,7 +931,12 @@
 
     initData();
     applyConsultStep(1);
-    setActiveTab('start');
+    const urlTab = new URLSearchParams(location.search).get('tab');
+    if (urlTab === 'rx' || urlTab === 'prescriptions') {
+      setActiveTab('rx');
+    } else {
+      setActiveTab('start');
+    }
   </script>
 </body>
 </html>

@@ -375,7 +375,7 @@ public class BayportService {
 
     /**
      * Parses appointment time and returns normalized {@code HH:mm} (24-hour).
-     * Any minute is allowed — there is no 30-minute “slot grid” validation.
+     * Any minute is allowed — there is no 30-minute "slot grid" validation.
      */
     private String normalizeAppointmentTime(String raw) {
         if (raw == null || raw.trim().isEmpty()) {
@@ -588,6 +588,9 @@ public class BayportService {
     public Prescription savePrescription(Prescription prescription) {
         // Clinical record only — pricing happens at POS / inventory
         prescription.setPrice(null);
+        if (prescription.getRxStatus() == null || prescription.getRxStatus().isBlank()) {
+            prescription.setRxStatus("SAVED");
+        }
         if (prescription.getPetId() != null) {
             petRepository.findById(prescription.getPetId()).ifPresent(p -> {
                 prescription.setPet(p.getName());

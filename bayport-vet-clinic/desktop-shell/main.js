@@ -116,7 +116,26 @@ let mainWindow;
 let backendProcess = null;
 const BACKEND_PORT = 8080;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
-const API_HEALTH_CHECK = `${BACKEND_URL}/api/health`;
+const DESKTOP_API_BASE = `${BACKEND_URL}/api`;
+const API_HEALTH_CHECK = `${DESKTOP_API_BASE}/health`;
+
+function injectDesktopApiConfig() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const script = `
+    (function() {
+      try {
+        var base = ${JSON.stringify(DESKTOP_API_BASE)};
+        window.BAYPORT_API_BASE = base;
+        window.API_BASE = base;
+        window.USE_API = true;
+        localStorage.setItem('bayport_api_base', base);
+      } catch (e) { console.warn('desktop api inject', e); }
+    })();
+  `;
+  mainWindow.webContents.executeJavaScript(script).catch((err) => {
+    log.warn('Could not inject desktop API config:', err.message);
+  });
+}
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -373,6 +392,7 @@ function createWindow() {
       if (fs.existsSync(directIndex)) {
         mainWindow.loadURL(pathToFileURL(directIndex).href);
         log.info('Frontend loaded from:', directIndex);
+        mainWindow.webContents.once('did-finish-load', injectDesktopApiConfig);
         return;
       }
 
@@ -402,7 +422,8 @@ function createWindow() {
 
       mainWindow.loadURL(pathToFileURL(foundPath).href);
       log.info('Frontend loaded from:', foundPath);
-      
+      mainWindow.webContents.once('did-finish-load', injectDesktopApiConfig);
+
       // Add error handler for frontend loading issues
       mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
           log.error('Failed to load frontend:', errorCode, errorDescription, validatedURL);

@@ -31,6 +31,16 @@ window.tryLogin = async function(username, password, role, otp) {
       localStorage.setItem("token", payload.token);
       localStorage.setItem("jwt", payload.token);
     }
+    if (typeof window.trustCurrentDevice === "function" && !window.isDeviceLockEnabled()) {
+      window.trustCurrentDevice("Auto-trusted on login");
+    }
+    if (typeof window.isDeviceLockEnabled === "function" && window.isDeviceLockEnabled()
+        && typeof window.isCurrentDeviceAuthorized === "function" && !window.isCurrentDeviceAuthorized()) {
+      return {
+        ok: false,
+        msg: "Unauthorized device. Ask an administrator to trust this device in Settings → Security.",
+      };
+    }
     return { ok: true };
   } catch (err) {
     const msg = err.message?.includes("401")
@@ -53,7 +63,7 @@ window.logout = function() {
 
 /* ===== Role & Sidebar ===== */
 const CONFIG = {
-  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","activity-logs","recycle-bin","settings","manage-users","help"],
+  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","reminders","activity-logs","recycle-bin","settings","manage-users","help"],
   /** Clinical focus: no billing, POS, inventory, or reports in nav (billing still flows from consultations). */
   vet:          ["dashboard","pet-records","appointments","consultations","help"],
   // Front Office = reception + pharmacy — no Consultations module (vet/clinical only).
@@ -66,7 +76,8 @@ const LABEL = {
   "dashboard":"Dashboard",
   "pet-records":"Pet profiles",
   "appointments":"Appointments",
-  "consultations":"Consultations",
+  "consultations":"Consultations & Rx",
+  "prescriptions":"Consultations & Rx",
   "billing":"Billing",
   "pos":"Point of sale",
   "activity-logs":"Activity Logs",
@@ -74,6 +85,7 @@ const LABEL = {
   "settings":"Settings",
   "inventory":"Inventory",
   "reports":"Reports",
+  "reminders":"Reminders",
   "manage-users":"Users & Roles",
   "help":"Help & support"
 };
@@ -92,6 +104,7 @@ const SIDEBAR_ICONS = {
   "pet-records": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
   appointments: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
   consultations: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
+  prescriptions: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>`,
   billing: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>`,
   pos: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`,
   inventory: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
@@ -107,7 +120,8 @@ const NAV_TOOLTIPS = {
   dashboard: "Overview and shortcuts for your role",
   "pet-records": "Search and open pet profiles",
   appointments: "Schedule and manage visits",
-  consultations: "Record visits, diagnoses, and procedures",
+  consultations: "Visits, diagnosis, procedures, and prescriptions",
+  prescriptions: "Visits, diagnosis, procedures, and prescriptions",
   billing: "Invoices and balances",
   pos: "Checkout and receipts",
   inventory: "Stock and catalog",
@@ -199,11 +213,83 @@ window.queueCloudPrint = async function queueCloudPrint(html, deviceName) {
     receiptHtml: html,
   });
 };
+const DEVICE_ID_KEY = "bayport_device_id";
+const TRUSTED_DEVICES_KEY = "bayport_trusted_devices";
+const DEVICE_LOCK_KEY = "bayport_device_lock_enabled";
+
+window.getDeviceId = function () {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    const raw = [navigator.userAgent, screen.width, screen.height, navigator.language].join("|");
+    id = "dev_" + Array.from(raw).reduce((h, c) => ((h << 5) - h + c.charCodeAt(0)) | 0, 0).toString(36);
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+};
+
+window.getTrustedDevices = function () {
+  try {
+    const list = JSON.parse(localStorage.getItem(TRUSTED_DEVICES_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+};
+
+window.trustCurrentDevice = function (label) {
+  const id = window.getDeviceId();
+  const list = window.getTrustedDevices().filter((d) => d.id !== id);
+  list.push({ id, label: label || "This device", trustedAt: new Date().toISOString() });
+  localStorage.setItem(TRUSTED_DEVICES_KEY, JSON.stringify(list));
+};
+
+window.isDeviceLockEnabled = function () {
+  return localStorage.getItem(DEVICE_LOCK_KEY) === "1";
+};
+
+window.setDeviceLockEnabled = function (on) {
+  localStorage.setItem(DEVICE_LOCK_KEY, on ? "1" : "0");
+};
+
+window.isCurrentDeviceAuthorized = function () {
+  if (!window.isDeviceLockEnabled()) return true;
+  const id = window.getDeviceId();
+  return window.getTrustedDevices().some((d) => d.id === id);
+};
+
+window.enforceDeviceAuthorization = function () {
+  if (window.isCurrentDeviceAuthorized()) return true;
+  alert("Unauthorized device. Ask an administrator to approve this device in Settings → Security.");
+  if (typeof window.logout === "function") window.logout();
+  else location.href = "index.html";
+  return false;
+};
+
+/** True when Rx group can be edited (draft/saved or incomplete clinical fields). */
+window.canEditPrescriptionGroup = function (groupRxs) {
+  if (!Array.isArray(groupRxs) || !groupRxs.length) return false;
+  const status = String(groupRxs[0].rxStatus || "SAVED").toUpperCase();
+  if (status === "DRAFT" || status === "SAVED") return true;
+  if (status === "DONE") {
+    const first = groupRxs[0];
+    const sig = first.directions && String(first.directions).trim();
+    const incomplete =
+      !first.drug ||
+      !sig ||
+      sig === "As directed" ||
+      !first.dispenseQty ||
+      !first.owner;
+    return incomplete;
+  }
+  return false;
+};
+
 window.getClinicSettings = function() {
   const defaults = {
     name: "Bayport Veterinary Clinic",
-    address: "322 Quirino Avenue, Brgy. Don Galo, Parañaque City",
+    address: "0383 Quirino, Ave Don Galo, Parañaque City",
     logoDataUrl: "",
+    rxBlankTemplate: "",
   };
   try {
     const raw = localStorage.getItem(CLINIC_SETTINGS_KEY);
@@ -228,6 +314,7 @@ window.setClinicSettings = function(settings) {
 
 window.ensureLoggedIn = function(){
   if(!localStorage.getItem("role")) location.href="index.html";
+  if (typeof window.enforceDeviceAuthorization === "function") window.enforceDeviceAuthorization();
 };
 
 /** Unified Front Office + legacy role checks (for cloud JWT `front_office`). */
@@ -271,6 +358,10 @@ window.renderSidebar = function (container, role, activeFile) {
       const iconHtml = SIDEBAR_ICONS[key] || "";
       btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
+        if (key === "prescriptions") {
+          location.href = "consultations.html?tab=rx";
+          return;
+        }
         location.href = `${key}.html`;
       };
       if (`${key}.html` === activeFile) {
@@ -604,6 +695,7 @@ window.buildPosProcedureRows = function buildPosProcedureRows() {
 /* ===== Guard ===== */
 window.guard=function(pageKey){
   window.ensureLoggedIn();
+  if (pageKey === "prescriptions") pageKey = "consultations";
   const role=window.getRole();
   const allowed=CONFIG[role]||[];
   if(!allowed.includes(pageKey)) location.href="dashboard.html";

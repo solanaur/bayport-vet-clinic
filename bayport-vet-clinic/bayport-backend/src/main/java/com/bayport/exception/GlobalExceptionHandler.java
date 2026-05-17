@@ -1,13 +1,17 @@
 package com.bayport.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -43,16 +47,25 @@ public class GlobalExceptionHandler {
      * return a proper 400 with a clear message.
      */
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex,
-                                                                     WebRequest request) {
+    public ResponseEntity<?> handleIllegalArgument(IllegalArgumentException ex,
+                                                   WebRequest request,
+                                                   HttpServletRequest servletRequest) {
+        log.warn("Client error (400) at {}: {}", request.getDescription(false), ex.getMessage());
+
+        String accept = servletRequest != null ? servletRequest.getHeader(HttpHeaders.ACCEPT) : null;
+        if (accept != null && accept.contains(MediaType.APPLICATION_PDF_VALUE)) {
+            String message = ex.getMessage() != null ? ex.getMessage() : "Bad Request";
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .contentType(MediaType.TEXT_PLAIN)
+                    .body(message.getBytes(StandardCharsets.UTF_8));
+        }
+
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", LocalDateTime.now().toString());
         body.put("status", HttpStatus.BAD_REQUEST.value());
         body.put("error", "Bad Request");
         body.put("message", ex.getMessage());
         body.put("path", request.getDescription(false));
-
-        log.warn("Client error (400) at {}: {}", request.getDescription(false), ex.getMessage());
 
         return ResponseEntity.badRequest().body(body);
     }

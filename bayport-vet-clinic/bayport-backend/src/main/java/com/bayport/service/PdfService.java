@@ -30,6 +30,12 @@ public class PdfService {
             DateTimeFormatter.ofPattern("MMMM d, yyyy hh:mm a");
     private static final Color CLINIC_BLUE = new Color(0, 87, 184);
     private static final Color SOFT_BLUE = new Color(235, 243, 255);
+
+    /** Matches printed Bayport prescription pad letterhead. */
+    private static final String CLINIC_NAME_LINE = "BAYPORT VETERINARY CLINIC";
+    private static final String CLINIC_ADDRESS_LINE = "0383 Quirino, Ave Don Galo, Para\u00f1aque City";
+    private static final String CLINIC_PHONE_LINE = "09686332940 / tel no. (02) 82548338";
+    private static final String CLINIC_EMAIL_LINE = "bayport.vetclinic@gmail.com";
     
     private final String uploadDir;
     
@@ -59,7 +65,7 @@ public class PdfService {
             Document document = new Document(PageSize.A4, 72, 72, 72, 72);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfWriter writer = PdfWriter.getInstance(document, baos);
-            writer.setPageEvent(new PrescriptionFooterEvent());
+            // Physical Rx pad has no page-number footer.
 
             document.open();
             document.addTitle("Prescription");
@@ -71,14 +77,24 @@ public class PdfService {
                 base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
             }
 
-            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
-            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
-            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
-            Font value = new Font(base, 11, Font.NORMAL, Color.BLACK);
+            BaseFont padBase;
+            try {
+                padBase = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
+            } catch (Exception e) {
+                padBase = base;
+            }
 
-            addClinicHeader(document, header, sub);
-            addPrescriptionDetailsMultiple(document, prescriptions, label, value, sub);
-            addDoctorSignature(document, first, label, value);
+            Font clinicTitle = new Font(padBase, 15, Font.BOLD, Color.BLACK);
+            Font contactLine = new Font(padBase, 9.5f, Font.NORMAL, Color.BLACK);
+            Font fieldLabel = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
+            Font fieldValue = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
+            Font rxSymbol = new Font(padBase, 48, Font.BOLD, Color.BLACK);
+            Font medFont = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
+
+            addPrescriptionPadHeader(document, clinicTitle, contactLine);
+            addPrescriptionPadPatientBlock(document, first, fieldLabel, fieldValue);
+            addPrescriptionPadRxBody(document, prescriptions, rxSymbol, medFont);
+            addPrescriptionPadFooter(document, first, fieldLabel, fieldValue, contactLine);
 
             document.close();
             return baos.toByteArray();
@@ -96,47 +112,190 @@ public class PdfService {
         return buildPrescriptionPdf(java.util.Collections.singletonList(prescription));
     }
 
-    /**
-     * Adds the clinic header to the document.
-     */
-    private void addClinicHeader(Document document, Font header, Font sub) throws DocumentException {
-        PdfPTable top = new PdfPTable(2);
+    /** Prescription pad letterhead — matches physical pad (logo + clinic block + rule). */
+    private void addPrescriptionPadHeader(Document document, Font clinicTitle, Font contactLine)
+            throws DocumentException {
+        PdfPTable top = new PdfPTable(new float[]{0.85f, 4.15f});
         top.setWidthPercentage(100);
-        top.setWidths(new float[]{1, 4});
         top.getDefaultCell().setBorder(Rectangle.NO_BORDER);
         top.setSpacingAfter(6);
 
         PdfPCell logoCell = new PdfPCell();
         logoCell.setBorder(Rectangle.NO_BORDER);
-        logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        logoCell.setVerticalAlignment(Element.ALIGN_TOP);
+        logoCell.setPaddingRight(10);
         Image logo = tryLoadClinicLogo();
         if (logo != null) {
-            logo.scaleToFit(54, 54);
+            logo.scaleToFit(82, 82);
             logoCell.addElement(logo);
-        } else {
-            logoCell.addElement(new Phrase("🐾", new Font(sub.getBaseFont(), 22, Font.NORMAL, CLINIC_BLUE)));
         }
         top.addCell(logoCell);
 
         PdfPCell textCell = new PdfPCell();
         textCell.setBorder(Rectangle.NO_BORDER);
-        textCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
-        Paragraph clinic = new Paragraph("Bayport Veterinary Clinic", header);
-        clinic.setSpacingAfter(3);
+        textCell.setVerticalAlignment(Element.ALIGN_TOP);
+        textCell.setPaddingLeft(4);
+        Paragraph clinic = new Paragraph(CLINIC_NAME_LINE, clinicTitle);
+        clinic.setSpacingAfter(6);
         textCell.addElement(clinic);
-        textCell.addElement(new Paragraph("322 Quirino Avenue, Brgy. Don Galo, Parañaque City  •  0968 633 2940", sub));
-        textCell.addElement(new Paragraph("Generated: " + TS.format(LocalDateTime.now()), sub));
+        textCell.addElement(new Paragraph(CLINIC_ADDRESS_LINE, contactLine));
+        textCell.addElement(new Paragraph("Contact No: " + CLINIC_PHONE_LINE, contactLine));
+        textCell.addElement(new Paragraph("Email: " + CLINIC_EMAIL_LINE, contactLine));
         top.addCell(textCell);
         document.add(top);
 
-        LineSeparator divider = new LineSeparator(1.2f, 100f, CLINIC_BLUE, Element.ALIGN_CENTER, 0);
+        LineSeparator divider = new LineSeparator(0.6f, 100f, Color.BLACK, Element.ALIGN_CENTER, 0);
         document.add(divider);
         document.add(Chunk.NEWLINE);
+    }
 
-        Paragraph title = new Paragraph("OFFICIAL VETERINARY PRESCRIPTION", header);
-        title.setAlignment(Element.ALIGN_CENTER);
-        title.setSpacingAfter(12);
-        document.add(title);
+    private void addPrescriptionPadPatientBlock(Document document, Prescription first, Font label, Font value)
+            throws DocumentException {
+        PdfPTable row1 = new PdfPTable(new float[]{1.2f, 2.2f, 0.5f, 1.1f});
+        row1.setWidthPercentage(100);
+        row1.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+        row1.getDefaultCell().setPadding(2);
+        row1.addCell(new Phrase("Pet's Name:", label));
+        PdfPCell petVal = new PdfPCell(new Phrase(nullToEmpty(first.getPet()), value));
+        petVal.setBorder(Rectangle.BOTTOM);
+        petVal.setBorderWidth(0.5f);
+        petVal.setPaddingBottom(4);
+        row1.addCell(petVal);
+        row1.addCell(new Phrase("Date:", label));
+        PdfPCell dateVal = new PdfPCell(new Phrase(
+                first.getDate() != null ? first.getDate().toString() : "", value));
+        dateVal.setBorder(Rectangle.BOTTOM);
+        dateVal.setBorderWidth(0.5f);
+        dateVal.setPaddingBottom(4);
+        row1.addCell(dateVal);
+        document.add(row1);
+
+        PdfPTable row2 = new PdfPTable(new float[]{1.2f, 4.8f});
+        row2.setWidthPercentage(100);
+        row2.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+        row2.getDefaultCell().setPadding(2);
+        row2.setSpacingAfter(8);
+        row2.addCell(new Phrase("Owner's Name:", label));
+        PdfPCell ownerVal = new PdfPCell(new Phrase(nullToEmpty(first.getOwner()), value));
+        ownerVal.setBorder(Rectangle.BOTTOM);
+        ownerVal.setBorderWidth(0.5f);
+        ownerVal.setPaddingBottom(4);
+        row2.addCell(ownerVal);
+        document.add(row2);
+        document.add(Chunk.NEWLINE);
+    }
+
+    private void addPrescriptionPadRxBody(Document document,
+                                          List<Prescription> prescriptions,
+                                          Font rxSymbol,
+                                          Font medFont) throws DocumentException {
+        // Stacked like the physical pad:
+        //   Rx
+        //       Medicine …                    #
+        //               Sig: …
+        final float medIndentPt = 36f;
+        final float sigIndentPt = 80f;
+
+        PdfPTable block = new PdfPTable(1);
+        block.setWidthPercentage(100);
+        block.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+
+        PdfPCell rxCell = new PdfPCell(new Phrase("Rx", rxSymbol));
+        rxCell.setBorder(Rectangle.NO_BORDER);
+        rxCell.setPaddingTop(6);
+        rxCell.setPaddingBottom(10);
+        block.addCell(rxCell);
+
+        int n = 1;
+        for (Prescription rx : prescriptions) {
+            String drugLine = nullToEmpty(rx.getDrug());
+            if (!nullToEmpty(rx.getDosage()).isBlank()) {
+                drugLine = drugLine + " " + rx.getDosage().trim();
+            }
+
+            PdfPTable medRow = new PdfPTable(new float[]{5f, 0.55f});
+            medRow.setWidthPercentage(100);
+            medRow.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+
+            PdfPCell nameCell = new PdfPCell(new Phrase(prescriptionBullet(n) + "  " + drugLine, medFont));
+            nameCell.setBorder(Rectangle.NO_BORDER);
+            nameCell.setPaddingBottom(2);
+            medRow.addCell(nameCell);
+
+            String qtyText = (rx.getDispenseQty() != null && rx.getDispenseQty() > 0)
+                    ? "# " + rx.getDispenseQty() : "#";
+            PdfPCell qtyCell = new PdfPCell(new Phrase(qtyText, medFont));
+            qtyCell.setBorder(Rectangle.NO_BORDER);
+            qtyCell.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            qtyCell.setVerticalAlignment(Element.ALIGN_TOP);
+            medRow.addCell(qtyCell);
+
+            PdfPCell medCell = new PdfPCell();
+            medCell.setBorder(Rectangle.NO_BORDER);
+            medCell.setPaddingLeft(medIndentPt);
+            medCell.setPaddingBottom(4);
+            medCell.addElement(medRow);
+            block.addCell(medCell);
+
+            String sig = nullToEmpty(rx.getDirections());
+            PdfPCell sigCell = new PdfPCell(new Phrase("Sig: " + sig, medFont));
+            sigCell.setBorder(Rectangle.NO_BORDER);
+            sigCell.setPaddingLeft(sigIndentPt);
+            sigCell.setPaddingBottom(14);
+            block.addCell(sigCell);
+
+            n++;
+        }
+
+        block.setSpacingAfter(16);
+        document.add(block);
+    }
+
+    private void addPrescriptionPadFooter(Document document,
+                                          Prescription first,
+                                          Font label,
+                                          Font value,
+                                          Font notesFont) throws DocumentException {
+        document.add(Chunk.NEWLINE);
+        document.add(Chunk.NEWLINE);
+
+        String followUp = formatFollowUp(first.getDaysSupply());
+        PdfPTable foot = new PdfPTable(2);
+        foot.setWidthPercentage(100);
+        foot.setWidths(new float[]{1.2f, 1f});
+        foot.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+
+        PdfPCell left = new PdfPCell();
+        left.setBorder(Rectangle.NO_BORDER);
+        left.addElement(new Paragraph("Follow up: " + followUp, value));
+        String vetNotes = nullToEmpty(first.getVetNotes());
+        if (!vetNotes.isBlank()) {
+            Paragraph notes = new Paragraph(vetNotes, notesFont);
+            notes.setSpacingBefore(8);
+            left.addElement(notes);
+        }
+        foot.addCell(left);
+
+        PdfPCell right = new PdfPCell();
+        right.setBorder(Rectangle.NO_BORDER);
+        right.setHorizontalAlignment(Element.ALIGN_CENTER);
+        Paragraph line = new Paragraph("______________________________", value);
+        line.setAlignment(Element.ALIGN_CENTER);
+        right.addElement(line);
+        Paragraph vetLabel = new Paragraph("Veterinarian", label);
+        vetLabel.setAlignment(Element.ALIGN_CENTER);
+        vetLabel.setSpacingBefore(2);
+        right.addElement(vetLabel);
+        foot.addCell(right);
+
+        PdfPCell pageCell = new PdfPCell(new Paragraph("Page 1 of 1", value));
+        pageCell.setColspan(2);
+        pageCell.setBorder(Rectangle.NO_BORDER);
+        pageCell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        pageCell.setPaddingTop(10f);
+        foot.addCell(pageCell);
+
+        document.add(foot);
     }
     
     /**
@@ -194,104 +353,11 @@ public class PdfService {
         return c;
     }
 
-    /**
-     * Adds prescription details in a formatted table.
-     */
-    private void addPrescriptionDetails(Document document,
-                                      Prescription prescription,
-                                      Font label,
-                                      Font value,
-                                      Font sub) throws DocumentException {
-        // Delegate to multiple products method
-        addPrescriptionDetailsMultiple(document, java.util.Collections.singletonList(prescription), label, value, sub);
-    }
-
-    /**
-     * Adds prescription details for multiple products in a formatted table.
-     * Shows prescribed medication names (pricing at POS).
-     */
-    private void addPrescriptionDetailsMultiple(Document document,
-                                               List<Prescription> prescriptions,
-                                               Font label,
-                                               Font value,
-                                               Font sub) throws DocumentException {
-        if (prescriptions == null || prescriptions.isEmpty()) {
-            return;
-        }
-
-        // Use first prescription for pet/owner/date info
-        Prescription first = prescriptions.get(0);
-        
-        // Pet and Owner Information
-        PdfPTable infoTable = new PdfPTable(2);
-        infoTable.setWidthPercentage(100);
-        infoTable.setWidths(new float[]{1, 2});
-        infoTable.setSpacingBefore(10);
-        infoTable.setSpacingAfter(15);
-        
-        addRow(infoTable, "Pet:", nullToEmpty(first.getPet()), label, value);
-        addRow(infoTable, "Owner:", nullToEmpty(first.getOwner()), label, value);
-        addRow(infoTable, "Veterinarian:", nullToEmpty(first.getPrescriber()), label, value);
-        addRow(infoTable, "Date:", first.getDate() != null ? first.getDate().toString() : "", label, value);
-        document.add(infoTable);
-
-        document.add(Chunk.NEWLINE);
-
-        PdfPTable productsTable = new PdfPTable(3);
-        productsTable.setWidthPercentage(100);
-        productsTable.setWidths(new float[]{3, 2, 3});
-        productsTable.setSpacingBefore(5);
-        productsTable.setSpacingAfter(10);
-        productsTable.setHeaderRows(1);
-
-        PdfPCell medHeader = new PdfPCell(new Phrase("Medication", label));
-        medHeader.setBackgroundColor(SOFT_BLUE);
-        medHeader.setBorderColor(CLINIC_BLUE);
-        medHeader.setPadding(8);
-        productsTable.addCell(medHeader);
-        PdfPCell doseHeader = new PdfPCell(new Phrase("Dosage", label));
-        doseHeader.setBackgroundColor(SOFT_BLUE);
-        doseHeader.setBorderColor(CLINIC_BLUE);
-        doseHeader.setPadding(8);
-        productsTable.addCell(doseHeader);
-        PdfPCell dirHeader = new PdfPCell(new Phrase("Directions", label));
-        dirHeader.setBackgroundColor(SOFT_BLUE);
-        dirHeader.setBorderColor(CLINIC_BLUE);
-        dirHeader.setPadding(8);
-        productsTable.addCell(dirHeader);
-
-        for (Prescription rx : prescriptions) {
-            PdfPCell drugCell = new PdfPCell(new Phrase(nullToEmpty(rx.getDrug()), value));
-            drugCell.setPadding(6);
-            drugCell.setBorderColor(new Color(190, 210, 240));
-            productsTable.addCell(drugCell);
-            PdfPCell dosageCell = new PdfPCell(new Phrase(
-                    rx.getDosage() == null || rx.getDosage().isBlank() ? "As prescribed" : rx.getDosage(),
-                    value));
-            dosageCell.setPadding(6);
-            dosageCell.setBorderColor(new Color(190, 210, 240));
-            productsTable.addCell(dosageCell);
-            PdfPCell directionsCell = new PdfPCell(new Phrase(
-                    rx.getDirections() == null || rx.getDirections().isBlank() ? "Follow veterinarian instructions" : rx.getDirections(),
-                    value));
-            directionsCell.setPadding(6);
-            directionsCell.setBorderColor(new Color(190, 210, 240));
-            productsTable.addCell(directionsCell);
-        }
-
-        document.add(productsTable);
-
-        Paragraph payNote = new Paragraph(
-                "For animal treatment only. Payments are handled at the clinic front desk.",
-                sub);
-        payNote.setSpacingBefore(8);
-        document.add(payNote);
-    }
-
+    /** Loads the clinic seal from the backend JAR only (never a random file on disk). */
     private Image tryLoadClinicLogo() {
         String[] classpathCandidates = {
-                "/static/assets/logo.png",
                 "/assets/logo.png",
+                "/static/assets/logo.png",
                 "/logo.png"
         };
         for (String candidate : classpathCandidates) {
@@ -301,55 +367,23 @@ public class PdfService {
                 }
             } catch (Exception ignored) {}
         }
-        String[] fileCandidates = {
-                "assets/logo.png",
-                "../assets/logo.png",
-                "../../assets/logo.png"
-        };
-        for (String path : fileCandidates) {
-            try {
-                File f = new File(path);
-                if (f.exists() && f.isFile()) {
-                    return Image.getInstance(f.getAbsolutePath());
-                }
-            } catch (Exception ignored) {}
-        }
         return null;
     }
 
-    /**
-     * Adds doctor signature section - centered with vet name.
-     */
-    private void addDoctorSignature(Document document,
-                                    Prescription prescription,
-                                    Font label,
-                                    Font value) throws DocumentException {
+    private static String formatFollowUp(Object daysSupply) {
+        if (daysSupply == null) return "";
+        String s = String.valueOf(daysSupply).trim();
+        if (s.isEmpty()) return "";
+        if (s.matches("\\d+")) return s + " days";
+        return s;
+    }
 
-        document.add(Chunk.NEWLINE);
-        document.add(Chunk.NEWLINE);
-
-        String prescriber = nullToEmpty(prescription.getPrescriber());
-        if (prescriber.isEmpty()) {
-            prescriber = "Attending Veterinarian";
+    /** Circled index (①②…) like the printed Rx pad; falls back to "1." beyond 20. */
+    private static String prescriptionBullet(int index) {
+        if (index >= 1 && index <= 20) {
+            return String.valueOf((char) (0x2460 + index - 1));
         }
-
-        // Center the signature line
-        Paragraph signatureLine = new Paragraph("______________________________", value);
-        signatureLine.setAlignment(Element.ALIGN_CENTER);
-        signatureLine.setSpacingBefore(20);
-        document.add(signatureLine);
-
-        // Center the vet name (VET signature, not ADMIN)
-        Paragraph doctorName = new Paragraph(prescriber, value);
-        doctorName.setAlignment(Element.ALIGN_CENTER);
-        doctorName.setSpacingBefore(5);
-        document.add(doctorName);
-        
-        // Add "Veterinarian" label below name
-        Paragraph vetLabel = new Paragraph("Veterinarian", label);
-        vetLabel.setAlignment(Element.ALIGN_CENTER);
-        vetLabel.setSpacingBefore(2);
-        document.add(vetLabel);
+        return index + ".";
     }
 
     /**

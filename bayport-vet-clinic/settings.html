@@ -49,6 +49,26 @@
           </label>
         </div>
 
+        <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Prescription (Rx) template</h2>
+        <div class="space-y-3">
+          <label class="block">
+            <span class="text-xs text-gray-600">Blank template for vet preference</span>
+            <textarea id="rxBlankTemplate" rows="4" class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Optional notes printed at the bottom of every Rx PDF (e.g. refill policy, follow-up instructions)."></textarea>
+          </label>
+          <p class="text-xs text-gray-500">Printed on Rx PDFs under &quot;Veterinarian notes&quot;. Sig, Disp, Diagnosis, and Days supply are filled per prescription.</p>
+        </div>
+
+        <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Security</h2>
+        <div class="space-y-3">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" id="deviceLockEnabled" class="rounded border-gray-300"/>
+            <span>Block unauthorized devices (only trusted devices can use the app)</span>
+          </label>
+          <p class="text-xs text-gray-500">Device ID: <code id="currentDeviceId" class="bg-gray-100 px-1 rounded"></code></p>
+          <button type="button" id="trustDeviceBtn" class="border rounded-md px-3 py-2 text-sm hover:bg-gray-50">Trust this device</button>
+          <ul id="trustedDeviceList" class="text-xs text-gray-600 space-y-1 list-disc pl-5"></ul>
+        </div>
+
         <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Cloud API</h2>
         <div class="space-y-3">
           <label class="block">
@@ -123,7 +143,22 @@
         preview.classList.add('hidden');
       }
       document.getElementById('apiBaseUrl').value = localStorage.getItem('bayport_api_base') || window.BAYPORT_API_BASE || '';
+      document.getElementById('rxBlankTemplate').value = s.rxBlankTemplate || '';
+      document.getElementById('deviceLockEnabled').checked = typeof window.isDeviceLockEnabled === 'function' && window.isDeviceLockEnabled();
+      document.getElementById('currentDeviceId').textContent = typeof window.getDeviceId === 'function' ? window.getDeviceId() : '—';
+      const list = document.getElementById('trustedDeviceList');
+      const devices = typeof window.getTrustedDevices === 'function' ? window.getTrustedDevices() : [];
+      list.innerHTML = devices.length
+        ? devices.map((d) => `<li>${d.label || d.id} <span class="text-gray-400">(${d.id})</span></li>`).join('')
+        : '<li class="list-none -ml-5 text-gray-400">No trusted devices yet.</li>';
     }
+
+    document.getElementById('trustDeviceBtn').onclick = () => {
+      const label = prompt('Label for this device:', 'Front desk PC') || 'Clinic device';
+      if (typeof window.trustCurrentDevice === 'function') window.trustCurrentDevice(label);
+      loadSettings();
+      toast('Device trusted.', false);
+    };
 
     let pendingLogoDataUrl = '';
     document.getElementById('clinicLogo').addEventListener('change', async (e) => {
@@ -160,14 +195,25 @@
         address: (document.getElementById('clinicAddress').value || '').trim() || current.address || '',
       };
       if (pendingLogoDataUrl) next.logoDataUrl = pendingLogoDataUrl;
+      next.rxBlankTemplate = (document.getElementById('rxBlankTemplate').value || '').trim();
       setClinicSettings?.(next);
       setPreferredReceiptPrinter?.(document.getElementById('defaultPrinter').value || '');
+      if (typeof window.setDeviceLockEnabled === 'function') {
+        window.setDeviceLockEnabled(document.getElementById('deviceLockEnabled').checked);
+      }
       const apiBase = (document.getElementById('apiBaseUrl').value || '').trim();
-      if (apiBase) {
-        localStorage.setItem('bayport_api_base', apiBase);
-        window.BAYPORT_API_BASE = apiBase;
-      } else {
-        localStorage.removeItem('bayport_api_base');
+      try {
+        if (apiBase) {
+          window.setApiBase(apiBase);
+        } else if (typeof window.setApiBase === 'function') {
+          window.setApiBase('');
+        } else {
+          localStorage.removeItem('bayport_api_base');
+          window.BAYPORT_API_BASE = '';
+        }
+      } catch (err) {
+        toast(err.message || 'Invalid API base URL.', true);
+        return;
       }
       pendingLogoDataUrl = '';
       toast('Settings saved. Reload pages to apply API base.', false);

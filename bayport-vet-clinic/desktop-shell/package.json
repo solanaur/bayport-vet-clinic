@@ -5,7 +5,7 @@
   "description": "Electron shell for the Bayport Veterinary Clinic frontend",
   "main": "main.js",
   "scripts": {
-    "dev": "npx electron .",
+    "dev": "node scripts/start-desktop.js",
     "check": "npx electron --version",
     "build-backend": "node scripts/mvnw.js clean package -DskipTests",
     "build-runtime": "node scripts/clean-runtime.js && jlink --no-header-files --no-man-pages --strip-debug --compress=2 --add-modules java.se,jdk.unsupported --output runtime",
@@ -23,7 +23,8 @@
     "dist:mac": "electron-builder --mac dmg zip --x64 --arm64",
     "predist:all": "npm run build-backend && npm run build-runtime",
     "dist:all": "electron-builder -mwl",
-    "desktop": "npm run build-backend && npx electron ."
+    "desktop": "node scripts/start-desktop.js",
+    "desktop:rebuild": "npm run build-backend && node scripts/start-desktop.js"
   },
   "dependencies": {
     "electron-log": "^5.4.3"

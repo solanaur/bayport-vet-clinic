@@ -530,6 +530,15 @@
     }
 
     function aggregateTopItems(summary) {
+      const fromApi = summary?.topItems;
+      if (Array.isArray(fromApi) && fromApi.length) {
+        return fromApi.map((t) => ({
+          name: t.name || "Item",
+          cat: t.category || "",
+          qty: Number(t.qty) || 0,
+          total: Number(t.total) || 0,
+        }));
+      }
       const map = new Map();
       function addRow(r, kind) {
         const name = (r.itemName || "").trim() || "Item";

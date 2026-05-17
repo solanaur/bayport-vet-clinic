@@ -31,22 +31,14 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo [2/3] Building backend JAR...
-call npm run build-backend
-if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Failed to build backend
-    pause
-    exit /b 1
-)
-
-echo.
-echo [3/3] Starting desktop application...
+echo [2/2] Starting desktop application (builds backend JAR if needed)...
 echo.
 echo The app will open in a new window.
-echo Press Ctrl+C to stop the application.
+echo Wait for "Starting application..." then the login screen.
+echo Press Ctrl+C in this window to stop everything.
 echo.
 
-call npm run dev
+call npm run desktop
 
 pause
 

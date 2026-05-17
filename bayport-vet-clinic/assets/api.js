@@ -1,16 +1,98 @@
 window.USE_API = window.USE_API ?? true;
+
+const API_BASE_STORAGE_KEY = "bayport_api_base";
+const LOCAL_API_DEFAULT = "http://localhost:8080/api";
+const INVALID_API_BASE_PATTERNS = [
+  /<[^>]*>/,
+  /your-azure-app/i,
+  /your-app-xxxxx/i,
+  /example\.com/i,
+  /placeholder/i,
+];
+
+window.isValidApiBase = function isValidApiBase(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return false;
+  if (INVALID_API_BASE_PATTERNS.some((re) => re.test(raw))) return false;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+    const host = u.hostname || "";
+    if (!host || host.includes("<") || host.includes(">")) return false;
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+window.normalizeApiBase = function normalizeApiBase(url) {
+  let base = String(url || "").trim().replace(/\/+$/, "");
+  if (!base) return "";
+  if (/^https?:\/\/[^/]+$/i.test(base)) base += "/api";
+  return base;
+};
+
+function readStoredApiBase() {
+  const raw = (window.BAYPORT_API_BASE || localStorage.getItem(API_BASE_STORAGE_KEY) || "").trim();
+  if (!raw) return "";
+  if (!window.isValidApiBase(raw)) {
+    try {
+      localStorage.removeItem(API_BASE_STORAGE_KEY);
+    } catch (_) {}
+    if (window.BAYPORT_API_BASE === raw) window.BAYPORT_API_BASE = "";
+    return "";
+  }
+  return window.normalizeApiBase(raw);
+}
+
+function defaultLocalApiBase() {
+  if (window.location.protocol === "file:") return LOCAL_API_DEFAULT;
+  const host = window.location.hostname || "";
+  if (host === "localhost" || host === "127.0.0.1") {
+    const port = window.location.port || "";
+    if (!port || port === "8080") {
+      return `${window.location.origin.replace(/\/+$/, "")}/api`;
+    }
+    return LOCAL_API_DEFAULT;
+  }
+  return "";
+}
+
+window.setApiBase = function setApiBase(url) {
+  const value = String(url || "").trim();
+  if (!value) {
+    localStorage.removeItem(API_BASE_STORAGE_KEY);
+    window.BAYPORT_API_BASE = "";
+    window.API_BASE = window.resolveApiBase();
+    return window.API_BASE;
+  }
+  if (!window.isValidApiBase(value)) {
+    throw new Error("Invalid API base URL. Use a real https://host/api address (no placeholders like <your-azure-app>).");
+  }
+  const normalized = window.normalizeApiBase(value);
+  localStorage.setItem(API_BASE_STORAGE_KEY, normalized);
+  window.BAYPORT_API_BASE = normalized;
+  window.API_BASE = normalized;
+  return window.API_BASE;
+};
+
 window.resolveApiBase = function resolveApiBase() {
-  const envBase = (window.BAYPORT_API_BASE || localStorage.getItem("bayport_api_base") || "").trim();
-  if (envBase) return envBase;
-  if (window.location.protocol === "file:") return "http://localhost:8080/api";
+  if (typeof window !== 'undefined' && window.desktopBridge && window.desktopBridge.apiBase) {
+    return window.normalizeApiBase(window.desktopBridge.apiBase);
+  }
+  const stored = readStoredApiBase();
+  if (stored) return stored;
 
   const origin = window.location.origin.replace(/\/+$/, "");
   const sameOriginApi = `${origin}/api`;
   const host = window.location.hostname || "";
-  const explicit = (window.API_BASE || "").trim();
+  const explicit = window.normalizeApiBase((window.API_BASE || "").trim());
   // Do not use same-origin /api on hosted static sites (Netlify, etc.) — there is no Spring there → HTML 404.
-  if (explicit && explicit !== sameOriginApi) return explicit;
-  if (host === "localhost" || host === "127.0.0.1") return sameOriginApi;
+  if (explicit && explicit !== sameOriginApi && window.isValidApiBase(explicit)) return explicit;
+
+  const localDefault = defaultLocalApiBase();
+  if (localDefault) return localDefault;
+
   return "";
 };
 window.API_BASE = window.resolveApiBase();
@@ -32,11 +114,7 @@ function ensureApiEnabled() {
 }
 
 function buildApiUrl(path) {
-  let base = String(window.resolveApiBase() ?? "").trim().replace(/\/+$/, "");
-  // "http://host:8080" with no path → append /api (otherwise /pos/checkout hits wrong handler → static 404)
-  if (base.length > 0 && /^https?:\/\/[^/]+$/i.test(base)) {
-    base += "/api";
-  }
+  let base = window.normalizeApiBase(window.resolveApiBase() ?? "");
   if (!base) {
     throw new Error(
       "API base URL is not configured. In Netlify set BAYPORT_API_BASE to your Render API (e.g. https://your-app.onrender.com/api), redeploy, or run: localStorage.setItem(\"bayport_api_base\",\"https://…/api\") then reload.",
@@ -604,16 +682,7 @@ async function repoArchiveRx(id, archived = true) {
 
 async function repoListUsers() {
   ensureApiEnabled();
-  try {
-    const result = await Api.users.list();
-    console.log('repoListUsers result:', result);
-    console.log('repoListUsers result type:', typeof result);
-    console.log('repoListUsers is array?', Array.isArray(result));
-    return result;
-  } catch (error) {
-    console.error('repoListUsers error:', error);
-    throw error;
-  }
+  return Api.users.list();
 }
 
 async function repoGetUser(id) {
