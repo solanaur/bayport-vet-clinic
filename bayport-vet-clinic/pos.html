@@ -136,8 +136,8 @@
     </div>
   </div>
 
-  <div id="posWorkspace" class="hidden flex flex-col min-h-screen">
-  <header id="bpAppHeader"></header>
+  <div id="posWorkspace" class="hidden flex flex-col h-[100dvh] max-h-[100dvh] overflow-hidden">
+  <header id="bpAppHeader" class="shrink-0"></header>
 
   <div id="posToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[92%] px-4 py-3 rounded-xl shadow-lg text-sm font-medium hidden pointer-events-none"></div>
   <div id="posSuccessModal" class="fixed inset-0 bg-slate-900/35 hidden items-center justify-center p-4 z-[70]">
@@ -196,8 +196,8 @@
     </div>
   </div>
 
-  <div class="flex flex-1">
-    <aside class="w-72 bg-white border-r border-gray-200 p-6">
+  <div class="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+    <aside class="w-72 shrink-0 bg-white border-r border-gray-200 p-6 overflow-y-auto">
       <h2 class="text-lg font-semibold text-[var(--pos-brand)] uppercase mb-4">Point of sale</h2>
       <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
     </aside>
@@ -232,7 +232,6 @@
                       <p id="petSummaryOwner" class="text-sm text-slate-600 mt-1">—</p>
                     </div>
                     <div class="flex flex-wrap gap-2 shrink-0">
-                      <a id="petViewProfileBtn" href="pet-records.html" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">View profile</a>
                       <button type="button" id="petChangePatientBtn" class="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--pos-brand)] text-[var(--pos-brand)] hover:bg-blue-50">Change patient</button>
                     </div>
                   </div>
@@ -294,7 +293,7 @@
         </div>
       </div>
 
-      <aside class="w-full lg:w-[400px] shrink-0 flex flex-col min-h-0 p-6 border-t lg:border-t-0 lg:border-l border-slate-200/80 pos-right-shell">
+      <aside class="w-full lg:w-[400px] shrink-0 flex flex-col min-h-0 max-h-full lg:overflow-y-auto p-6 border-t lg:border-t-0 lg:border-l border-slate-200/80 pos-right-shell">
         <div class="flex items-baseline justify-between gap-2 mb-3">
           <h2 class="text-sm font-semibold text-slate-800">Current sale</h2>
           <button type="button" id="btnClearCart" class="text-xs font-semibold text-[var(--pos-brand)] hover:underline">Clear all</button>
@@ -342,13 +341,6 @@
           </div>
         </div>
         <p id="nonCashHint" class="hidden text-sm text-slate-500 mb-4">Non-cash selected: charge exact amount due.</p>
-
-        <div id="afterPaymentBlock" class="hidden mb-4 text-sm border border-slate-100 rounded-xl px-3 py-2 bg-white">
-          <label class="flex gap-2 items-start text-slate-600 cursor-pointer">
-            <input type="checkbox" id="fulfillRx" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500"/>
-            <span>After payment: mark imported prescriptions as dispensed</span>
-          </label>
-        </div>
 
         <button type="button" id="payBtn" class="w-full py-3.5 rounded-xl text-[15px] font-semibold text-white bg-[var(--pos-brand)] hover:brightness-105 shadow-sm transition-colors">
           Complete payment
@@ -494,7 +486,6 @@
       const ownerEl = document.getElementById("petSummaryOwner");
       const photoEl = document.getElementById("petCardPhoto");
       const pill = document.getElementById("petSpeciesPill");
-      const viewBtn = document.getElementById("petViewProfileBtn");
       if (!card || !nameEl || !metaEl || !ownerEl) return;
       const photoHtml = (photoPath, wrapCls) =>
         typeof renderPetPhotoHtml === "function"
@@ -525,10 +516,6 @@
           pill.classList.add("hidden");
         }
       }
-      if (viewBtn) {
-        viewBtn.href = `pet-profile.html?id=${encodeURIComponent(pet.id)}`;
-        viewBtn.classList.remove("pointer-events-none", "opacity-40");
-      }
       card.classList.remove("hidden");
     }
 
@@ -539,7 +526,6 @@
       const ownerEl = document.getElementById("petSummaryOwner");
       const photoEl = document.getElementById("petCardPhoto");
       const pill = document.getElementById("petSpeciesPill");
-      const viewBtn = document.getElementById("petViewProfileBtn");
       if (!card || !nameEl || !metaEl || !ownerEl) return;
       nameEl.textContent = "Walk-in customer";
       metaEl.textContent = "No registered patient selected";
@@ -551,10 +537,6 @@
             : `<div class="h-24 w-24 sm:h-28 sm:w-28 rounded-xl bg-[var(--pos-brand)] shrink-0"></div>`;
       }
       if (pill) pill.classList.add("hidden");
-      if (viewBtn) {
-        viewBtn.href = "pet-records.html";
-        viewBtn.classList.add("pointer-events-none", "opacity-40");
-      }
       card.classList.remove("hidden");
     }
 
@@ -1297,7 +1279,6 @@
 
     function renderCart() {
       const el = document.getElementById("cartBody");
-      const afterPayment = document.getElementById("afterPaymentBlock");
       const rxBadge = document.getElementById("rxAddedBadge");
       mergeBillingIntoCart();
 
@@ -1318,7 +1299,6 @@
         if (subEl) subEl.textContent = "0.00";
         if (totEl) totEl.textContent = "0.00";
         resetPosDiscountUi();
-        if (afterPayment) afterPayment.classList.add("hidden");
         updateTenderChange();
         paintBillFold();
         return;
@@ -1414,7 +1394,6 @@
         };
       });
       recalcTotals();
-      if (afterPayment) afterPayment.classList.toggle("hidden", !openRx.length);
       paintBillFold();
       const activePet = document.getElementById("petSel")?.value;
       if (!activePet && walkInMode) {
@@ -1530,27 +1509,20 @@
       const fold = document.getElementById("rxFold");
       const title = document.getElementById("rxFoldTitle");
       const list = document.getElementById("rxList");
-      const afterPayment = document.getElementById("afterPaymentBlock");
-      const fulfillEl = document.getElementById("fulfillRx");
       rxSelected.clear();
       if (!petId) {
         if (fold) fold.classList.add("hidden");
         openRx = [];
-        if (afterPayment) afterPayment.classList.add("hidden");
-        if (fulfillEl) fulfillEl.checked = false;
         return;
       }
       const all = await Api.rx.list();
       openRx = (all || []).filter((r) => String(r.petId) === String(petId) && !r.dispensed && !r.archived);
       if (!openRx.length) {
         if (fold) fold.classList.add("hidden");
-        if (afterPayment) afterPayment.classList.add("hidden");
-        if (fulfillEl) fulfillEl.checked = false;
         return;
       }
       if (fold) fold.classList.remove("hidden");
       if (title) title.textContent = "Prescriptions";
-      if (afterPayment) afterPayment.classList.toggle("hidden", cart.length === 0);
       const byCat = new Map();
       for (const r of openRx) {
         const inv = findInventoryByDrugName(r.drug);
@@ -1774,15 +1746,6 @@
         }
       }
       const petIdRaw = document.getElementById("petSel").value;
-      const fulfill = document.getElementById("fulfillRx").checked;
-      if (fulfill && !petIdRaw) {
-        showToast("Select a patient.", true);
-        return;
-      }
-      if (fulfill && !rxSelected.size) {
-        showToast("Import prescriptions or disable dispensing.", true);
-        return;
-      }
       const lines = cart.map((l) => {
         if (l.kind === "sku") {
           const o = { sku: l.sku, quantity: l.qty };
@@ -1820,7 +1783,7 @@
           paymentMethod: document.getElementById("paySel").value,
           discountAmount,
           lines,
-          fulfillPrescriptionIds: fulfill ? [...rxSelected] : [],
+          fulfillPrescriptionIds: [],
         });
         clearQueueSessionForPos();
         showToast("Sale #" + (res.saleId || "") + " · ₱" + money(res.total));

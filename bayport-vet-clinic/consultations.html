@@ -46,6 +46,45 @@
           </div>
         </div>
 
+        <div id="consult_pet_summary_wrap" class="mb-6 hidden rounded-2xl border border-gray-200 bg-white p-5 shadow-sm" role="region" aria-label="Selected patient details">
+          <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-3">Patient for this visit</p>
+          <div class="flex flex-col sm:flex-row gap-5 sm:gap-6 items-start">
+            <div id="consult_pet_photo" class="shrink-0 w-[120px] h-[120px] sm:w-[132px] sm:h-[132px]"></div>
+            <div class="min-w-0 flex-1 w-full">
+              <div class="flex flex-wrap items-baseline gap-2 gap-y-1 mb-4">
+                <h4 id="consult_pet_name" class="text-2xl font-bold text-gray-900 leading-tight"></h4>
+                <span id="consult_pet_species_badge" class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold"></span>
+              </div>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Breed</div>
+                  <div id="consult_pet_breed" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Gender</div>
+                  <div id="consult_pet_gender" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Age</div>
+                  <div id="consult_pet_age" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Microchip ID</div>
+                  <div id="consult_pet_microchip" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Color</div>
+                  <div id="consult_pet_color" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div>
+                  <div class="text-xs text-gray-500 font-normal">Weight</div>
+                  <div id="consult_pet_weight" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div id="consult_step_1" class="consult-step-panel">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <label class="text-sm text-gray-700">Pet
@@ -181,13 +220,88 @@
     const procedureTotalEl = document.getElementById('procedure_total');
     const lineRows = document.getElementById('line_rows');
     const rxModalRoot = document.getElementById('rx_modal_root');
+    const consultPetSummaryWrap = document.getElementById('consult_pet_summary_wrap');
+    const consultPetPhotoEl = document.getElementById('consult_pet_photo');
     const procedures = [];
     const lines = [];
     let inventoryItems = [];
     let finishedConsultations = [];
     let expandedFinishedKey = null;
+    let consultationPets = [];
 
     dateInput.value = new Date().toISOString().slice(0, 10);
+
+    function consultPetDisplayDash(val) {
+      if (val == null) return '—';
+      const s = String(val).trim();
+      return s ? s : '—';
+    }
+
+    function consultPetAgeDisplay(p) {
+      if (p.age != null && String(p.age).trim() !== '' && !Number.isNaN(Number(p.age))) {
+        return String(p.age);
+      }
+      const dob = p.dateOfBirth;
+      let s = '';
+      if (typeof dob === 'string' && dob.length >= 10) s = dob.slice(0, 10);
+      else if (Array.isArray(dob) && dob.length >= 3) {
+        s = `${dob[0]}-${String(dob[1]).padStart(2, '0')}-${String(dob[2]).padStart(2, '0')}`;
+      }
+      if (!s) return '—';
+      try {
+        const born = new Date(s + 'T12:00:00');
+        if (!Number.isNaN(born.getTime())) {
+          const now = new Date();
+          let yrs = now.getFullYear() - born.getFullYear();
+          const md = now.getMonth() - born.getMonth();
+          if (md < 0 || (md === 0 && now.getDate() < born.getDate())) yrs--;
+          if (yrs >= 0) return String(yrs);
+        }
+      } catch (_) { /* ignore */ }
+      return '—';
+    }
+
+    function consultSpeciesBadgeClass(species) {
+      const s = String(species || '').trim().toLowerCase();
+      if (s === 'feline' || s === 'cat') return 'bg-sky-100 text-sky-800 border border-sky-200/80';
+      if (s === 'canine' || s === 'dog') return 'bg-amber-50 text-amber-900 border border-amber-200/80';
+      return 'bg-slate-100 text-slate-600 border border-slate-200/80';
+    }
+
+    function updateConsultPetSummary() {
+      if (!consultPetSummaryWrap || !consultPetPhotoEl) return;
+      const id = Number(petSelect.value);
+      if (!id) {
+        consultPetSummaryWrap.classList.add('hidden');
+        return;
+      }
+      const p = consultationPets.find((x) => Number(x.id) === id);
+      if (!p) {
+        consultPetSummaryWrap.classList.add('hidden');
+        return;
+      }
+      consultPetSummaryWrap.classList.remove('hidden');
+      document.getElementById('consult_pet_name').textContent = p.name || 'Patient';
+      const badge = document.getElementById('consult_pet_species_badge');
+      const speciesRaw = (p.species || '').trim();
+      badge.textContent = speciesRaw || '—';
+      badge.className =
+        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ' + consultSpeciesBadgeClass(speciesRaw);
+      const renderPh = typeof window.renderPetPhotoHtml === 'function' ? window.renderPetPhotoHtml : null;
+      consultPetPhotoEl.innerHTML = renderPh
+        ? renderPh(
+            p.photo,
+            'w-[120px] h-[120px] sm:w-[132px] sm:h-[132px] shrink-0 rounded-2xl border border-gray-200 shadow-sm overflow-hidden',
+            'object-cover w-full h-full'
+          )
+        : '<div class="w-[120px] h-[120px] sm:w-[132px] sm:h-[132px] shrink-0 rounded-2xl border border-gray-200 bg-[var(--soft-teal)]/20" aria-hidden="true"></div>';
+      document.getElementById('consult_pet_breed').textContent = consultPetDisplayDash(p.breed);
+      document.getElementById('consult_pet_gender').textContent = consultPetDisplayDash(p.gender);
+      document.getElementById('consult_pet_age').textContent = consultPetAgeDisplay(p);
+      document.getElementById('consult_pet_microchip').textContent = consultPetDisplayDash(p.microchip);
+      document.getElementById('consult_pet_color').textContent = consultPetDisplayDash(p.color);
+      document.getElementById('consult_pet_weight').textContent = consultPetDisplayDash(p.weight);
+    }
 
     function php(v){ return `PHP ${Number(v || 0).toFixed(2)}`; }
     function escapeHtml(v) {
@@ -604,6 +718,7 @@
         repoListPets(),
         Api.inventory.list()
       ]);
+      consultationPets = pets || [];
       const prefilledPetId = Number(sessionStorage.getItem('consultationPetId') || new URLSearchParams(location.search).get('petId') || 0);
       sessionStorage.removeItem('consultationPetId');
 
@@ -619,7 +734,9 @@
       populateProcedureCategories();
       renderLines();
       renderProcedures();
+      updateConsultPetSummary();
     }
+    petSelect.addEventListener('change', updateConsultPetSummary);
     procedureCategorySelect.addEventListener('change', populateProcedureServices);
     procedureServiceSelect.addEventListener('change', syncProcedureCost);
     document.getElementById('issue_rx_btn').addEventListener('click', openIssuePrescriptionModal);

@@ -19,7 +19,7 @@ public class Notification {
     @Column(nullable = false, length = 50)
     private String type; // APPOINTMENT_NEW, APPOINTMENT_APPROVED, PRESCRIPTION_NEW
 
-    @Column(name = "read", nullable = false)
+    @Column(name = "is_read", nullable = false)
     private Boolean read = false;
 
     @Column(name = "read_at")

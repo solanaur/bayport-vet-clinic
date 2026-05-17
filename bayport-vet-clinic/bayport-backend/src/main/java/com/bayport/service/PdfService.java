@@ -3,8 +3,10 @@ package com.bayport.service;
 import com.lowagie.text.*;
 import com.lowagie.text.pdf.*;
 import com.lowagie.text.pdf.draw.LineSeparator;
+import com.bayport.dto.ReportDailyPosRow;
 import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
+import com.bayport.dto.ReportTopItemRow;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
 import com.bayport.util.MoneyUtils;
@@ -16,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -137,21 +140,58 @@ public class PdfService {
     }
     
     /**
-     * Adds clinic header for reports (without prescription title).
+     * Branded letterhead (logo, clinic block, divider) consistent with prescription PDFs.
+     *
+     * @param centeredBanner optional title below the divider; pass {@code null} to omit
      */
-    private void addReportHeader(Document document, Font header, Font sub) throws DocumentException {
-        Paragraph clinic = new Paragraph("Bayport Veterinary Clinic", header);
-        clinic.setAlignment(Element.ALIGN_CENTER);
-        clinic.setSpacingAfter(5);
-        document.add(clinic);
+    private void addReportHeader(Document document, Font header, Font sub, String centeredBanner) throws DocumentException {
+        PdfPTable top = new PdfPTable(2);
+        top.setWidthPercentage(100);
+        top.setWidths(new float[]{1, 4});
+        top.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+        top.setSpacingAfter(6);
 
-        Paragraph address = new Paragraph(
-                "322 Quirino Avenue, Brgy. Don Galo, Parañaque City  •  0968 633 2940",
-                sub
-        );
-        address.setAlignment(Element.ALIGN_CENTER);
-        address.setSpacingAfter(15);
-        document.add(address);
+        PdfPCell logoCell = new PdfPCell();
+        logoCell.setBorder(Rectangle.NO_BORDER);
+        logoCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        Image logo = tryLoadClinicLogo();
+        if (logo != null) {
+            logo.scaleToFit(54, 54);
+            logoCell.addElement(logo);
+        } else if (sub.getBaseFont() != null) {
+            logoCell.addElement(new Phrase("\ud83d\udc3e", new Font(sub.getBaseFont(), 22, Font.NORMAL, CLINIC_BLUE)));
+        }
+        top.addCell(logoCell);
+
+        PdfPCell textCell = new PdfPCell();
+        textCell.setBorder(Rectangle.NO_BORDER);
+        textCell.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        Paragraph clinic = new Paragraph("Bayport Veterinary Clinic", header);
+        clinic.setSpacingAfter(3);
+        textCell.addElement(clinic);
+        textCell.addElement(new Paragraph("322 Quirino Avenue, Brgy. Don Galo, Parañaque City  •  0968 633 2940", sub));
+        textCell.addElement(new Paragraph("Generated: " + TS.format(LocalDateTime.now()), sub));
+        top.addCell(textCell);
+        document.add(top);
+
+        LineSeparator divider = new LineSeparator(1.2f, 100f, CLINIC_BLUE, Element.ALIGN_CENTER, 0);
+        document.add(divider);
+        document.add(Chunk.NEWLINE);
+
+        if (centeredBanner != null && !centeredBanner.isBlank()) {
+            Paragraph ban = new Paragraph(centeredBanner, header);
+            ban.setAlignment(Element.ALIGN_CENTER);
+            ban.setSpacingAfter(10);
+            document.add(ban);
+        }
+    }
+
+    private static PdfPCell summaryTableHeaderCell(String text, Font font) {
+        PdfPCell c = new PdfPCell(new Phrase(text, font));
+        c.setBackgroundColor(SOFT_BLUE);
+        c.setPadding(7);
+        c.setBorderColor(CLINIC_BLUE);
+        return c;
     }
 
     /**
@@ -320,7 +360,6 @@ public class PdfService {
         String prepared = (preparedBy == null || preparedBy.isBlank()) ? "Admin" : preparedBy;
 
         try {
-            // 1 inch margins on all sides (72 points = 1 inch)
             Document document = new Document(PageSize.A4, 72, 72, 72, 72);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             PdfWriter writer = PdfWriter.getInstance(document, baos);
@@ -336,120 +375,166 @@ public class PdfService {
                 base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
             }
 
-            Font header = new Font(base, 16, Font.BOLD, Color.BLACK);
-            Font sub = new Font(base, 10, Font.NORMAL, Color.GRAY);
-            Font label = new Font(base, 11, Font.BOLD);
-            Font value = new Font(base, 11, Font.NORMAL);
+            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
+            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
+            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
+            Font value = new Font(base, 11, Font.NORMAL, Color.BLACK);
+            Font section = new Font(base, 12, Font.BOLD, CLINIC_BLUE);
 
-            // Clinic header
-            addReportHeader(document, header, sub);
-            
-            // Title - centered and labeled
-            Paragraph title = new Paragraph(
-                    "Summary Report",
-                    header
-            );
-            title.setAlignment(Element.ALIGN_CENTER);
-            title.setSpacingAfter(10);
-            document.add(title);
+            addReportHeader(document, header, sub, "Financial & operations report");
 
-            // Period information - clearly labeled
             String period = summary.period != null ? summary.period : "day";
             String from = summary.from != null ? summary.from : "";
             String to = summary.to != null ? summary.to : "";
-            Paragraph periodLabel = new Paragraph(
-                    String.format("Period: %s", period.toUpperCase()),
-                    label
-            );
+            Paragraph periodLabel = new Paragraph(String.format("Period: %s", period.toUpperCase()), label);
             periodLabel.setSpacingAfter(3);
             document.add(periodLabel);
-            
-            Paragraph dateRange = new Paragraph(
-                    String.format("From: %s  To: %s", from, to),
-                    value
-            );
-            dateRange.setSpacingAfter(10);
-            document.add(dateRange);
-            
-            document.add(Chunk.NEWLINE);
 
-            // Metrics section - clearly labeled and organized
-            Paragraph metricsTitle = new Paragraph("Summary Metrics", label);
+            Paragraph dateRange = new Paragraph(String.format("From: %s  To: %s", from, to), value);
+            dateRange.setSpacingAfter(12);
+            document.add(dateRange);
+
+            Paragraph finTitle = new Paragraph("Financial snapshot", section);
+            finTitle.setSpacingAfter(6);
+            document.add(finTitle);
+
+            PdfPTable fin = new PdfPTable(2);
+            fin.setWidthPercentage(100);
+            fin.setWidths(new float[]{1.35f, 1f});
+            fin.setSpacingAfter(10);
+            BigDecimal posTotal = summary.posSales != null ? summary.posSales : BigDecimal.ZERO;
+            addRow(fin, "Total POS sales", MoneyUtils.formatPeso(posTotal), label, value);
+            addRow(fin, "Paid (POS)", MoneyUtils.formatPeso(posTotal), label, value);
+            addRow(fin, "Pending (billing)", MoneyUtils.formatPeso(summary.pendingBilling), label, value);
+            addRow(fin, "Voided", MoneyUtils.formatPeso(summary.voidedAmount), label, value);
+            document.add(fin);
+
+            Paragraph payTitle = new Paragraph("Sales by payment method", section);
+            payTitle.setSpacingBefore(4);
+            payTitle.setSpacingAfter(6);
+            document.add(payTitle);
+
+            BigDecimal payDenom = summary.posCash.add(summary.posCard).add(summary.posOtherPayment);
+            PdfPTable pay = new PdfPTable(3);
+            pay.setWidthPercentage(100);
+            pay.setWidths(new float[]{1f, 1f, 1f});
+            pay.setSpacingAfter(10);
+            pay.addCell(summaryTableHeaderCell("Method", label));
+            pay.addCell(summaryTableHeaderCell("Amount", label));
+            pay.addCell(summaryTableHeaderCell("% of mix", label));
+            addPaymentRow(pay, value, "Cash", summary.posCash, payDenom);
+            addPaymentRow(pay, value, "Card", summary.posCard, payDenom);
+            addPaymentRow(pay, value, "Other", summary.posOtherPayment, payDenom);
+            document.add(pay);
+
+            Paragraph dailyTitle = new Paragraph("POS sales by day", section);
+            dailyTitle.setSpacingBefore(4);
+            dailyTitle.setSpacingAfter(6);
+            document.add(dailyTitle);
+
+            if (summary.dailyPos == null || summary.dailyPos.isEmpty()) {
+                document.add(new Paragraph("No POS transactions in this period.", value));
+            } else {
+                PdfPTable daily = new PdfPTable(3);
+                daily.setWidthPercentage(100);
+                daily.setWidths(new float[]{1f, 0.7f, 1f});
+                daily.setHeaderRows(1);
+                daily.setSpacingAfter(10);
+                daily.addCell(summaryTableHeaderCell("Date", label));
+                daily.addCell(summaryTableHeaderCell("Txns", label));
+                daily.addCell(summaryTableHeaderCell("Total", label));
+                for (ReportDailyPosRow d : summary.dailyPos) {
+                    daily.addCell(paddedPhraseCell(nullToEmpty(d.date), value));
+                    daily.addCell(paddedPhraseCell(String.valueOf(d.transactions), value));
+                    daily.addCell(paddedPhraseCell(MoneyUtils.formatPeso(d.total), value));
+                }
+                document.add(daily);
+            }
+
+            Paragraph topTitle = new Paragraph("Top selling items", section);
+            topTitle.setSpacingBefore(4);
+            topTitle.setSpacingAfter(6);
+            document.add(topTitle);
+
+            if (summary.topItems == null || summary.topItems.isEmpty()) {
+                document.add(new Paragraph("No line-level sales data in this period.", value));
+            } else {
+                PdfPTable top = new PdfPTable(4);
+                top.setWidthPercentage(100);
+                top.setWidths(new float[]{2f, 1f, 0.55f, 1f});
+                top.setHeaderRows(1);
+                top.setSpacingAfter(12);
+                top.addCell(summaryTableHeaderCell("Item", label));
+                top.addCell(summaryTableHeaderCell("Category", label));
+                top.addCell(summaryTableHeaderCell("Qty", label));
+                top.addCell(summaryTableHeaderCell("Total", label));
+                int n = 0;
+                for (ReportTopItemRow t : summary.topItems) {
+                    if (++n > 25) {
+                        break;
+                    }
+                    top.addCell(paddedPhraseCell(nullToEmpty(t.name), value));
+                    top.addCell(paddedPhraseCell(nullToEmpty(t.category), value));
+                    top.addCell(paddedPhraseCell(String.valueOf(t.qty), value));
+                    top.addCell(paddedPhraseCell(MoneyUtils.formatPeso(t.total), value));
+                }
+                document.add(top);
+            }
+
+            Paragraph metricsTitle = new Paragraph("Clinical & operations metrics", section);
+            metricsTitle.setSpacingBefore(6);
             metricsTitle.setSpacingAfter(8);
             document.add(metricsTitle);
-            
+
             PdfPTable metrics = new PdfPTable(2);
             metrics.setWidthPercentage(100);
             metrics.setWidths(new float[]{1, 1});
-            metrics.setSpacingBefore(5);
             metrics.setSpacingAfter(10);
-            
-            addRow(metrics, "Appointments Done:",
-                    String.valueOf(summary.appointmentsDone), label, value);
-            addRow(metrics, "Prescriptions Dispensed:",
-                    String.valueOf(summary.prescriptionsDispensed), label, value);
-            addRow(metrics, "New Patients Added:",
-                    String.valueOf(summary.petsAdded), label, value);
-            addRow(metrics, "POS procedures (lines):",
-                    MoneyUtils.formatPeso(summary.posProcedureRevenue), label, value);
-            addRow(metrics, "POS products (lines):",
-                    MoneyUtils.formatPeso(summary.posProductRevenue), label, value);
-            addRow(metrics, "Total POS sales (period):",
-                    MoneyUtils.formatPeso(summary.totalProfit), label, value);
+            addRow(metrics, "Appointments completed", String.valueOf(summary.appointmentsDone), label, value);
+            addRow(metrics, "Prescriptions dispensed", String.valueOf(summary.prescriptionsDispensed), label, value);
+            addRow(metrics, "New patients registered", String.valueOf(summary.petsAdded), label, value);
+            addRow(metrics, "POS procedures (line revenue)", MoneyUtils.formatPeso(summary.posProcedureRevenue), label, value);
+            addRow(metrics, "POS products (line revenue)", MoneyUtils.formatPeso(summary.posProductRevenue), label, value);
             document.add(metrics);
 
             document.add(Chunk.NEWLINE);
 
-            addPosSaleLinesSection(document, label, value, "Procedures (POS)",
+            addPosSaleLinesSection(document, label, value, "Procedure line items (POS)",
                     summary.posProcedureLines, summary.posProcedureRevenue);
-            addPosSaleLinesSection(document, label, value, "Products (POS)",
+            addPosSaleLinesSection(document, label, value, "Product line items (POS)",
                     summary.posProductLines, summary.posProductRevenue);
-            
-            // New Patients section - clearly labeled
+
             if (summary.newPatients != null && !summary.newPatients.isEmpty()) {
-                Paragraph newPatientsTitle = new Paragraph("New Patients", label);
+                Paragraph newPatientsTitle = new Paragraph("New patients", label);
                 newPatientsTitle.setSpacingBefore(10);
                 newPatientsTitle.setSpacingAfter(8);
                 document.add(newPatientsTitle);
-                
+
                 PdfPTable newPatientsTable = new PdfPTable(3);
                 newPatientsTable.setWidthPercentage(100);
                 newPatientsTable.setWidths(new float[]{1.5f, 2f, 2f});
                 newPatientsTable.setSpacingBefore(5);
                 newPatientsTable.setSpacingAfter(10);
-                newPatientsTable.setHeaderRows(1); // Repeat header on new pages
-                
-                // Header cells with proper styling
-                PdfPCell dateAddedHeader = new PdfPCell(new Phrase("Date Added", label));
-                dateAddedHeader.setBackgroundColor(new Color(240, 240, 240));
-                dateAddedHeader.setPadding(8);
-                newPatientsTable.addCell(dateAddedHeader);
-                
-                PdfPCell petNameHeader = new PdfPCell(new Phrase("Pet Name", label));
-                petNameHeader.setBackgroundColor(new Color(240, 240, 240));
-                petNameHeader.setPadding(8);
-                newPatientsTable.addCell(petNameHeader);
-                
-                PdfPCell ownerNameHeader = new PdfPCell(new Phrase("Owner Name", label));
-                ownerNameHeader.setBackgroundColor(new Color(240, 240, 240));
-                ownerNameHeader.setPadding(8);
-                newPatientsTable.addCell(ownerNameHeader);
-                
-                // Data rows with proper cell padding
+                newPatientsTable.setHeaderRows(1);
+
+                newPatientsTable.addCell(summaryTableHeaderCell("Date added", label));
+                newPatientsTable.addCell(summaryTableHeaderCell("Pet name", label));
+                newPatientsTable.addCell(summaryTableHeaderCell("Owner", label));
+
                 for (ReportNewPatient np : summary.newPatients) {
                     PdfPCell dateCell = new PdfPCell(new Phrase(nullToEmpty(np.addedAt), value));
                     dateCell.setPadding(6);
                     newPatientsTable.addCell(dateCell);
-                    
+
                     PdfPCell petCell = new PdfPCell(new Phrase(nullToEmpty(np.petName), value));
                     petCell.setPadding(6);
                     newPatientsTable.addCell(petCell);
-                    
+
                     PdfPCell ownerCell = new PdfPCell(new Phrase(nullToEmpty(np.ownerName), value));
                     ownerCell.setPadding(6);
                     newPatientsTable.addCell(ownerCell);
                 }
-                
+
                 document.add(newPatientsTable);
             }
 
@@ -458,6 +543,20 @@ public class PdfService {
         } catch (Exception e) {
             throw new IllegalStateException("Unable to generate summary PDF", e);
         }
+    }
+
+    private void addPaymentRow(PdfPTable table, Font value, String method, BigDecimal amt, BigDecimal denom) {
+        BigDecimal a = amt != null ? amt : BigDecimal.ZERO;
+        String pctStr;
+        if (denom == null || denom.signum() == 0) {
+            pctStr = a.signum() == 0 ? "0%" : "100%";
+        } else {
+            BigDecimal pct = a.multiply(BigDecimal.valueOf(100)).divide(denom, 1, RoundingMode.HALF_UP);
+            pctStr = pct.stripTrailingZeros().toPlainString() + "%";
+        }
+        table.addCell(paddedPhraseCell(method, value));
+        table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(a), value));
+        table.addCell(paddedPhraseCell(pctStr, value));
     }
 
     private void addRow(PdfPTable table, String key, String val, Font label, Font value) {
@@ -507,10 +606,7 @@ public class PdfService {
 
         String[] headers = {"Date", "Pet", "Item", "SKU", "Qty", "Unit", "Line"};
         for (String h : headers) {
-            PdfPCell hc = new PdfPCell(new Phrase(h, label));
-            hc.setBackgroundColor(new Color(240, 240, 240));
-            hc.setPadding(8);
-            table.addCell(hc);
+            table.addCell(summaryTableHeaderCell(h, label));
         }
 
         for (ReportSummary.PosSaleLineRow r : rows) {
@@ -718,14 +814,14 @@ public class PdfService {
                 base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
             }
             
-            Font header = new Font(base, 16, Font.BOLD, Color.BLACK);
-            Font sub = new Font(base, 10, Font.NORMAL, Color.GRAY);
-            Font label = new Font(base, 11, Font.BOLD);
-            Font value = new Font(base, 11, Font.NORMAL);
-            Font title = new Font(base, 18, Font.BOLD, Color.BLACK);
+            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
+            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
+            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
+            Font value = new Font(base, 11, Font.NORMAL, Color.BLACK);
+            Font title = new Font(base, 18, Font.BOLD, CLINIC_BLUE);
             
             // Clinic header
-            addReportHeader(document, header, sub);
+            addReportHeader(document, header, sub, null);
             
             // Title
             Paragraph titlePara = new Paragraph("PET PROFILE", title);
@@ -948,14 +1044,14 @@ public class PdfService {
                 base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
             }
             
-            Font header = new Font(base, 16, Font.BOLD, Color.BLACK);
-            Font sub = new Font(base, 10, Font.NORMAL, Color.GRAY);
-            Font label = new Font(base, 11, Font.BOLD);
-            Font value = new Font(base, 10, Font.NORMAL);
-            Font title = new Font(base, 18, Font.BOLD, Color.BLACK);
+            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
+            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
+            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
+            Font value = new Font(base, 10, Font.NORMAL, Color.BLACK);
+            Font title = new Font(base, 18, Font.BOLD, CLINIC_BLUE);
             
             // Clinic header
-            addReportHeader(document, header, sub);
+            addReportHeader(document, header, sub, null);
             
             // Title
             Paragraph titlePara = new Paragraph("ALL PETS REPORT", title);
@@ -985,9 +1081,7 @@ public class PdfService {
             // Headers
             String[] headers = {"Name", "Species", "Breed", "Gender", "Age", "Owner", "Registered"};
             for (String h : headers) {
-                PdfPCell cell = new PdfPCell(new Phrase(h, label));
-                cell.setBackgroundColor(new Color(240, 240, 240));
-                cell.setPadding(6);
+                PdfPCell cell = summaryTableHeaderCell(h, label);
                 petsTable.addCell(cell);
             }
             

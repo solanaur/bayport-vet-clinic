@@ -5,6 +5,10 @@ import com.bayport.dto.ReportSummary;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.Sale;
 import com.bayport.entity.SaleLine;
+import com.bayport.dto.ReportDailyPosRow;
+import com.bayport.dto.ReportTopItemRow;
+import com.bayport.entity.BillingRecord;
+import com.bayport.repository.BillingRecordRepository;
 import com.bayport.repository.InventoryItemRepository;
 import com.bayport.repository.PetRepository;
 import com.bayport.repository.PrescriptionRepository;
@@ -19,8 +23,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
 
 @Service
 @Transactional(readOnly = true)
@@ -33,6 +41,7 @@ public class ReportService {
     private final SaleLineRepository saleLineRepository;
     private final PosSaleLineBackfillService posSaleLineBackfillService;
     private final InventoryItemRepository inventoryItemRepository;
+    private final BillingRecordRepository billingRecordRepository;
 
     public ReportService(PetRepository petRepository,
                          BayportService bayportService,
@@ -40,7 +49,8 @@ public class ReportService {
                          SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
                          PosSaleLineBackfillService posSaleLineBackfillService,
-                         InventoryItemRepository inventoryItemRepository) {
+                         InventoryItemRepository inventoryItemRepository,
+                         BillingRecordRepository billingRecordRepository) {
         this.petRepository = petRepository;
         this.bayportService = bayportService;
         this.prescriptionRepository = prescriptionRepository;
@@ -48,6 +58,7 @@ public class ReportService {
         this.saleLineRepository = saleLineRepository;
         this.posSaleLineBackfillService = posSaleLineBackfillService;
         this.inventoryItemRepository = inventoryItemRepository;
+        this.billingRecordRepository = billingRecordRepository;
     }
 
     public ReportSummary summarize(LocalDate start, LocalDate end, String period) {
@@ -152,7 +163,124 @@ public class ReportService {
             summary.posSales = BigDecimal.ZERO;
         }
 
+        enrichFinancialAndDashboard(start, end, summary);
         return summary;
+    }
+
+    /**
+     * POS payment mix, pending billing, daily totals, and top items — aligned with the Reports screen.
+     */
+    private void enrichFinancialAndDashboard(LocalDate start, LocalDate end, ReportSummary summary) {
+        try {
+            LocalDateTime rangeStart = start.atStartOfDay();
+            LocalDateTime rangeEndEx = end.plusDays(1).atStartOfDay();
+
+            BigDecimal pending = billingRecordRepository.findAll().stream()
+                    .filter(b -> b != null && b.getStatus() == BillingRecord.Status.PENDING)
+                    .filter(b -> b.getIssuedAt() != null
+                            && !b.getIssuedAt().isBefore(rangeStart)
+                            && b.getIssuedAt().isBefore(rangeEndEx))
+                    .map(BillingRecord::getAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            summary.pendingBilling = MoneyUtils.normalize(pending);
+            summary.voidedAmount = MoneyUtils.normalize(BigDecimal.ZERO);
+
+            BigDecimal cash = BigDecimal.ZERO;
+            BigDecimal card = BigDecimal.ZERO;
+            BigDecimal other = BigDecimal.ZERO;
+            Map<LocalDate, BigDecimal> dayTotals = new TreeMap<>();
+            Map<LocalDate, Integer> dayCounts = new TreeMap<>();
+
+            List<Sale> posSales = saleRepository.findPosSalesOccurredBetween(rangeStart, rangeEndEx);
+            for (Sale s : posSales) {
+                if (s == null) {
+                    continue;
+                }
+                BigDecimal amt = s.getAmount() != null ? MoneyUtils.normalize(s.getAmount()) : BigDecimal.ZERO;
+                switch (PosSaleNoteParser.paymentBucket(s.getNote())) {
+                    case CASH -> cash = cash.add(amt);
+                    case CARD -> card = card.add(amt);
+                    default -> other = other.add(amt);
+                }
+                if (s.getOccurredAt() != null) {
+                    LocalDate d = s.getOccurredAt().toLocalDate();
+                    dayTotals.merge(d, amt, BigDecimal::add);
+                    dayCounts.merge(d, 1, Integer::sum);
+                }
+            }
+            summary.posCash = MoneyUtils.normalize(cash);
+            summary.posCard = MoneyUtils.normalize(card);
+            summary.posOtherPayment = MoneyUtils.normalize(other);
+
+            for (Map.Entry<LocalDate, BigDecimal> e : dayTotals.entrySet()) {
+                ReportDailyPosRow row = new ReportDailyPosRow();
+                row.date = e.getKey().toString();
+                row.transactions = dayCounts.getOrDefault(e.getKey(), 0);
+                row.total = MoneyUtils.normalize(e.getValue());
+                summary.dailyPos.add(row);
+            }
+
+            computeTopItems(summary);
+        } catch (Exception ignored) {
+            // Leave defaults; core summary still useful
+        }
+    }
+
+    private void computeTopItems(ReportSummary summary) {
+        record Agg(String name, String cat, int qty, BigDecimal total) {}
+        Map<String, Agg> map = new HashMap<>();
+        java.util.function.BiConsumer<ReportSummary.PosSaleLineRow, String> add = (row, kind) -> {
+            String name = row.itemName != null && !row.itemName.isBlank() ? row.itemName.trim() : "Item";
+            int q = row.quantity;
+            BigDecimal lt = row.lineTotal != null ? row.lineTotal : BigDecimal.ZERO;
+            Agg prev = map.get(name);
+            String cat = prev != null && prev.cat != null && !prev.cat.isBlank()
+                    ? prev.cat
+                    : inferItemCategory(name, kind);
+            if (prev == null) {
+                map.put(name, new Agg(name, cat, q, lt));
+            } else {
+                map.put(name, new Agg(name, cat, prev.qty + q, prev.total.add(lt)));
+            }
+        };
+        for (ReportSummary.PosSaleLineRow r : summary.posProcedureLines) {
+            add.accept(r, "procedure");
+        }
+        for (ReportSummary.PosSaleLineRow r : summary.posProductLines) {
+            add.accept(r, "product");
+        }
+        summary.topItems = map.values().stream()
+                .sorted(Comparator.comparing(Agg::total).reversed())
+                .limit(40)
+                .map(a -> {
+                    ReportTopItemRow x = new ReportTopItemRow();
+                    x.name = a.name;
+                    x.category = a.cat;
+                    x.qty = a.qty;
+                    x.total = MoneyUtils.normalize(a.total);
+                    return x;
+                })
+                .toList();
+    }
+
+    private static String inferItemCategory(String itemName, String kind) {
+        if ("procedure".equals(kind)) {
+            return "Service";
+        }
+        String n = itemName.toLowerCase();
+        if (java.util.regex.Pattern.compile(
+                "consult|visit|exam|service|fee|lab|x-ray|ultrasound|dental|surgery|therapy|test").matcher(n).find()) {
+            return "Service";
+        }
+        if (n.contains("vacc") || n.contains("dhpp") || n.contains("rabies")) {
+            return "Vaccine";
+        }
+        if (n.contains("tick") || n.contains("flea") || n.contains("worm")
+                || n.contains("tablet") || n.contains("capsule") || n.contains("antibiotic")) {
+            return "Medication";
+        }
+        return "Product";
     }
 
     private static ReportSummary.PosSaleLineRow mapPosLine(SaleLine sl) {

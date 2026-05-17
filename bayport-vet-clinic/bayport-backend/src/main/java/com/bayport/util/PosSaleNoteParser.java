@@ -14,6 +14,13 @@ import java.util.regex.Pattern;
  */
 public final class PosSaleNoteParser {
 
+    /** Normalized payment channel parsed from the {@code Payment: …} segment of a POS note. */
+    public enum PaymentBucket {
+        CASH,
+        CARD,
+        OTHER
+    }
+
     /** Unicode ×, ASCII x/X; optional peso sign after @ */
     private static final List<Pattern> LINE_PATTERNS = List.of(
             Pattern.compile("^(.+?)\\s*[×xX](\\d+)\\s*@\\s*\u20B1\\s*([\\d,]+(?:\\.\\d+)?)\\s*$"),
@@ -21,6 +28,37 @@ public final class PosSaleNoteParser {
     );
 
     private PosSaleNoteParser() {}
+
+    /**
+     * Reads the payment method from a checkout note (same rules as the Reports UI).
+     * Missing marker defaults to Cash.
+     */
+    public static String rawPaymentLabel(String note) {
+        if (note == null || note.isBlank()) {
+            return "Cash";
+        }
+        String marker = "Payment:";
+        int idx = note.indexOf(marker);
+        if (idx < 0) {
+            return "Cash";
+        }
+        int from = idx + marker.length();
+        int dot = note.indexOf('.', from);
+        String raw = dot > from ? note.substring(from, dot) : note.substring(from);
+        String trimmed = raw.trim();
+        return trimmed.isEmpty() ? "Cash" : trimmed;
+    }
+
+    public static PaymentBucket paymentBucket(String note) {
+        String m = rawPaymentLabel(note).toLowerCase();
+        if (m.contains("card") || m.contains("credit") || m.contains("debit")) {
+            return PaymentBucket.CARD;
+        }
+        if (m.contains("cash")) {
+            return PaymentBucket.CASH;
+        }
+        return PaymentBucket.OTHER;
+    }
 
     public record ParsedLine(String itemName, int quantity, BigDecimal unitPrice) {}
 

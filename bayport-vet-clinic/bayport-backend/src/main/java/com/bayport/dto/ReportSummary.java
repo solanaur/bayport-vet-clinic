@@ -31,6 +31,17 @@ public class ReportSummary {
     public BigDecimal posProcedureRevenue = BigDecimal.ZERO;
     public BigDecimal posProductRevenue = BigDecimal.ZERO;
 
+    /** Pending clinic invoices in range (by {@code issuedAt}), matching the Reports KPI. */
+    public BigDecimal pendingBilling = BigDecimal.ZERO;
+    /** Reserved for future voided-invoice tracking; UI currently shows none. */
+    public BigDecimal voidedAmount = BigDecimal.ZERO;
+    /** POS totals in period by payment method (from sale notes). */
+    public BigDecimal posCash = BigDecimal.ZERO;
+    public BigDecimal posCard = BigDecimal.ZERO;
+    public BigDecimal posOtherPayment = BigDecimal.ZERO;
+    public List<ReportDailyPosRow> dailyPos = new ArrayList<>();
+    public List<ReportTopItemRow> topItems = new ArrayList<>();
+
     /** One row in POS Procedures or POS Products tables. */
     public static class PosSaleLineRow {
         public String date;

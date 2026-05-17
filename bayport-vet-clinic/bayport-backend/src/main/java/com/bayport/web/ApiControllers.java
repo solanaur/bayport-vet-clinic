@@ -26,6 +26,8 @@ import java.util.*;
 @RequestMapping("/api")
 public class ApiControllers {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ApiControllers.class);
+
     private final BayportService bayportService;
     private final ReportService reportService;
     private final PdfService pdfService;
@@ -843,7 +845,8 @@ public class ApiControllers {
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                     .body(pdf);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
+            log.error("reports/summary/pdf failed", e);
+            return ResponseEntity.internalServerError().build();
         }
     }
 

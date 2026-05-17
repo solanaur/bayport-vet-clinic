@@ -906,13 +906,26 @@
         });
         if (r.from) params.append("from", r.from);
         if (r.to) params.append("to", r.to);
-        const response = await fetch(`${window.API_BASE}/reports/summary/pdf?${params.toString()}`, {
+        const response = await fetch(buildApiUrl(`/reports/summary/pdf?${params.toString()}`), {
           headers: {
             Accept: "application/pdf",
-            Authorization: `Bearer ${localStorage.getItem("jwt") || localStorage.getItem("token") || ""}`,
+            Authorization: `Bearer ${Api.token() || ""}`,
           },
         });
-        if (!response.ok) throw new Error("PDF request failed");
+        if (!response.ok) {
+          let detail = `Request failed (${response.status})`;
+          try {
+            const j = await response.json();
+            if (j.message) {
+              detail = String(j.message);
+            } else if (j.error) {
+              detail = String(j.error);
+            }
+          } catch {
+            /* non-JSON error body */
+          }
+          throw new Error(detail);
+        }
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
