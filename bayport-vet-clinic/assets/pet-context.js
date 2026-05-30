@@ -35,22 +35,29 @@
     ]
       .filter(Boolean)
       .join("  •  ");
+    const vaccLine =
+      typeof window.resolvePetLastVaccination === "function"
+        ? window.resolvePetLastVaccination(pet).summary
+        : typeof window.formatPetLastVaccination === "function"
+          ? window.formatPetLastVaccination(pet)
+          : "";
 
     container.className =
-      "w-full bg-white border-b border-slate-200 px-6 lg:px-10 py-3 shadow-sm";
+      "w-full bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-10 py-3 shadow-sm";
     container.innerHTML = `
       <div class="flex flex-wrap items-center gap-4 justify-between max-w-[1400px] mx-auto">
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex items-center gap-3 min-w-0 flex-1">
           <img src="${esc(logoSrc)}" alt="" class="w-10 h-10 rounded-lg border border-slate-100 object-contain bg-white shrink-0" onerror="this.src='assets/logo.png'" />
           <div class="min-w-0">
             <div class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Patient</div>
             <h2 class="text-lg font-bold text-slate-900 truncate">${esc(pet.name)}</h2>
             <p class="text-xs text-slate-600 truncate">${esc(meta)}</p>
+            ${vaccLine ? `<p class="text-[11px] text-slate-500 mt-0.5 truncate" title="${esc(vaccLine)}"><span class="font-medium text-slate-600">Last vaccinated:</span> ${esc(vaccLine)}</p>` : ""}
           </div>
         </div>
         ${
           vetName
-            ? `<div class="text-right shrink-0">
+            ? `<div class="text-right shrink-0 w-full sm:w-auto">
             <div class="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Veterinarian</div>
             <div class="text-sm font-semibold text-[var(--soft-teal,#0057b8)]">Dr. ${esc(vetName)}</div>
           </div>`

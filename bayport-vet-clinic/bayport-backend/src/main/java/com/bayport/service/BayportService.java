@@ -94,6 +94,7 @@ public class BayportService {
                 } else {
                     pet.setProcedures(new ArrayList<>());
                 }
+                backfillLastVaccinationFromProcedures(pet);
             }
         }
         return pets;
@@ -101,7 +102,15 @@ public class BayportService {
 
     public Optional<Pet> getPetById(Long id) {
         // Use soft delete - only get non-deleted pets
-        return petRepository.findByIdAndDeletedFalse(id);
+        return petRepository.findByIdAndDeletedFalse(id).map(pet -> {
+            if (pet.getProcedures() != null) {
+                pet.getProcedures().size();
+            } else {
+                pet.setProcedures(new ArrayList<>());
+            }
+            backfillLastVaccinationFromProcedures(pet);
+            return pet;
+        });
     }
 
     public Pet savePet(Pet pet) {
@@ -185,6 +194,7 @@ public class BayportService {
         procedure.setPet(pet);
         Procedure savedProcedure = procedureRepository.save(procedure);
         pet.getProcedures().add(savedProcedure);
+        syncPetLastVaccination(pet, savedProcedure);
         Pet saved = petRepository.save(pet);
 
         if (savedProcedure.getCost() != null && savedProcedure.getCost().signum() > 0) {
@@ -210,6 +220,10 @@ public class BayportService {
         existing.setCost(updated.getCost());
         existing.setVet(updated.getVet());
         Procedure saved = procedureRepository.save(existing);
+        if (existing.getPet() != null) {
+            syncPetLastVaccination(existing.getPet(), saved);
+            petRepository.save(existing.getPet());
+        }
         vaccineReminderService.syncPetVaccineReminders(existing.getPet());
         return saved;
     }
@@ -591,6 +605,9 @@ public class BayportService {
         if (prescription.getRxStatus() == null || prescription.getRxStatus().isBlank()) {
             prescription.setRxStatus("SAVED");
         }
+        if (!StringUtils.hasText(prescription.getPrescriberLicenseNo())) {
+            prescription.setPrescriberLicenseNo(resolvePrescriberLicenseNo(prescription.getPrescriber()));
+        }
         if (prescription.getPetId() != null) {
             petRepository.findById(prescription.getPetId()).ifPresent(p -> {
                 prescription.setPet(p.getName());
@@ -616,6 +633,9 @@ public class BayportService {
     public Prescription updatePrescription(Long id, Prescription prescription) {
         prescription.setId(id);
         prescription.setPrice(null);
+        if (!StringUtils.hasText(prescription.getPrescriberLicenseNo())) {
+            prescription.setPrescriberLicenseNo(resolvePrescriberLicenseNo(prescription.getPrescriber()));
+        }
         return prescriptionRepository.save(prescription);
     }
 
@@ -643,6 +663,148 @@ public class BayportService {
             return prescriptionRepository.save(prescription);
         }
         throw new ResourceNotFoundException("Prescription not found with id: " + id);
+    }
+
+    /**
+     * Marks all prescriptions in the same pet/date/prescriber group as printed.
+     */
+    public List<Prescription> markPrescriptionGroupPrinted(Long anchorId, String groupKey) {
+        Prescription anchor = prescriptionRepository.findById(anchorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found with id: " + anchorId));
+        List<Prescription> group = resolvePrescriptionGroup(anchor, groupKey);
+        LocalDateTime now = LocalDateTime.now();
+        for (Prescription rx : group) {
+            rx.setPrintedAt(now);
+            rx.setPrintCount((rx.getPrintCount() != null ? rx.getPrintCount() : 0) + 1);
+            prescriptionRepository.save(rx);
+        }
+        return group;
+    }
+
+    private List<Prescription> resolvePrescriptionGroup(Prescription firstPrescription, String groupKey) {
+        if (groupKey != null && !groupKey.isBlank()) {
+            String[] parts = groupKey.split("_", 3);
+            if (parts.length >= 3) {
+                Long petId = Long.parseLong(parts[0]);
+                String date = parts[1];
+                String prescriber = parts[2];
+                List<Prescription> grouped = getAllPrescriptions().stream()
+                        .filter(p -> p.getPetId() != null && p.getPetId().equals(petId))
+                        .filter(p -> p.getDate() != null && p.getDate().toString().equals(date))
+                        .filter(p -> prescriber.equals(p.getPrescriber()))
+                        .toList();
+                if (!grouped.isEmpty()) {
+                    return grouped;
+                }
+            }
+        }
+        List<Prescription> grouped = getAllPrescriptions().stream()
+                .filter(p -> p.getPetId() != null && p.getPetId().equals(firstPrescription.getPetId()))
+                .filter(p -> p.getDate() != null && firstPrescription.getDate() != null &&
+                        p.getDate().equals(firstPrescription.getDate()))
+                .filter(p -> firstPrescription.getPrescriber() != null &&
+                        firstPrescription.getPrescriber().equals(p.getPrescriber()))
+                .toList();
+        return grouped.isEmpty() ? java.util.Collections.singletonList(firstPrescription) : grouped;
+    }
+
+    private static final String CLINIC_VACCINATION_PLACE = "Bayport Veterinary Clinic, Para\u00f1aque City";
+
+    private void syncPetLastVaccination(Pet pet, Procedure procedure) {
+        if (pet == null || procedure == null || !isVaccinationProcedure(procedure)) {
+            return;
+        }
+        LocalDate date = procedure.getPerformedAt() != null ? procedure.getPerformedAt() : LocalDate.now();
+        if (pet.getLastVaccinationDate() != null && date.isBefore(pet.getLastVaccinationDate())) {
+            return;
+        }
+        pet.setLastVaccinationDate(date);
+        pet.setLastVaccinationPlace(CLINIC_VACCINATION_PLACE);
+        String vet = procedure.getVet();
+        if (!StringUtils.hasText(vet)) {
+            vet = getCurrentUsernameOrNull();
+        }
+        pet.setLastVaccinationVet(vet);
+    }
+
+    /** Fills last-vaccination fields from procedure history when not yet stored (legacy pets). */
+    private void backfillLastVaccinationFromProcedures(Pet pet) {
+        if (pet == null || pet.getProcedures() == null || pet.getProcedures().isEmpty()) {
+            return;
+        }
+        Procedure latest = null;
+        for (Procedure proc : pet.getProcedures()) {
+            if (!isVaccinationProcedure(proc)) {
+                continue;
+            }
+            if (latest == null) {
+                latest = proc;
+                continue;
+            }
+            LocalDate a = proc.getPerformedAt();
+            LocalDate b = latest.getPerformedAt();
+            if (a != null && (b == null || !a.isBefore(b))) {
+                latest = proc;
+            }
+        }
+        if (latest == null) {
+            return;
+        }
+        LocalDate date = latest.getPerformedAt() != null ? latest.getPerformedAt() : LocalDate.now();
+        boolean changed = false;
+        if (pet.getLastVaccinationDate() == null || !date.equals(pet.getLastVaccinationDate())) {
+            pet.setLastVaccinationDate(date);
+            changed = true;
+        }
+        if (!StringUtils.hasText(pet.getLastVaccinationPlace())) {
+            pet.setLastVaccinationPlace(CLINIC_VACCINATION_PLACE);
+            changed = true;
+        }
+        if (!StringUtils.hasText(pet.getLastVaccinationVet())) {
+            String vet = latest.getVet();
+            if (StringUtils.hasText(vet)) {
+                pet.setLastVaccinationVet(vet.trim());
+                changed = true;
+            }
+        }
+        if (changed) {
+            petRepository.save(pet);
+        }
+    }
+
+    private boolean isVaccinationProcedure(Procedure procedure) {
+        String category = procedure.getCategory() != null ? procedure.getCategory().toLowerCase() : "";
+        if (category.contains("vaccin")) {
+            return true;
+        }
+        String combined = ((procedure.getName() != null ? procedure.getName() : "") + " " +
+                (procedure.getNotes() != null ? procedure.getNotes() : "")).toLowerCase();
+        return combined.contains("vaccine") || combined.contains("vaccination") ||
+                combined.contains("rabies") || combined.contains("dhppi") ||
+                combined.contains("fvrcp") || combined.contains("5-in-1") || combined.contains("3-in-1");
+    }
+
+    private String resolvePrescriberLicenseNo(String prescriber) {
+        if (!StringUtils.hasText(prescriber)) {
+            return null;
+        }
+        return doctorRepository.findByFullNameIgnoreCase(prescriber.trim())
+                .map(Doctor::getLicenseNo)
+                .filter(StringUtils::hasText)
+                .orElse(null);
+    }
+
+    /** Public lookup for PDF enrichment and API consumers. */
+    public String lookupPrescriberLicenseNo(String prescriber) {
+        return resolvePrescriberLicenseNo(prescriber);
+    }
+
+    private String getCurrentUsernameOrNull() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return null;
+        }
+        return auth.getName();
     }
 
     // User operations

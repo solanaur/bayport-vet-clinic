@@ -284,12 +284,92 @@ window.canEditPrescriptionGroup = function (groupRxs) {
   return false;
 };
 
+window.resolveVetLicenseNo = async function (prescriber) {
+  const settings = window.getClinicSettings();
+  if (settings.defaultVetLicenseNo && String(settings.defaultVetLicenseNo).trim()) {
+    return String(settings.defaultVetLicenseNo).trim();
+  }
+  const name = String(prescriber || "").trim();
+  if (!name) return "";
+  try {
+    if (window.Api && typeof window.Api.doctors?.list === "function") {
+      const doctors = await window.Api.doctors.list();
+      const match = (doctors || []).find(
+        (d) => String(d.fullName || "").toLowerCase() === name.toLowerCase()
+      );
+      return match?.licenseNo ? String(match.licenseNo).trim() : "";
+    }
+  } catch (e) {
+    console.warn("License lookup:", e);
+  }
+  return "";
+};
+
+window.formatPetLastVaccination = function (pet) {
+  const v = typeof window.resolvePetLastVaccination === "function"
+    ? window.resolvePetLastVaccination(pet)
+    : pet;
+  if (!v) return "";
+  const parts = [];
+  if (v.date) parts.push(String(v.date).slice(0, 10));
+  if (v.place) parts.push(String(v.place).trim());
+  if (v.vet) parts.push("Vet: " + String(v.vet).trim());
+  return parts.join("  \u2022  ");
+};
+
+/** Resolve last vaccination date, place, and vet (stored fields or latest vaccination procedure). */
+window.resolvePetLastVaccination = function (pet) {
+  if (!pet) return { date: "", place: "", vet: "", summary: "" };
+  let date = pet.lastVaccinationDate ? String(pet.lastVaccinationDate).slice(0, 10) : "";
+  let place = pet.lastVaccinationPlace ? String(pet.lastVaccinationPlace).trim() : "";
+  let vet = pet.lastVaccinationVet ? String(pet.lastVaccinationVet).trim() : "";
+  if (!date) {
+    const procs = pet.procedures || [];
+    let latest = null;
+    for (const pr of procs) {
+      const d = pr?.performedAt ? String(pr.performedAt).slice(0, 10) : "";
+      if (!d) continue;
+      const cat = String(pr.category || "").toLowerCase();
+      const nm = String(pr.name || "").toLowerCase();
+      const notes = String(pr.notes || "").toLowerCase();
+      const combined = nm + " " + notes + " " + cat;
+      const isVacc =
+        cat.includes("vaccin") ||
+        combined.includes("vaccine") ||
+        combined.includes("vaccination") ||
+        combined.includes("rabies") ||
+        combined.includes("dhppi") ||
+        combined.includes("fvrcp");
+      if (!isVacc) continue;
+      if (!latest || d > latest.date) {
+        latest = { date: d, vet: pr.vet ? String(pr.vet).trim() : "" };
+      }
+    }
+    if (latest) {
+      date = latest.date;
+      if (!vet && latest.vet) vet = latest.vet;
+      if (!place) place = "Bayport Veterinary Clinic, Para\u00f1aque City";
+    }
+  }
+  const summaryParts = [];
+  if (date) summaryParts.push(date);
+  if (place) summaryParts.push(place);
+  if (vet) summaryParts.push("Vet: " + vet);
+  return {
+    date,
+    place,
+    vet,
+    summary: summaryParts.join("  \u2022  "),
+  };
+};
+
 window.getClinicSettings = function() {
   const defaults = {
     name: "Bayport Veterinary Clinic",
     address: "0383 Quirino, Ave Don Galo, Parañaque City",
     logoDataUrl: "",
     rxBlankTemplate: "",
+    defaultVetLicenseNo: "",
   };
   try {
     const raw = localStorage.getItem(CLINIC_SETTINGS_KEY);
@@ -323,8 +403,17 @@ window.isFrontOffice = function(role) {
   return r === "front_office" || r === "receptionist" || r === "pharmacist";
 };
 
+/** Map sub-pages to the sidebar item that should stay highlighted. */
+function normalizeActiveFile(activeFile) {
+  const f = String(activeFile || "").toLowerCase();
+  if (f === "appointments-calendar.html" || f === "procedure.html") return "appointments.html";
+  if (f === "reminders-calendar.html") return "reminders.html";
+  return activeFile;
+}
+
 window.renderSidebar = function (container, role, activeFile) {
   container.innerHTML = "";
+  activeFile = normalizeActiveFile(activeFile);
 
   const allowed = new Set(CONFIG[role] || []);
   const groups = SIDEBAR_GROUPS[role] || SIDEBAR_GROUPS.front_office;
@@ -358,6 +447,8 @@ window.renderSidebar = function (container, role, activeFile) {
       const iconHtml = SIDEBAR_ICONS[key] || "";
       btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
+        const parentDet = btn.closest("details.sidebar-group");
+        if (parentDet) parentDet.open = true;
         if (key === "prescriptions") {
           location.href = "consultations.html?tab=rx";
           return;
@@ -393,6 +484,10 @@ window.renderSidebar = function (container, role, activeFile) {
     sum.appendChild(tit);
     sum.appendChild(chev);
     det.addEventListener("toggle", () => {
+      if (!det.open && det.querySelector("button[data-sidebar-active='1']")) {
+        det.open = true;
+        return;
+      }
       chev.style.transform = det.open ? "rotate(0deg)" : "rotate(-90deg)";
     });
     chev.style.transform = det.open ? "rotate(0deg)" : "rotate(-90deg)";

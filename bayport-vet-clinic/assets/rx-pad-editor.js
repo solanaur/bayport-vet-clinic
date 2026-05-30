@@ -35,6 +35,8 @@
       owner: d.owner || "",
       date: d.date || new Date().toISOString().slice(0, 10),
       prescriber: d.prescriber || "",
+      prescriberLicenseNo: d.prescriberLicenseNo || "",
+      lastVaccinationText: d.lastVaccinationText || "",
       followUp: d.followUp || d.daysSupply || "",
       rxStatus: d.rxStatus || "SAVED",
       lines: (d.lines && d.lines.length ? d.lines : [defaultLine()]).map((l) => ({
@@ -103,7 +105,7 @@
 
   function filterDrugSuggestions(query, catalog) {
     const q = String(query || "").trim().toLowerCase();
-    if (!q) return catalog.slice(0, 12);
+    if (!q) return [];
     return catalog.filter((n) => n.toLowerCase().includes(q)).slice(0, 12);
   }
 
@@ -137,6 +139,18 @@
       activeIdx = -1;
     }
 
+    async function applyPetMeta(pet) {
+      if (!pet) return;
+      const vaccWrap = root.querySelector("[data-rx-vacc-wrap]");
+      const vaccText = root.querySelector('[data-field="lastVaccination"]');
+      const vaccLine =
+        typeof g.formatPetLastVaccination === "function"
+          ? g.formatPetLastVaccination(pet)
+          : "";
+      if (vaccText) vaccText.textContent = vaccLine || "";
+      if (vaccWrap) vaccWrap.classList.toggle("hidden", !vaccLine);
+    }
+
     async function applyPet(pet) {
       if (!pet) return;
       input.value = pet.name || "";
@@ -148,6 +162,7 @@
         } catch (_) { /* ignore */ }
       }
       if (ownerInp) ownerInp.value = owner;
+      await applyPetMeta(pet);
       hideList();
       input.dispatchEvent(new Event("input", { bubbles: true }));
       if (typeof opts.onPetSelect === "function") opts.onPetSelect(pet);
@@ -256,14 +271,14 @@
 
       input.addEventListener("keydown", (e) => {
         const opts = list.querySelectorAll("li");
-        if (e.key === "Tab" && !list.hidden && opts.length) {
+        if (e.key === "Tab" && !list.hidden && opts.length && activeIdx >= 0) {
           e.preventDefault();
-          pick(opts[activeIdx >= 0 ? activeIdx : 0].textContent);
+          pick(opts[activeIdx].textContent);
           return;
         }
-        if (e.key === "Enter" && !list.hidden && opts.length) {
+        if (e.key === "Enter" && !list.hidden && opts.length && activeIdx >= 0) {
           e.preventDefault();
-          pick(opts[activeIdx >= 0 ? activeIdx : 0].textContent);
+          pick(opts[activeIdx].textContent);
           const block = input.closest("[data-med-idx]");
           block?.querySelector('[data-field="qty"]')?.focus();
           return;
@@ -293,6 +308,10 @@
       input.addEventListener("blur", () => {
         setTimeout(hideList, 150);
       });
+
+      const block = input.closest(".rx-pad-med-block");
+      block?.querySelector('[data-field="qty"]')?.addEventListener("focus", hideList);
+      block?.querySelector('[data-field="sig"]')?.addEventListener("focus", hideList);
     });
   }
 
@@ -338,6 +357,11 @@
         <div class="rx-pad-field-row">
           <label>Owner's Name: <input type="text" class="rx-pad-field" data-field="owner" value="${escAttr(data.owner)}" placeholder="Owner name"></label>
         </div>
+        <div class="rx-pad-field-row rx-pad-vacc-row${data.lastVaccinationText ? "" : " hidden"}" data-rx-vacc-wrap>
+          <label class="rx-pad-vacc-label">Last vaccinated:
+            <span class="rx-pad-vacc-text" data-field="lastVaccination">${escAttr(data.lastVaccinationText || "")}</span>
+          </label>
+        </div>
         <div class="rx-pad-meds-area">
           <div class="rx-pad-rx-symbol" aria-hidden="true">Rx</div>
           <p class="rx-pad-meds-hint">Type pet name for suggestions; owner fills automatically. Enter on Sig for the next medicine.</p>
@@ -351,6 +375,10 @@
             <div class="rx-pad-footer-col rx-pad-signature">
               <div class="rx-pad-signature-line" aria-hidden="true"></div>
               <div class="rx-pad-signature-label">Veterinarian</div>
+              <label class="rx-pad-license-row">
+                <span class="rx-pad-license-label">Licensed No.</span>
+                <input type="text" class="rx-pad-field rx-pad-license-input" data-field="prescriberLicenseNo" value="${escAttr(data.prescriberLicenseNo)}" placeholder="License number" autocomplete="off" aria-label="Licensed number">
+              </label>
             </div>
           </div>
           <div class="rx-pad-page" aria-hidden="true">Page 1 of 1</div>
@@ -408,7 +436,11 @@
       block.querySelector(".rx-pad-med-remove")?.addEventListener("click", () => removeMedLine(block));
 
       drug?.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && list && !list.hidden && list.querySelectorAll("li").length) return;
+        const hasActivePick =
+          list &&
+          !list.hidden &&
+          list.querySelector("li[aria-selected='true']");
+        if (e.key === "Enter" && hasActivePick) return;
         if (e.key === "Enter") {
           e.preventDefault();
           (qty || sig)?.focus();
@@ -467,6 +499,19 @@
       wireAllMedLines();
     });
 
+    async function refreshLicenseDisplay(prescriber) {
+      const licenseInp = root.querySelector('[data-field="prescriberLicenseNo"]');
+      const name = prescriber || data.prescriber || "";
+      let license = (licenseInp?.value || data.prescriberLicenseNo || "").trim();
+      if (!license && typeof g.resolveVetLicenseNo === "function") {
+        license = await g.resolveVetLicenseNo(name);
+      }
+      data.prescriberLicenseNo = license;
+      if (licenseInp && license && !licenseInp.value.trim()) {
+        licenseInp.value = license;
+      }
+    }
+
     async function syncPetFromSelect() {
       if (!petSel) return;
       const petId = Number(petSel.value);
@@ -487,10 +532,20 @@
         } else {
           root.querySelector('[data-field="owner"]').value = pet.owner || "";
         }
+        if (g.Api && typeof g.Api.pets?.get === "function") {
+          try {
+            await applyPetMeta(await g.Api.pets.get(petId));
+          } catch (_) {
+            await applyPetMeta(pet);
+          }
+        } else {
+          await applyPetMeta(pet);
+        }
       }
     }
 
     petSel?.addEventListener("change", syncPetFromSelect);
+    refreshLicenseDisplay(data.prescriber);
 
     function getData() {
       const lines = [];
@@ -514,6 +569,10 @@
         owner: root.querySelector('[data-field="owner"]')?.value?.trim() || "",
         date: root.querySelector('[data-field="date"]')?.value || data.date,
         prescriber: data.prescriber,
+        prescriberLicenseNo:
+          root.querySelector('[data-field="prescriberLicenseNo"]')?.value?.trim() ||
+          data.prescriberLicenseNo ||
+          "",
         followUp: root.querySelector('[data-field="followUp"]')?.value?.trim() || "",
         daysSupply: root.querySelector('[data-field="followUp"]')?.value?.trim() || "",
         rxStatus: statusSel?.value || data.rxStatus || "SAVED",
@@ -539,6 +598,12 @@
         g.localStorage?.getItem("username") ||
         "Vet";
     }
+    if (data.petId && g.Api && typeof g.Api.pets?.get === "function") {
+      g.Api.pets.get(data.petId).then((pet) => {
+        data.lastVaccinationText =
+          typeof g.formatPetLastVaccination === "function" ? g.formatPetLastVaccination(pet) : "";
+      }).catch(() => {});
+    }
     mountEl.innerHTML = `
       <div class="rx-pad-editor-wrap">
         <div class="rx-pad-toolbar mb-2">
@@ -547,6 +612,15 @@
         ${sheetHtml(data, opts)}
       </div>`;
     const api = bindEditor(mountEl, { ...opts, initialData: data });
+    if (typeof g.resolveVetLicenseNo === "function") {
+      g.resolveVetLicenseNo(data.prescriber).then((lic) => {
+        data.prescriberLicenseNo = lic || data.prescriberLicenseNo || "";
+        const licenseInp = mountEl.querySelector('[data-field="prescriberLicenseNo"]');
+        if (licenseInp && data.prescriberLicenseNo && !licenseInp.value.trim()) {
+          licenseInp.value = data.prescriberLicenseNo;
+        }
+      }).catch(() => {});
+    }
     if (typeof opts.onChange === "function") {
       mountEl.addEventListener("input", () => opts.onChange(api.getData()));
     }
@@ -571,6 +645,7 @@
             <div class="rx-pad-toolbar">
               <button type="button" data-rx-add-line class="px-3 py-1.5 text-sm border rounded-md border-gray-300 hover:bg-gray-50">+ Add medicine</button>
               <button type="button" data-rx-save class="px-3 py-1.5 text-sm rounded-md bg-green-700 text-white">Save</button>
+              <button type="button" data-rx-print class="px-3 py-1.5 text-sm rounded-md bg-[var(--soft-teal,#0057b8)] text-white">Print PDF</button>
               <button type="button" data-rx-close class="px-3 py-1.5 text-sm border rounded-md ml-auto">Close</button>
             </div>
             ${sheetHtml(data, { ...opts, showPetPicker: opts.showPetPicker !== false })}
@@ -596,6 +671,19 @@
         return;
       }
       if (opts.onSave) await opts.onSave(payload);
+    });
+
+    inner.querySelector("[data-rx-print]")?.addEventListener("click", async () => {
+      const payload = api.getData();
+      if (!payload.pet?.trim()) {
+        alert("Pet name is required.");
+        return;
+      }
+      if (!payload.owner?.trim()) {
+        alert("Owner name is required.");
+        return;
+      }
+      if (opts.onPrint) await opts.onPrint(payload);
     });
 
     return api;

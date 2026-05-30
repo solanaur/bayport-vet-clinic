@@ -14,17 +14,11 @@
           resolve();
           return;
         }
-        const s1 = document.createElement("script");
-        s1.src = "https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js";
-        s1.onload = () => resolve();
-        s1.onerror = () => {
-          const s2 = document.createElement("script");
-          s2.src = "https://unpkg.com/fullcalendar@6.1.8/index.global.min.js";
-          s2.onload = () => resolve();
-          s2.onerror = () => reject(new Error("FullCalendar failed to load"));
-          document.head.appendChild(s2);
-        };
-        document.head.appendChild(s1);
+        const s = document.createElement("script");
+        s.src = "https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("FullCalendar failed to load"));
+        document.head.appendChild(s);
       });
     }
     loadFullCalendar().catch(() => {});
@@ -55,6 +49,13 @@
     .fc { font-family: Inter, sans-serif; font-size: 13px; }
     .fc-toolbar-title { font-size: 1rem !important; font-weight: 600; }
     .fc-button { border-radius: 6px !important; }
+    #queueSidebarCalendar .fc { font-size: 11px; }
+    #queueSidebarCalendar .fc-toolbar-title { font-size: 0.8125rem !important; }
+    #queueSidebarCalendar .fc-toolbar { flex-wrap: wrap; gap: 0.25rem; }
+    #queueSidebarCalendar .fc-button { padding: 0.2rem 0.45rem !important; font-size: 0.6875rem !important; }
+    #queueSidebarCalendar .fc-daygrid-day-number { font-size: 0.6875rem; padding: 2px 4px; }
+    #queueSidebarCalendar .fc-col-header-cell-cushion { font-size: 0.625rem; padding: 2px 0; }
+    #queueSidebarCalendar .fc-daygrid-event { font-size: 0.625rem; margin-top: 1px; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col text-gray-800" style="background-color: var(--bp-bg);">
@@ -145,6 +146,16 @@
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
               View Consultation
             </button>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/80">
+            <h3 class="text-sm font-semibold text-gray-800">Calendar</h3>
+            <a href="appointments-calendar.html" class="text-xs font-medium hover:underline" style="color: var(--bp-blue);">Full view</a>
+          </div>
+          <div class="p-2 sm:p-3">
+            <div id="queueSidebarCalendar" class="min-h-[260px] w-full overflow-x-auto"></div>
           </div>
         </section>
 
@@ -340,6 +351,7 @@
     let activeFilter = "queue";
     let openMenuId = null;
     let queueCalendar = null;
+    let sidebarCalendar = null;
     let elapsedTimer = null;
     let currentServing = null;
 
@@ -400,6 +412,7 @@
       renderTable();
       renderServing();
       renderSummary();
+      renderSidebarCalendar().catch((e) => console.warn("Sidebar calendar:", e));
     }
 
     function countsByCategory(rows) {
@@ -943,40 +956,8 @@
       return "#bfdbfe";
     }
 
-    async function openCalendarModal() {
-      document.getElementById("calendarModal").classList.remove("hidden");
-      document.getElementById("calendarModal").classList.add("flex");
-      await loadFullCalendar();
-      const FC = typeof FullCalendar !== "undefined" ? FullCalendar : window.FullCalendar;
-      const el = document.getElementById("queueCalendarFc");
-      if (!FC?.Calendar) {
-        el.innerHTML = "<p class='text-red-600 text-sm p-4'>Calendar could not load.</p>";
-        return;
-      }
-      let calRows = enriched;
-      if (window.USE_API) {
-        try {
-          const u = localStorage.getItem("username");
-          const full = role === "vet" ? (await Api.appts.list(u)) || [] : (await Api.appts.list()) || [];
-          calRows = await Promise.all(
-            full.map(async (apt) => {
-              let name = "Pet";
-              try {
-                name = (typeof window.petName === "function" ? await window.petName(apt.petId) : name) || name;
-              } catch (_) {}
-              return { ...apt, petName: name };
-            }),
-          );
-        } catch (_) {
-          calRows = enriched;
-        }
-      }
-      if (queueCalendar) {
-        queueCalendar.destroy();
-        queueCalendar = null;
-      }
-      el.innerHTML = "";
-      const events = calRows.map((apt) => {
+    function buildCalendarEvents(calRows) {
+      return calRows.map((apt) => {
         const timeDisplay = apt.time ? apt.time.substring(0, 5) : "";
         const title = timeDisplay ? `${timeDisplay} ${apt.petName}` : apt.petName;
         const eventColor = getStatusColor(apt.status);
@@ -989,11 +970,84 @@
           extendedProps: { appointment: apt },
         };
       });
+    }
+
+    async function getCalendarRows() {
+      if (window.USE_API) {
+        try {
+          const u = localStorage.getItem("username");
+          const full = role === "vet" ? (await Api.appts.list(u)) || [] : (await Api.appts.list()) || [];
+          return await Promise.all(
+            full.map(async (apt) => {
+              let name = "Pet";
+              try {
+                name = (typeof window.petName === "function" ? await window.petName(apt.petId) : name) || name;
+              } catch (_) {}
+              return { ...apt, petName: name };
+            }),
+          );
+        } catch (_) {
+          return enriched;
+        }
+      }
+      return enriched;
+    }
+
+    async function renderSidebarCalendar() {
+      const el = document.getElementById("queueSidebarCalendar");
+      if (!el) return;
+      await loadFullCalendar();
+      const FC = typeof FullCalendar !== "undefined" ? FullCalendar : window.FullCalendar;
+      if (!FC?.Calendar) {
+        el.innerHTML = "<p class='text-red-600 text-xs p-2'>Calendar could not load.</p>";
+        return;
+      }
+      const calRows = await getCalendarRows();
+      if (sidebarCalendar) {
+        sidebarCalendar.destroy();
+        sidebarCalendar = null;
+      }
+      el.innerHTML = "";
+      sidebarCalendar = new FC.Calendar(el, {
+        initialView: "dayGridMonth",
+        height: "auto",
+        headerToolbar: { left: "prev", center: "title", right: "next" },
+        events: buildCalendarEvents(calRows),
+        eventClick(info) {
+          const apt = info.event.extendedProps.appointment;
+          alert(
+            `Pet: ${apt.petName}\nOwner: ${apt.owner}\nTime: ${apt.time}\nVet: ${apt.vet}\nStatus: ${apt.status}`,
+          );
+          info.jsEvent.preventDefault();
+        },
+        dateClick(info) {
+          location.href = `appointments-calendar.html?date=${info.dateStr}`;
+        },
+      });
+      sidebarCalendar.render();
+    }
+
+    async function openCalendarModal() {
+      document.getElementById("calendarModal").classList.remove("hidden");
+      document.getElementById("calendarModal").classList.add("flex");
+      await loadFullCalendar();
+      const FC = typeof FullCalendar !== "undefined" ? FullCalendar : window.FullCalendar;
+      const el = document.getElementById("queueCalendarFc");
+      if (!FC?.Calendar) {
+        el.innerHTML = "<p class='text-red-600 text-sm p-4'>Calendar could not load.</p>";
+        return;
+      }
+      let calRows = await getCalendarRows();
+      if (queueCalendar) {
+        queueCalendar.destroy();
+        queueCalendar = null;
+      }
+      el.innerHTML = "";
       queueCalendar = new FC.Calendar(el, {
         initialView: "dayGridMonth",
         height: "auto",
         headerToolbar: { left: "prev", center: "title", right: "next" },
-        events,
+        events: buildCalendarEvents(calRows),
         eventClick(info) {
           const apt = info.event.extendedProps.appointment;
           alert(
@@ -1018,7 +1072,9 @@
     }
 
     document.getElementById("qaRefresh").addEventListener("click", () => loadQueueData());
-    document.getElementById("qaCalendar").addEventListener("click", () => openCalendarModal());
+    document.getElementById("qaCalendar").addEventListener("click", () => {
+      location.href = "appointments-calendar.html";
+    });
     document.getElementById("calendarModalClose").addEventListener("click", closeCalendarModal);
     document.getElementById("calendarModal").addEventListener("click", (e) => {
       if (e.target.id === "calendarModal") closeCalendarModal();

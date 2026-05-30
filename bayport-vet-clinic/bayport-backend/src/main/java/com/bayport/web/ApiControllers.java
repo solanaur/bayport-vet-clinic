@@ -671,6 +671,7 @@ public class ApiControllers {
                 .map(firstPrescription -> {
                     List<Prescription> prescriptions = enrichPrescriptionsForPdf(resolvePrescriptionGroup(firstPrescription, groupKey));
                     byte[] pdf = pdfService.buildPrescriptionPdf(prescriptions);
+                    bayportService.markPrescriptionGroupPrinted(id, groupKey);
                     return ResponseEntity.ok()
                             .header(HttpHeaders.CONTENT_DISPOSITION,
                                     "attachment; filename=Prescription_" + firstPrescription.getPet() + "_" + firstPrescription.getDate() + ".pdf")
@@ -726,6 +727,13 @@ public class ApiControllers {
                         rx.setPet(pet.getName());
                     }
                 });
+            }
+            if ((rx.getPrescriberLicenseNo() == null || rx.getPrescriberLicenseNo().isBlank())
+                    && rx.getPrescriber() != null && !rx.getPrescriber().isBlank()) {
+                String license = bayportService.lookupPrescriberLicenseNo(rx.getPrescriber());
+                if (license != null && !license.isBlank()) {
+                    rx.setPrescriberLicenseNo(license);
+                }
             }
         }
         return prescriptions;

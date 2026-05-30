@@ -182,7 +182,44 @@ public class PdfService {
         ownerVal.setPaddingBottom(4);
         row2.addCell(ownerVal);
         document.add(row2);
+
+        Pet petEntity = first.getPetEntity();
+        if (petEntity != null && (petEntity.getLastVaccinationDate() != null
+                || stringHasText(petEntity.getLastVaccinationPlace())
+                || stringHasText(petEntity.getLastVaccinationVet()))) {
+            PdfPTable row3 = new PdfPTable(new float[]{1.2f, 4.8f});
+            row3.setWidthPercentage(100);
+            row3.getDefaultCell().setBorder(Rectangle.NO_BORDER);
+            row3.getDefaultCell().setPadding(2);
+            row3.setSpacingAfter(8);
+            row3.addCell(new Phrase("Last vaccinated:", label));
+            String vaccInfo = formatLastVaccination(petEntity);
+            PdfPCell vaccVal = new PdfPCell(new Phrase(vaccInfo, value));
+            vaccVal.setBorder(Rectangle.BOTTOM);
+            vaccVal.setBorderWidth(0.5f);
+            vaccVal.setPaddingBottom(4);
+            row3.addCell(vaccVal);
+            document.add(row3);
+        }
         document.add(Chunk.NEWLINE);
+    }
+
+    private static String formatLastVaccination(Pet pet) {
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        if (pet.getLastVaccinationDate() != null) {
+            parts.add(pet.getLastVaccinationDate().toString());
+        }
+        if (pet.getLastVaccinationPlace() != null && !pet.getLastVaccinationPlace().isBlank()) {
+            parts.add(pet.getLastVaccinationPlace().trim());
+        }
+        if (pet.getLastVaccinationVet() != null && !pet.getLastVaccinationVet().isBlank()) {
+            parts.add("Vet: " + pet.getLastVaccinationVet().trim());
+        }
+        return parts.isEmpty() ? "" : String.join("  \u2022  ", parts);
+    }
+
+    private static boolean stringHasText(String s) {
+        return s != null && !s.isBlank();
     }
 
     private void addPrescriptionPadRxBody(Document document,
@@ -282,10 +319,24 @@ public class PdfService {
         Paragraph line = new Paragraph("______________________________", value);
         line.setAlignment(Element.ALIGN_CENTER);
         right.addElement(line);
+        String prescriber = nullToEmpty(first.getPrescriber());
+        if (!prescriber.isBlank()) {
+            Paragraph vetName = new Paragraph(prescriber, value);
+            vetName.setAlignment(Element.ALIGN_CENTER);
+            vetName.setSpacingBefore(4);
+            right.addElement(vetName);
+        }
         Paragraph vetLabel = new Paragraph("Veterinarian", label);
         vetLabel.setAlignment(Element.ALIGN_CENTER);
         vetLabel.setSpacingBefore(2);
         right.addElement(vetLabel);
+        String licenseNo = nullToEmpty(first.getPrescriberLicenseNo());
+        if (!licenseNo.isBlank()) {
+            Paragraph licenseLine = new Paragraph("Licensed No. " + licenseNo, value);
+            licenseLine.setAlignment(Element.ALIGN_CENTER);
+            licenseLine.setSpacingBefore(2);
+            right.addElement(licenseLine);
+        }
         foot.addCell(right);
 
         PdfPCell pageCell = new PdfPCell(new Paragraph("Page 1 of 1", value));
@@ -970,6 +1021,15 @@ public class PdfService {
             addRow(infoTable, "Owner:", nullToEmpty(pet.getOwner()), label, value);
             addRow(infoTable, "Address:", nullToEmpty(pet.getAddress()), label, value);
             addRow(infoTable, "Federation:", nullToEmpty(pet.getFederation()), label, value);
+            if (pet.getLastVaccinationDate() != null) {
+                addRow(infoTable, "Last vaccination:", pet.getLastVaccinationDate().toString(), label, value);
+            }
+            if (pet.getLastVaccinationPlace() != null && !pet.getLastVaccinationPlace().isBlank()) {
+                addRow(infoTable, "Vaccination place:", pet.getLastVaccinationPlace().trim(), label, value);
+            }
+            if (pet.getLastVaccinationVet() != null && !pet.getLastVaccinationVet().isBlank()) {
+                addRow(infoTable, "Vaccinating vet:", pet.getLastVaccinationVet().trim(), label, value);
+            }
             if (pet.getCreatedAt() != null) {
                 addRow(infoTable, "Registered:", pet.getCreatedAt().toLocalDate().toString(), label, value);
             }

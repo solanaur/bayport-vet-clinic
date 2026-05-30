@@ -224,7 +224,7 @@ function startBackend() {
       '-jar',
       JAR_PATH,
       '--spring.profiles.active=h2',
-      `--spring.datasource.url=jdbc:h2:file:${dbPath}`,
+      `--spring.datasource.url=jdbc:h2:file:${dbPath};AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000`,
       `--bayport.upload-dir=${uploadPath}`
     ], {
       cwd: FRONTEND_ROOT, // Set working directory so data/ folder is relative to app root

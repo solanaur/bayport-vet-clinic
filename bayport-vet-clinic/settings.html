@@ -52,6 +52,10 @@
         <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Prescription (Rx) template</h2>
         <div class="space-y-3">
           <label class="block">
+            <span class="text-xs text-gray-600">Default veterinarian license no. (shown on Rx PDF)</span>
+            <input id="defaultVetLicenseNo" class="w-full border rounded-md px-3 py-2 text-sm" placeholder="e.g. PRC-998877" />
+          </label>
+          <label class="block">
             <span class="text-xs text-gray-600">Blank template for vet preference</span>
             <textarea id="rxBlankTemplate" rows="4" class="w-full border rounded-md px-3 py-2 text-sm" placeholder="Optional notes printed at the bottom of every Rx PDF (e.g. refill policy, follow-up instructions)."></textarea>
           </label>
@@ -144,6 +148,7 @@
       }
       document.getElementById('apiBaseUrl').value = localStorage.getItem('bayport_api_base') || window.BAYPORT_API_BASE || '';
       document.getElementById('rxBlankTemplate').value = s.rxBlankTemplate || '';
+      document.getElementById('defaultVetLicenseNo').value = s.defaultVetLicenseNo || '';
       document.getElementById('deviceLockEnabled').checked = typeof window.isDeviceLockEnabled === 'function' && window.isDeviceLockEnabled();
       document.getElementById('currentDeviceId').textContent = typeof window.getDeviceId === 'function' ? window.getDeviceId() : '—';
       const list = document.getElementById('trustedDeviceList');
@@ -196,6 +201,7 @@
       };
       if (pendingLogoDataUrl) next.logoDataUrl = pendingLogoDataUrl;
       next.rxBlankTemplate = (document.getElementById('rxBlankTemplate').value || '').trim();
+      next.defaultVetLicenseNo = (document.getElementById('defaultVetLicenseNo').value || '').trim();
       setClinicSettings?.(next);
       setPreferredReceiptPrinter?.(document.getElementById('defaultPrinter').value || '');
       if (typeof window.setDeviceLockEnabled === 'function') {

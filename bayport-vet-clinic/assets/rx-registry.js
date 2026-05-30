@@ -6,10 +6,11 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
   const id = (key, fallback) => opts[key] || fallback;
   const activeSection = document.getElementById(id("activeSectionId", "rxReg_activeSection"));
   const archivedSection = document.getElementById(id("archivedSectionId", "rxReg_archivedSection"));
+  const printedSection = document.getElementById(id("printedSectionId", "rxReg_printedSection"));
   const modalRoot = document.getElementById(id("modalRootId", "rxReg_modalRoot"));
   const issueBtn = document.getElementById(id("issueBtnId", "rxReg_issueBtn"));
   const role = typeof getRole === "function" ? getRole() : "";
-  if (!activeSection || !archivedSection || !modalRoot) {
+  if (!activeSection || !archivedSection || !printedSection || !modalRoot) {
     console.warn("Bayport Rx registry: missing container elements");
     return { refresh: () => {}, openIssue: () => {} };
   }
@@ -39,6 +40,9 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
             owner: rx.owner,
             date: rx.date,
             prescriber: rx.prescriber,
+            prescriberLicenseNo: rx.prescriberLicenseNo,
+            printedAt: rx.printedAt || null,
+            printCount: rx.printCount || 0,
             dispensed: rx.dispensed,
             archived: rx.archived,
             products: []
@@ -56,27 +60,34 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
           owner: rx.owner,
           pet: rx.pet,
         });
+        if ((rx.printCount || 0) > (groups[key].printCount || 0)) {
+          groups[key].printCount = rx.printCount || 0;
+        }
+        if (rx.printedAt && (!groups[key].printedAt || String(rx.printedAt) > String(groups[key].printedAt))) {
+          groups[key].printedAt = rx.printedAt;
+        }
       });
       return Object.values(groups);
     }
 
     window.bayportRxSwitchTab = function(tab) {
       currentTab = tab;
-      if (tab === 'active') {
-        document.getElementById(id('tabActiveId','rxReg_tabActive')).classList.add('bg-[var(--soft-teal)]', 'text-white');
-        document.getElementById(id('tabActiveId','rxReg_tabActive')).classList.remove('bg-gray-100', 'text-gray-700');
-        document.getElementById(id('tabArchivedId','rxReg_tabArchived')).classList.remove('bg-[var(--soft-teal)]', 'text-white');
-        document.getElementById(id('tabArchivedId','rxReg_tabArchived')).classList.add('bg-gray-100', 'text-gray-700');
-        activeSection.classList.remove('hidden');
-        archivedSection.classList.add('hidden');
-      } else {
-        document.getElementById(id('tabArchivedId','rxReg_tabArchived')).classList.add('bg-[var(--soft-teal)]', 'text-white');
-        document.getElementById(id('tabArchivedId','rxReg_tabArchived')).classList.remove('bg-gray-100', 'text-gray-700');
-        document.getElementById(id('tabActiveId','rxReg_tabActive')).classList.remove('bg-[var(--soft-teal)]', 'text-white');
-        document.getElementById(id('tabActiveId','rxReg_tabActive')).classList.add('bg-gray-100', 'text-gray-700');
-        activeSection.classList.add('hidden');
-        archivedSection.classList.remove('hidden');
+      const tabActive = document.getElementById(id('tabActiveId','rxReg_tabActive'));
+      const tabArchived = document.getElementById(id('tabArchivedId','rxReg_tabArchived'));
+      const tabPrinted = document.getElementById(id('tabPrintedId','rxReg_tabPrinted'));
+      const on = ['bg-[var(--soft-teal)]', 'text-white'];
+      const off = ['bg-gray-100', 'text-gray-700'];
+      function setTab(btn, active) {
+        if (!btn) return;
+        btn.classList.remove(...(active ? off : on));
+        btn.classList.add(...(active ? on : off));
       }
+      setTab(tabActive, tab === 'active');
+      setTab(tabArchived, tab === 'archived');
+      setTab(tabPrinted, tab === 'printed');
+      activeSection.classList.toggle('hidden', tab !== 'active');
+      archivedSection.classList.toggle('hidden', tab !== 'archived');
+      printedSection.classList.toggle('hidden', tab !== 'printed');
     };
 
     window.togglePrescription = function(groupKey) {
@@ -87,6 +98,12 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
       }
       render();
     };
+
+    function formatPrintedAt(val) {
+      if (!val) return 'N/A';
+      const s = String(val);
+      return s.length >= 16 ? s.slice(0, 16).replace('T', ' ') : s.replace('T', ' ');
+    }
 
     async function render(){
       try {
@@ -107,23 +124,24 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
             const statusColor = g.dispensed ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700';
             return `
               <div class="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-all duration-200">
-                <div class="flex items-center justify-between p-4">
-                  <div class="flex items-center gap-4 flex-1 min-w-0">
-                    <div class="flex-1 min-w-0">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 p-4">
+                  <div class="flex-1 min-w-0">
                       <div class="flex items-center gap-3 mb-1">
                         <h5 class="text-base font-semibold text-gray-800 truncate">${g.pet || 'Unknown Pet'}</h5>
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusColor}">${g.dispensed ? 'Dispensed' : 'Pending'}</span>
                         <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">${(g.products[0]?.rxStatus || 'SAVED')}</span>
                       </div>
-                      <div class="flex items-center gap-3 text-xs text-gray-600">
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
                         <span>${g.owner || 'N/A'}</span>
                         <span class="text-gray-400">${RX_SEP.trim()}</span>
                         <span>${g.date || 'N/A'}</span>
                         <span class="text-gray-400">${RX_SEP.trim()}</span>
                         <span>${g.products.length} line${g.products.length === 1 ? '' : 's'}</span>
+                        ${g.printCount ? `<span class="text-gray-400">${RX_SEP.trim()}</span><span class="text-blue-700">Printed ${g.printCount}x</span>` : ''}
                       </div>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0">
+                      ${g.prescriberLicenseNo ? `<div class="text-[11px] text-gray-500 mt-1">Licensed No. ${g.prescriberLicenseNo}</div>` : ''}
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
                       <button onclick="togglePrescription('${groupKey}')" class="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg hover:bg-gray-50 transition-all">
                         ${isExpanded ? 'Hide' : 'View'}
                       </button>
@@ -136,7 +154,6 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
                         </svg>
                       </button>
                     </div>
-                  </div>
                 </div>
                 ${isExpanded ? `
                   <div class="border-t border-gray-200 p-4 bg-gray-50">
@@ -212,6 +229,58 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
             `;
           }).join('');
         }
+
+        const printedGroups = groupPrescriptions(list).filter(
+          (g) => (g.printCount || 0) > 0 || g.printedAt
+        );
+        if (printedGroups.length === 0) {
+          printedSection.innerHTML = '<div class="text-center py-12 text-gray-400"><p>No printed prescription records yet</p></div>';
+        } else {
+          printedSection.innerHTML = printedGroups.map(g => {
+            const groupKey = `${g.petId}_${g.date}_${g.prescriber}`;
+            const isExpanded = expandedPrescriptions.has(groupKey);
+            return `
+              <div class="bg-blue-50/60 rounded-lg border border-blue-100">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                      <h5 class="text-base font-semibold text-gray-800 truncate">${g.pet || 'Unknown Pet'}</h5>
+                      <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Printed record</span>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
+                      <span>${g.owner || 'N/A'}</span>
+                      <span class="text-gray-400">${RX_SEP.trim()}</span>
+                      <span>Rx date: ${g.date || 'N/A'}</span>
+                      <span class="text-gray-400">${RX_SEP.trim()}</span>
+                      <span>Last printed: ${formatPrintedAt(g.printedAt)}</span>
+                      <span class="text-gray-400">${RX_SEP.trim()}</span>
+                      <span>${g.printCount || 1}x</span>
+                    </div>
+                    <div class="text-[11px] text-gray-500 mt-1">Prescriber: ${g.prescriber || 'N/A'}${g.prescriberLicenseNo ? ` · Licensed No. ${g.prescriberLicenseNo}` : ''}</div>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <button onclick="togglePrescription('${groupKey}')" class="px-3 py-1.5 text-xs font-medium border border-gray-300 rounded-lg hover:bg-white transition-all">${isExpanded ? 'Hide' : 'View'}</button>
+                    <button onclick="printRxGroup('${groupKey}')" class="px-3 py-1.5 text-xs font-medium bg-[var(--soft-teal)] text-white rounded-lg hover:bg-[#158a8a] transition-all">Reprint</button>
+                  </div>
+                </div>
+                ${isExpanded ? `
+                  <div class="border-t border-blue-100 p-4 bg-white/80">
+                    <p class="text-xs font-semibold text-gray-600 mb-3 uppercase">Medications (${g.products.length})</p>
+                    <div class="space-y-2">
+                      ${g.products.map((p, idx) => `
+                        <div class="text-sm bg-white rounded-lg p-3 border border-gray-200">
+                          <p class="font-medium text-gray-800">${rxLineBullet(idx)} ${p.drug || 'N/A'} ${p.dosage ? `<span class="text-gray-600">${p.dosage}</span>` : ''}</p>
+                          ${p.directions ? `<p class="text-xs text-gray-600 mt-1">Sig: ${p.directions}</p>` : ''}
+                          ${p.dispenseQty ? `<p class="text-xs text-gray-600">Disp: ${p.dispenseQty} piece(s)</p>` : ''}
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('');
+        }
       } catch(err) {
         console.error('Error rendering prescriptions:', err);
         activeSection.innerHTML = '<div class="text-center py-12 text-red-500"><p>Error loading prescriptions</p></div>';
@@ -237,6 +306,9 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
       const vetNotes =
         (typeof getClinicSettings === 'function' ? getClinicSettings().rxBlankTemplate : '') || '';
       const prescriber = data.prescriber || prescriberName();
+      const licenseNo =
+        data.prescriberLicenseNo ||
+        (typeof resolveVetLicenseNo === 'function' ? await resolveVetLicenseNo(prescriber) : '');
       const petId = Number(data.petId);
       const lines = (data.lines || []).filter((l) => l.drug && String(l.drug).trim());
       if (!lines.length) throw new Error('Add at least one medicine on the prescription pad.');
@@ -257,6 +329,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
           rxStatus: data.rxStatus || 'SAVED',
           vetNotes: i === 0 ? vetNotes || null : null,
           prescriber,
+          prescriberLicenseNo: licenseNo || null,
           date: data.date,
           dispensed: false,
         };
@@ -290,6 +363,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
       link.click();
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
+      render();
     }
 
     async function openForm(prefillPetId, existingRxs) {
@@ -358,6 +432,8 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
             return;
           }
           await printPadPdf(data, existingRxs);
+          modalRoot.innerHTML = '';
+          render();
         },
         onClose: () => {
           modalRoot.innerHTML = '';
@@ -429,6 +505,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
         link.click();
         link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 1000);
+        render();
       } catch(err) {
         alert('Unable to generate PDF: ' + (err.message || 'Unexpected error'));
       }

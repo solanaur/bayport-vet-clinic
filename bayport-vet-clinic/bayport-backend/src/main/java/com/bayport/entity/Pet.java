@@ -64,6 +64,15 @@ public class Pet {
     @Column(name = "deleted_by", length = 100)
     private String deletedBy;
 
+    @Column(name = "last_vaccination_date")
+    private LocalDate lastVaccinationDate;
+
+    @Column(name = "last_vaccination_place")
+    private String lastVaccinationPlace;
+
+    @Column(name = "last_vaccination_vet")
+    private String lastVaccinationVet;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", insertable = false, updatable = false)
     private Owner ownerEntity;
@@ -166,5 +175,14 @@ public class Pet {
 
     public String getDeletedBy() { return deletedBy; }
     public void setDeletedBy(String deletedBy) { this.deletedBy = deletedBy; }
+
+    public LocalDate getLastVaccinationDate() { return lastVaccinationDate; }
+    public void setLastVaccinationDate(LocalDate lastVaccinationDate) { this.lastVaccinationDate = lastVaccinationDate; }
+
+    public String getLastVaccinationPlace() { return lastVaccinationPlace; }
+    public void setLastVaccinationPlace(String lastVaccinationPlace) { this.lastVaccinationPlace = lastVaccinationPlace; }
+
+    public String getLastVaccinationVet() { return lastVaccinationVet; }
+    public void setLastVaccinationVet(String lastVaccinationVet) { this.lastVaccinationVet = lastVaccinationVet; }
 }
 

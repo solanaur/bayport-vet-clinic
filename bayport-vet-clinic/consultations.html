@@ -83,6 +83,18 @@
                   <div class="text-xs text-gray-500 font-normal">Weight</div>
                   <div id="consult_pet_weight" class="font-semibold text-gray-900 mt-0.5"></div>
                 </div>
+                <div class="sm:col-span-3 border-t border-gray-100 pt-3 mt-1">
+                  <div class="text-xs text-gray-500 font-normal">Place last vaccinated</div>
+                  <div id="consult_pet_vacc_place" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div class="sm:col-span-2 border-t border-gray-100 pt-3 mt-1">
+                  <div class="text-xs text-gray-500 font-normal">Vaccinating veterinarian</div>
+                  <div id="consult_pet_vacc_vet" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
+                <div class="sm:col-span-1 border-t border-gray-100 pt-3 mt-1">
+                  <div class="text-xs text-gray-500 font-normal">Last vaccination</div>
+                  <div id="consult_pet_vacc_date" class="font-semibold text-gray-900 mt-0.5"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -187,17 +199,19 @@
           <div class="mb-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h3 class="text-2xl font-semibold text-gray-800 mb-1">Prescription records</h3>
-              <p class="text-gray-600 text-sm">Issued during consultations &mdash; print, edit, dispense, or archive.</p>
+              <p class="text-gray-600 text-sm">Record of prescription, printed records, licensed no. on Rx PDF, and last vaccination place/vet on patient block.</p>
             </div>
             <button id="rxReg_issueBtn" type="button" class="hidden px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#158a8a] text-white font-semibold shadow-md flex items-center gap-2">
               Issue prescription
             </button>
           </div>
-          <div class="flex gap-2 mb-6 border-b border-gray-200">
-            <button id="rxReg_tabActive" type="button" onclick="bayportRxSwitchTab('active')" class="px-4 py-2 rounded-t-lg font-medium bg-[var(--soft-teal)] text-white">Active</button>
-            <button id="rxReg_tabArchived" type="button" onclick="bayportRxSwitchTab('archived')" class="px-4 py-2 rounded-t-lg font-medium bg-gray-100 text-gray-700">Archived</button>
+          <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+            <button id="rxReg_tabActive" type="button" onclick="bayportRxSwitchTab('active')" class="px-4 py-2 rounded-t-lg font-medium bg-[var(--soft-teal)] text-white whitespace-nowrap">Record of Prescription</button>
+            <button id="rxReg_tabPrinted" type="button" onclick="bayportRxSwitchTab('printed')" class="px-4 py-2 rounded-t-lg font-medium bg-gray-100 text-gray-700 whitespace-nowrap">Printed Records</button>
+            <button id="rxReg_tabArchived" type="button" onclick="bayportRxSwitchTab('archived')" class="px-4 py-2 rounded-t-lg font-medium bg-gray-100 text-gray-700 whitespace-nowrap">Archived</button>
           </div>
           <div id="rxReg_activeSection" class="space-y-3"></div>
+          <div id="rxReg_printedSection" class="space-y-3 hidden"></div>
           <div id="rxReg_archivedSection" class="space-y-3 hidden"></div>
         </section>
       </div>
@@ -319,6 +333,10 @@
       document.getElementById('consult_pet_microchip').textContent = consultPetDisplayDash(p.microchip);
       document.getElementById('consult_pet_color').textContent = consultPetDisplayDash(p.color);
       document.getElementById('consult_pet_weight').textContent = consultPetDisplayDash(p.weight);
+      const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : null;
+      document.getElementById('consult_pet_vacc_place').textContent = consultPetDisplayDash(vacc?.place);
+      document.getElementById('consult_pet_vacc_vet').textContent = consultPetDisplayDash(vacc?.vet);
+      document.getElementById('consult_pet_vacc_date').textContent = consultPetDisplayDash(vacc?.date);
     }
 
     function php(v){ return `PHP ${Number(v || 0).toFixed(2)}`; }
@@ -348,10 +366,9 @@
     }
 
     async function syncConsultPadFromPet() {
-      if (!consultPadMount) return;
+      if (!consultPadMount || !consultPadApi) return;
       const petId = Number(petSelect.value);
       if (!petId) return;
-      ensureConsultPad();
       const p = consultationPets.find((x) => Number(x.id) === petId);
       if (!p) return;
       let owner = p.owner || '';
@@ -372,7 +389,9 @@
     }
 
     function ensureConsultPad() {
-      if (consultPadApi || typeof BayportRxPadEditor === 'undefined' || !consultPadMount) return consultPadApi;
+      if (typeof BayportRxPadEditor === 'undefined' || !consultPadMount) return consultPadApi;
+      if (consultPadApi) return consultPadApi;
+      if (consultStep !== 3) return null;
       consultPadApi = BayportRxPadEditor.mount(consultPadMount, {
         showPetPicker: false,
         pets: consultationPets,

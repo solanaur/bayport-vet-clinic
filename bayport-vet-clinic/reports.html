@@ -78,7 +78,7 @@
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
             <div class="flex items-center justify-between gap-2 mb-3">
-              <h2 class="text-base font-bold text-slate-900">POS sales trend</h2>
+              <h2 class="text-base font-bold text-slate-900">Revenue trend</h2>
               <div class="flex items-center gap-2 text-xs text-slate-500">
                 <button type="button" id="chartRefresh" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Refresh chart" aria-label="Refresh chart">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -397,19 +397,28 @@
       return out;
     }
 
-    function updateLineChart(sales, start, end) {
+    function updateLineChart(sales, billing, start, end) {
       const days = eachDay(start, end);
-      const byDay = {};
+      const posByDay = {};
+      const pendingByDay = {};
       for (const s of sales) {
         if ((s.source || "") !== "POS") continue;
         if (!inRange(s.occurredAt, start, end)) continue;
         const key = localDateKeyFromIso(s.occurredAt);
-        byDay[key] = (byDay[key] || 0) + (Number(s.amount) || 0);
+        posByDay[key] = (posByDay[key] || 0) + (Number(s.amount) || 0);
+      }
+      for (const b of billing || []) {
+        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
+        const t = b.issuedAt || b.createdAt;
+        if (!t || !inRange(t, start, end)) continue;
+        const key = localDateKeyFromIso(t);
+        pendingByDay[key] = (pendingByDay[key] || 0) + (Number(b.amount) || 0);
       }
       const labels = days.map((d) =>
         d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
       );
-      const values = days.map((d) => byDay[localDateKey(d)] || 0);
+      const posValues = days.map((d) => posByDay[localDateKey(d)] || 0);
+      const pendingValues = days.map((d) => pendingByDay[localDateKey(d)] || 0);
 
       if (!salesChart) {
         salesChart = new Chart(salesCtx, {
@@ -419,9 +428,19 @@
             datasets: [
               {
                 label: "POS sales",
-                data: values,
+                data: posValues,
                 borderColor: "#0057b8",
                 backgroundColor: "rgba(0,87,184,0.12)",
+                tension: 0.35,
+                fill: true,
+                pointRadius: 3,
+                pointHoverRadius: 5,
+              },
+              {
+                label: "Pending billing",
+                data: pendingValues,
+                borderColor: "#d97706",
+                backgroundColor: "rgba(217,119,6,0.1)",
                 tension: 0.35,
                 fill: true,
                 pointRadius: 3,
@@ -441,10 +460,10 @@
               },
             },
             plugins: {
-              legend: { display: false },
+              legend: { display: true, position: "bottom" },
               tooltip: {
                 callbacks: {
-                  label: (ctx) => "₱" + formatPrice(ctx.parsed.y),
+                  label: (ctx) => `${ctx.dataset.label}: ₱${formatPrice(ctx.parsed.y)}`,
                 },
               },
             },
@@ -452,7 +471,8 @@
         });
       } else {
         salesChart.data.labels = labels;
-        salesChart.data.datasets[0].data = values;
+        salesChart.data.datasets[0].data = posValues;
+        salesChart.data.datasets[1].data = pendingValues;
         salesChart.update("active");
       }
     }
@@ -860,7 +880,7 @@
         const pending = pendingBillingTotal(billing, start, end);
         renderKpis(totalPos, pending);
 
-        updateLineChart(sales, start, end);
+        updateLineChart(sales, billing, start, end);
         updatePayChart(sales, start, end);
 
         renderDailyTable(sales, billing, start, end);
