@@ -1500,7 +1500,8 @@
       } catch (e) {
         petsCache = [];
         renderPetSelect("");
-        showToast("Unable to load patients.", true);
+        const msg = e && e.message ? String(e.message) : "";
+        showToast(msg.includes("connect") || msg.includes("backend") ? "Backend offline — wait a moment or restart the app." : "Unable to load patients.", true);
       }
     }
 
@@ -1897,6 +1898,14 @@
     }
 
     document.getElementById("btnRefreshStock").onclick = () => loadInventory();
+
+    window.addEventListener("bayport-backend-ready", () => {
+      loadInventory().catch(() => {});
+      loadPets().catch(() => {});
+      if (typeof loadPendingBillingQueue === "function") {
+        loadPendingBillingQueue().catch(() => {});
+      }
+    });
 
     (async function init() {
       procedureRows = typeof buildPosProcedureRows === "function" ? buildPosProcedureRows() : [];

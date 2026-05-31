@@ -114,6 +114,10 @@ if (isDev) {
 
 let mainWindow;
 let backendProcess = null;
+let shuttingDown = false;
+let backendStartPromise = null;
+let backendRestartAttempts = 0;
+let healthMonitorTimer = null;
 const BACKEND_PORT = 8080;
 const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
 const DESKTOP_API_BASE = `${BACKEND_URL}/api`;
@@ -129,12 +133,195 @@ function injectDesktopApiConfig() {
         window.API_BASE = base;
         window.USE_API = true;
         localStorage.setItem('bayport_api_base', base);
+        window.dispatchEvent(new Event('bayport-backend-ready'));
       } catch (e) { console.warn('desktop api inject', e); }
     })();
   `;
   mainWindow.webContents.executeJavaScript(script).catch((err) => {
     log.warn('Could not inject desktop API config:', err.message);
   });
+}
+
+function waitForBackendHealth(maxAttempts = 120) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const checkInterval = setInterval(() => {
+      attempts++;
+      const req = http.get(API_HEALTH_CHECK, { timeout: 2000 }, (res) => {
+        if (res.statusCode === 200) {
+          clearInterval(checkInterval);
+          log.info(`Backend is ready! (took ${attempts} seconds)`);
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          reject(new Error(`Backend returned status ${res.statusCode} after ${maxAttempts} seconds.`));
+        }
+      });
+      req.on('error', (err) => {
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          const javaCheck = '\n\nCheck that Java 17+ is installed and port 8080 is available.';
+          reject(new Error(`Backend failed to start within ${maxAttempts} seconds.${javaCheck}\n\nError: ${err.message}`));
+        }
+      });
+      req.on('timeout', () => {
+        req.destroy();
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          reject(new Error(`Backend failed to start within ${maxAttempts} seconds.`));
+        }
+      });
+    }, 1000);
+  });
+}
+
+function stopHealthMonitor() {
+  if (healthMonitorTimer) {
+    clearInterval(healthMonitorTimer);
+    healthMonitorTimer = null;
+  }
+}
+
+function startHealthMonitor() {
+  stopHealthMonitor();
+  healthMonitorTimer = setInterval(() => {
+    if (shuttingDown || backendStartPromise) return;
+    const req = http.get(API_HEALTH_CHECK, { timeout: 3000 }, (res) => {
+      if (res.statusCode === 200) backendRestartAttempts = 0;
+    });
+    req.on('error', () => {
+      if (!shuttingDown && !backendStartPromise) {
+        log.warn('Backend health check failed while app is open — restarting…');
+        restartBackend('health check failed').catch((err) => log.error(err.message));
+      }
+    });
+    req.on('timeout', () => {
+      req.destroy();
+    });
+  }, 20000);
+}
+
+function killBackendProcessSync() {
+  if (!backendProcess) return;
+  const proc = backendProcess;
+  backendProcess = null;
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/pid', String(proc.pid), '/F', '/T']);
+    } else {
+      proc.kill('SIGTERM');
+    }
+  } catch (err) {
+    log.warn('Could not kill backend process:', err.message);
+  }
+}
+
+async function restartBackend(reason) {
+  if (shuttingDown) return;
+  if (backendStartPromise) return backendStartPromise;
+  if (backendRestartAttempts >= 5) {
+    log.error('Backend restart limit reached:', reason);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Bayport Desktop',
+        message:
+          'The backend server stopped and could not be restarted automatically.\n\nPlease close and reopen Bayport Veterinary Clinic.',
+      }).catch(() => {});
+    }
+    return;
+  }
+  backendRestartAttempts += 1;
+  log.info(`Restarting backend (${reason}), attempt ${backendRestartAttempts}/5`);
+  killBackendProcessSync();
+  backendStartPromise = launchBackendProcess()
+    .then(() => waitForBackendHealth(90))
+    .then(() => {
+      backendRestartAttempts = 0;
+      injectDesktopApiConfig();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('bayport-backend-ready');
+      }
+      log.info('Backend restarted successfully');
+    })
+    .catch((err) => {
+      log.error('Backend restart failed:', err.message);
+    })
+    .finally(() => {
+      backendStartPromise = null;
+    });
+  return backendStartPromise;
+}
+
+function launchBackendProcess() {
+  return new Promise((resolve, reject) => {
+    if (!fs.existsSync(JAR_PATH)) {
+      reject(new Error(`Backend JAR not found at ${JAR_PATH}. Please build it first with: mvn clean package`));
+      return;
+    }
+
+    log.info('Starting Spring Boot backend…');
+    const javaPath = resolveJavaExecutable();
+    if (javaPath !== 'java' && javaPath !== 'java.exe' && !fs.existsSync(javaPath)) {
+      reject(new Error(`Java runtime not found at ${javaPath}. Install Java 17+ or run npm run build-runtime.`));
+      return;
+    }
+
+    const normalizedDataDir = DATA_DIR.replace(/\\/g, '/');
+    const dbPath = `${normalizedDataDir}/bayport-db`;
+    const uploadPath = `${normalizedDataDir}/uploads`;
+
+    backendProcess = spawn(javaPath, [
+      '-jar',
+      JAR_PATH,
+      '--spring.profiles.active=h2',
+      `--spring.datasource.url=jdbc:h2:file:${dbPath};AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000`,
+      `--bayport.upload-dir=${uploadPath}`,
+    ], {
+      cwd: FRONTEND_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+
+    let backendOutput = '';
+    let backendError = '';
+
+    backendProcess.stdout.on('data', (data) => {
+      const text = data.toString();
+      backendOutput += text;
+      log.info(`[Backend] ${text.trim()}`);
+    });
+
+    backendProcess.stderr.on('data', (data) => {
+      const text = data.toString();
+      backendError += text;
+      log.error(`[Backend Error] ${text.trim()}`);
+    });
+
+    backendProcess.on('error', (err) => {
+      log.error('Failed to start backend process:', err);
+      reject(new Error(`Failed to start backend: ${err.message}`));
+    });
+
+    backendProcess.on('exit', (code, signal) => {
+      log.warn(`Backend process exited (code=${code}, signal=${signal || 'none'})`);
+      backendProcess = null;
+      if (!shuttingDown) {
+        restartBackend(`process exited (${code})`).catch((err) => log.error(err.message));
+      }
+      if (code !== 0 && code !== null) {
+        log.error('Backend output:', backendOutput);
+        log.error('Backend errors:', backendError);
+      }
+    });
+
+    // Give JVM a moment to bind the port before health polling.
+    setTimeout(resolve, 500);
+  });
+}
+
+function startBackend() {
+  return launchBackendProcess().then(() => waitForBackendHealth(120));
 }
 
 // Ensure data directory exists
@@ -185,126 +372,6 @@ function resolveJavaExecutable() {
   // Last resort: use system Java (if in PATH)
   log.warn('Using system Java (may not be available):', javaCommand);
   return javaCommand;
-}
-
-function startBackend() {
-  return new Promise((resolve, reject) => {
-    // Check if JAR exists
-    if (!fs.existsSync(JAR_PATH)) {
-      reject(new Error(`Backend JAR not found at ${JAR_PATH}. Please build it first with: mvn clean package`));
-      return;
-    }
-
-    log.info('Starting Spring Boot backend...');
-    
-    // Find Java executable
-    const javaPath = resolveJavaExecutable();
-    
-    // Check if Java exists (skip check if it's just 'java' or 'java.exe' - will try to run it)
-    if (javaPath !== 'java' && javaPath !== 'java.exe' && !fs.existsSync(javaPath)) {
-      const errorMsg = `Java runtime not found at ${javaPath}.\n\n` +
-        `Embedded Java directory: ${EMBEDDED_JAVA_DIR}\n` +
-        `Please ensure:\n` +
-        `1. Run 'npm run build-runtime' to create the embedded Java runtime\n` +
-        `2. The runtime directory is included in the build\n` +
-        `3. Or install Java 17+ and set JAVA_HOME environment variable`;
-      log.error(errorMsg);
-      reject(new Error(errorMsg));
-      return;
-    }
-    
-    log.info('Starting backend with Java:', javaPath);
-
-    // Start backend with h2 profile so desktop app runs cross-OS without MySQL setup.
-    const normalizedDataDir = DATA_DIR.replace(/\\/g, '/');
-    const dbPath = `${normalizedDataDir}/bayport-db`;
-    const uploadPath = `${normalizedDataDir}/uploads`;
-
-    backendProcess = spawn(javaPath, [
-      '-jar',
-      JAR_PATH,
-      '--spring.profiles.active=h2',
-      `--spring.datasource.url=jdbc:h2:file:${dbPath};AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000`,
-      `--bayport.upload-dir=${uploadPath}`
-    ], {
-      cwd: FRONTEND_ROOT, // Set working directory so data/ folder is relative to app root
-      stdio: ['ignore', 'pipe', 'pipe'],
-      shell: false
-    });
-
-    let backendOutput = '';
-    let backendError = '';
-
-    backendProcess.stdout.on('data', (data) => {
-      const text = data.toString();
-      backendOutput += text;
-      log.info(`[Backend] ${text.trim()}`);
-      
-      // Check if backend is ready (look for "Started BayportApplication" or similar)
-      if (text.includes('Started BayportApplication') || text.includes('Tomcat started on port')) {
-        log.info('Backend appears to be starting...');
-      }
-    });
-
-    backendProcess.stderr.on('data', (data) => {
-      const text = data.toString();
-      backendError += text;
-      log.error(`[Backend Error] ${text.trim()}`);
-    });
-
-    backendProcess.on('error', (err) => {
-      log.error('Failed to start backend process:', err);
-      reject(new Error(`Failed to start backend: ${err.message}. Make sure Java 17+ is installed and in PATH.`));
-    });
-
-    backendProcess.on('exit', (code) => {
-      if (code !== 0 && code !== null) {
-        log.error(`Backend process exited with code ${code}`);
-        log.error('Backend output:', backendOutput);
-        log.error('Backend errors:', backendError);
-      }
-    });
-
-    // Wait for backend to be ready by pinging the health endpoint
-    let attempts = 0;
-    const maxAttempts = 120; // 120 seconds max wait for slower machines
-    const checkInterval = setInterval(() => {
-      attempts++;
-      
-      const req = http.get(API_HEALTH_CHECK, { timeout: 2000 }, (res) => {
-        if (res.statusCode === 200) {
-          clearInterval(checkInterval);
-          log.info(`Backend is ready! (took ${attempts} seconds)`);
-          resolve();
-        } else {
-          // Non-200 status, backend might be starting
-          if (attempts >= maxAttempts) {
-            clearInterval(checkInterval);
-            reject(new Error(`Backend returned status ${res.statusCode} after ${maxAttempts} seconds.`));
-          }
-        }
-      });
-      
-      req.on('error', (err) => {
-        // Backend not ready yet, continue waiting
-        if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          const javaCheck = javaPath === 'java' || javaPath === 'java.exe' 
-            ? '\n\n⚠️ Java might not be installed. Please install Java 17+ from https://adoptium.net/'
-            : '';
-          reject(new Error(`Backend failed to start within ${maxAttempts} seconds.${javaCheck}\n\nError: ${err.message}\n\nCheck that:\n- Java 17+ is installed\n- Port 8080 is available\n- Backend JAR exists at: ${JAR_PATH}`));
-        }
-      });
-      
-      req.on('timeout', () => {
-        req.destroy();
-        if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          reject(new Error(`Backend failed to start within ${maxAttempts} seconds. The server may be taking longer than expected to initialize.`));
-        }
-      });
-    }, 1000);
-  });
 }
 
 function createWindow() {
@@ -386,13 +453,14 @@ function createWindow() {
   mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(loadingHTML)}`);
 
   // Load frontend after backend is ready
+  mainWindow.webContents.on('did-finish-load', injectDesktopApiConfig);
   startBackend()
     .then(() => {
+      startHealthMonitor();
       const directIndex = path.join(HTML_ROOT, 'index.html');
       if (fs.existsSync(directIndex)) {
         mainWindow.loadURL(pathToFileURL(directIndex).href);
         log.info('Frontend loaded from:', directIndex);
-        mainWindow.webContents.once('did-finish-load', injectDesktopApiConfig);
         return;
       }
 
@@ -422,7 +490,6 @@ function createWindow() {
 
       mainWindow.loadURL(pathToFileURL(foundPath).href);
       log.info('Frontend loaded from:', foundPath);
-      mainWindow.webContents.once('did-finish-load', injectDesktopApiConfig);
 
       // Add error handler for frontend loading issues
       mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
@@ -564,6 +631,8 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  shuttingDown = true;
+  stopHealthMonitor();
   // Kill backend process when app closes
   if (backendProcess) {
     log.info('Stopping backend process...');
@@ -581,6 +650,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  shuttingDown = true;
+  stopHealthMonitor();
   // Ensure backend is killed
   if (backendProcess) {
     if (process.platform === 'win32') {
