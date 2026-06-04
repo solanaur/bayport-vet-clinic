@@ -13,11 +13,11 @@ services:
     envVars:
       - key: SPRING_PROFILES_ACTIVE
         value: freecloud
-      # Copy exact Session pooler host + user from Supabase → Connect → Session pooler (do NOT guess aws-0 vs aws-1).
+      # Session pooler (IPv4) — host/user from Supabase Connect for project gmyoopqvqvpybloqsdix
       - key: SPRING_DATASOURCE_URL
-        sync: false
+        value: jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
       - key: SPRING_DATASOURCE_USERNAME
-        sync: false
+        value: postgres.gmyoopqvqvpybloqsdix
       - key: SPRING_DATASOURCE_PASSWORD
         sync: false
       - key: JWT_SECRET
