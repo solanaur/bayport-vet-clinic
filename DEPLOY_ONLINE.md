@@ -1,142 +1,112 @@
-# Bayport — Deploy online (Supabase + Koyeb + Netlify)
+# Bayport online — Netlify + Render + Supabase (free tier)
 
-Follow these steps in order. Total time: about **45–60 minutes** (first time).
+**Stack:** Supabase (database) → Render (API) → Netlify (website)
 
-Your code is already on GitHub: **https://github.com/1una229/bayport-vet-clinic_1**
-
----
-
-## Overview
-
-| Layer | Service | What it does |
-|-------|---------|--------------|
-| Database | **Supabase** (PostgreSQL) | Stores pets, users, appointments, medical records |
-| API | **Koyeb** (Java 17) | Spring Boot backend (`freecloud` profile) |
-| Website | **Netlify** | Static HTML/JS UI for browsers |
-| Email | **Gmail SMTP** | OTP, reminders (optional but recommended) |
+**Repo:** https://github.com/1una229/bayport-vet-clinic_1
 
 ---
 
-## STEP 1 — Supabase (database)
+## STEP 1 — Supabase (you already did this)
 
-1. Go to [supabase.com](https://supabase.com) → sign in → **New project**
-2. Name: `bayport-vet-clinic`, choose a region close to the Philippines, set a **strong DB password** (save it)
-3. Wait until the project is ready
-4. Open **Project Settings → Database**
-5. Under **Connection string**, choose **URI** or **JDBC**. You need:
-   - **Host:** `db.xxxxxxxxx.supabase.co`
-   - **Port:** `5432`
-   - **Database:** `postgres`
-   - **User:** `postgres`
-   - **Password:** (the one you saved)
-
-6. Build the JDBC URL (copy this pattern):
-
-```
-jdbc:postgresql://db.YOUR-PROJECT-REF.supabase.co:5432/postgres?sslmode=require
-```
-
-> Schema is created automatically on first API start (`hibernate.ddl-auto=update`). Flyway is off for `freecloud`.
+| Item | Your value |
+|------|------------|
+| Project ID | `gmyoopqvqvpybloqsdix` |
+| JDBC URL | `jdbc:postgresql://db.gmyoopqvqvpybloqsdix.supabase.co:5432/postgres?sslmode=require` |
+| Username | `postgres` |
+| Password | *(your Supabase DB password — set in Render only, never in Git)* |
 
 ---
 
-## STEP 2 — Koyeb (backend API)
+## STEP 2 — Render (backend API) — **DO THIS NOW**
 
-1. Go to [koyeb.com](https://www.koyeb.com) → sign up / sign in
-2. **Create Web Service**
-3. **Deploy from GitHub** → authorize GitHub → select **`1una229/bayport-vet-clinic_1`**
-4. Configure build:
+### Option A — Blueprint (easiest)
 
-| Setting | Value |
-|---------|--------|
-| **Branch** | `main` |
-| **Builder** | Dockerfile |
-| **Dockerfile** | `bayport-vet-clinic/bayport-vet-clinic/bayport-backend/Dockerfile` |
-| **Work directory** (if asked) | `bayport-vet-clinic/bayport-vet-clinic/bayport-backend` |
+1. Go to [render.com](https://render.com) → sign up / sign in (free)
+2. **New +** → **Blueprint**
+3. Connect GitHub → select **`1una229/bayport-vet-clinic_1`**
+4. Render reads `render.yaml` at repo root
+5. When prompted, enter **secret** values:
+   - `SPRING_DATASOURCE_PASSWORD` → your Supabase DB password
+   - `SPRING_MAIL_USERNAME` → `bayportveterinaryclinic@gmail.com`
+   - `SPRING_MAIL_PASSWORD` → Gmail app password
+   - `SPRING_WEB_CORS_ALLOWED_ORIGINS` → leave blank for now (add after Step 3)
+6. Click **Apply** → wait until **Live**
+7. Copy your URL, e.g. `https://bayport-api.onrender.com`
+8. Test: `https://YOUR-APP.onrender.com/api/health` → should show `"status":"UP"`
 
-5. **Environment variables** — add all of these:
+### Option B — Manual Web Service
 
-| Variable | Value |
-|----------|--------|
-| `SPRING_PROFILES_ACTIVE` | `freecloud` |
-| `SPRING_DATASOURCE_URL` | `jdbc:postgresql://db.YOUR-REF.supabase.co:5432/postgres?sslmode=require` |
-| `SPRING_DATASOURCE_USERNAME` | `postgres` |
-| `SPRING_DATASOURCE_PASSWORD` | *(Supabase DB password)* |
-| `JWT_SECRET` | *(long random string, 32+ chars)* |
-| `SPRING_WEB_CORS_ALLOWED_ORIGINS` | `https://YOUR-SITE.netlify.app` *(update after Step 3)* |
-| `SPRING_MAIL_USERNAME` | `bayportveterinaryclinic@gmail.com` |
-| `SPRING_MAIL_PASSWORD` | *(Gmail 16-char app password)* |
-| `SPRING_MAIL_HOST` | `smtp.gmail.com` |
-| `SPRING_MAIL_PORT` | `587` |
-
-Example JWT secret (generate your own for production):
+1. **New +** → **Web Service** → connect GitHub repo
+2. **Root Directory:** `bayport-vet-clinic/bayport-vet-clinic/bayport-backend`
+3. **Runtime:** Docker
+4. **Instance type:** Free
+5. Add environment variables:
 
 ```
-bayport-jwt-2026-change-me-to-64-random-characters-minimum
+SPRING_PROFILES_ACTIVE=freecloud
+SPRING_DATASOURCE_URL=jdbc:postgresql://db.gmyoopqvqvpybloqsdix.supabase.co:5432/postgres?sslmode=require
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=<your-supabase-password>
+JWT_SECRET=<long-random-string>
+SPRING_MAIL_USERNAME=bayportveterinaryclinic@gmail.com
+SPRING_MAIL_PASSWORD=<gmail-app-password>
+SPRING_MAIL_HOST=smtp.gmail.com
+SPRING_MAIL_PORT=587
 ```
 
-6. **Instance:** Free tier is OK for demo; use at least 512 MB RAM
-7. Click **Deploy** and wait until status is **Healthy**
-8. Copy your public URL, e.g. `https://bayport-api-xxx.koyeb.app`
-9. Test in browser: `https://YOUR-APP.koyeb.app/api/health`  
-   You should see JSON with `"status":"UP"`
+6. Deploy → test `/api/health`
+
+> **Note:** Free Render services sleep after ~15 min idle. First request may take 30–60 seconds to wake up.
 
 ---
 
 ## STEP 3 — Netlify (website)
 
-1. Go to [netlify.com](https://www.netlify.com) → sign in
-2. **Add new site → Import an existing project → GitHub**
-3. Select **`1una229/bayport-vet-clinic_1`**
-4. Build settings (should auto-read `netlify.toml`):
+1. Go to [netlify.com](https://netlify.com) → **Add new site** → **Import from Git**
+2. GitHub → **`1una229/bayport-vet-clinic_1`**, branch **`main`**
+3. Netlify auto-reads `netlify.toml` — click **Deploy**
+4. **Site configuration → Environment variables** → add:
 
-| Setting | Value |
-|---------|--------|
-| **Branch** | `main` |
-| **Base directory** | *(leave empty — netlify.toml sets it)* |
-| **Build command** | *(from netlify.toml)* |
-| **Publish directory** | *(from netlify.toml)* |
+```
+BAYPORT_API_BASE=https://YOUR-APP.onrender.com/api
+```
 
-5. **Site configuration → Environment variables** → add:
+*(Replace with your real Render URL from Step 2)*
 
-| Key | Value |
-|-----|--------|
-| `BAYPORT_API_BASE` | `https://YOUR-APP.koyeb.app/api` |
-
-*(Use your real Koyeb URL from Step 2, ending in `/api`)*
-
-6. **Deploy site**
-7. Copy your Netlify URL, e.g. `https://bayport-vet-clinic.netlify.app`
+5. **Trigger deploy** (Deploys → Trigger deploy) so the env var is baked in
+6. Copy your site URL, e.g. `https://bayport-vet.netlify.app`
 
 ---
 
-## STEP 4 — Link CORS (Koyeb ↔ Netlify)
+## STEP 4 — Connect frontend ↔ backend (CORS)
 
-1. Go back to **Koyeb → your service → Environment variables**
-2. Update:
+1. **Render** → your service → **Environment**
+2. Add or update:
 
 ```
 SPRING_WEB_CORS_ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app
 ```
 
-3. **Redeploy** the Koyeb service (or save — Koyeb may restart automatically)
+3. Save → Render redeploys automatically
 
 ---
 
-## STEP 5 — First login & security
+## STEP 5 — Login & go-live
 
-1. Open your **Netlify URL** in Chrome/Edge
-2. Log in with default admin (change immediately after):
+1. Open your **Netlify URL**
+2. Log in: `admin` / `admin123`
+3. **Change all default passwords** (Settings → Users)
+4. Test: add pet, reminders, send email
 
-| Username | Password |
-|----------|----------|
-| `admin` | `admin123` |
+---
 
-3. Go to **Settings → Users** and change all default passwords
-4. Test:
-   - Add a pet (health profile + medical history sections)
-   - **Reminders** → email banner should show green if SMTP works
-   - **Manage Users → Send OTP** (needs SMTP)
+## Checklist
+
+- [ ] Render `/api/health` returns UP
+- [ ] Netlify site loads login page
+- [ ] No CORS errors in browser (F12 → Console)
+- [ ] Login works
+- [ ] Admin passwords changed
 
 ---
 
@@ -144,37 +114,22 @@ SPRING_WEB_CORS_ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app
 
 | Problem | Fix |
 |---------|-----|
-| Netlify build fails “Set BAYPORT_API_BASE” | Add `BAYPORT_API_BASE` env var on Netlify, redeploy |
-| Login fails / red backend banner | Check Koyeb logs; verify Supabase JDBC URL and password |
-| CORS error in browser console | `SPRING_WEB_CORS_ALLOWED_ORIGINS` must exactly match Netlify URL (https, no trailing slash) |
-| Email auth failed | Use Gmail **app password**, not normal password |
-| Pet photos disappear after redeploy | Koyeb disk is ephemeral — expected on free tier; use desktop for full file storage |
-| `/api/health` 404 | URL must be `.../api/health` not root `/` |
+| Render build fails | Check logs; ensure root dir is `bayport-vet-clinic/bayport-vet-clinic/bayport-backend` |
+| `/api/health` timeout | Free tier sleeping — wait 60s and retry |
+| Database connection error | Verify Supabase password; try Supabase **Connect → Session pooler** JDBC if direct host fails |
+| Netlify “Set BAYPORT_API_BASE” | Add env var on Netlify, redeploy |
+| CORS error on login | `SPRING_WEB_CORS_ALLOWED_ORIGINS` must match Netlify URL exactly (https, no trailing `/`) |
+| Red “backend” banner | Wrong `BAYPORT_API_BASE` or Render not running |
 
 ---
 
-## Quick checklist
+## Cost
 
-- [ ] Supabase project created, JDBC URL saved
-- [ ] Koyeb deployed, `/api/health` returns UP
-- [ ] Netlify deployed with `BAYPORT_API_BASE`
-- [ ] CORS updated with Netlify URL
-- [ ] Admin password changed
-- [ ] SMTP tested (OTP or reminder email)
+| Service | Tier |
+|---------|------|
+| Supabase | Free |
+| Render | Free (sleeps when idle) |
+| Netlify | Free |
+| Gmail SMTP | Free |
 
----
-
-## Optional: custom domain
-
-- **Netlify:** Domain settings → add `clinic.yourdomain.com`
-- **Koyeb:** Settings → custom domain for API
-- Update `SPRING_WEB_CORS_ALLOWED_ORIGINS` and `BAYPORT_API_BASE` to match
-
----
-
-## Need help?
-
-If a step fails, note:
-1. Which step (1–5)
-2. Screenshot or exact error message
-3. Koyeb deploy logs (last 20 lines)
+For a single clinic PC with no website, use **desktop app** instead (`npm run desktop`) — no hosting needed.

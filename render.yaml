@@ -1,0 +1,33 @@
+# Render Blueprint — Bayport API (free tier)
+# Dashboard: New → Blueprint → connect GitHub repo → paste this file path: render.yaml
+# Fill secret env vars in Render after deploy (Database password, JWT, SMTP, CORS).
+
+services:
+  - type: web
+    name: bayport-api
+    runtime: docker
+    plan: free
+    rootDir: bayport-vet-clinic/bayport-vet-clinic/bayport-backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: freecloud
+      - key: SPRING_DATASOURCE_URL
+        value: jdbc:postgresql://db.gmyoopqvqvpybloqsdix.supabase.co:5432/postgres?sslmode=require
+      - key: SPRING_DATASOURCE_USERNAME
+        value: postgres
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SPRING_MAIL_HOST
+        value: smtp.gmail.com
+      - key: SPRING_MAIL_PORT
+        value: "587"
+      - key: SPRING_MAIL_USERNAME
+        sync: false
+      - key: SPRING_MAIL_PASSWORD
+        sync: false
+      - key: SPRING_WEB_CORS_ALLOWED_ORIGINS
+        sync: false

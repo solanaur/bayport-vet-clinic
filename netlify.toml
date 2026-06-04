@@ -1,5 +1,5 @@
 # Monorepo: static UI is bayport-vet-clinic/bayport-vet-clinic/ (index.html, assets/, …)
-# Netlify site env → BAYPORT_API_BASE=https://YOUR-APP.koyeb.app/api
+# Netlify site env → BAYPORT_API_BASE=https://YOUR-APP.onrender.com/api
 
 [build]
   base = "bayport-vet-clinic/bayport-vet-clinic"
