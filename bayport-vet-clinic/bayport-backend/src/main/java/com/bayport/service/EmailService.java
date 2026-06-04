@@ -25,25 +25,29 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final String mailUsername;
+    private final String mailPassword;
     private String logoBase64 = null;
 
     @Autowired(required = false)
     public EmailService(
             JavaMailSender mailSender,
-            @Value("${spring.mail.username:}") String mailUsername) {
+            @Value("${spring.mail.username:}") String mailUsername,
+            @Value("${spring.mail.password:}") String mailPassword) {
         this.mailSender = mailSender;
         this.mailUsername = mailUsername == null ? "" : mailUsername.trim();
-        if (mailSender == null || this.mailUsername.isEmpty()) {
-            log.warn("Email (SMTP) is not fully configured. Set spring.mail.username and spring.mail.password "
-                    + "to enable MFA codes and automatic vaccine reminders.");
+        this.mailPassword = mailPassword == null ? "" : mailPassword.trim();
+        if (!isConfigured()) {
+            log.warn("Email (SMTP) is not fully configured. Set SPRING_MAIL_USERNAME and SPRING_MAIL_PASSWORD "
+                    + "(Gmail app password) on Render, then redeploy.");
         } else {
             loadLogo();
+            log.info("Email (SMTP) configured for sender: {}", mailUsername);
         }
     }
 
-    /** True when SMTP username is set and JavaMailSender is available. */
+    /** True when JavaMailSender, Gmail user, and app password are all set. */
     public boolean isConfigured() {
-        return mailSender != null && !mailUsername.isEmpty();
+        return mailSender != null && !mailUsername.isEmpty() && !mailPassword.isEmpty();
     }
 
     /**

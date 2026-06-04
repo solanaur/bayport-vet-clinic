@@ -96,8 +96,24 @@ window.resolveApiBase = function resolveApiBase() {
   return "";
 };
 window.API_BASE = window.resolveApiBase();
-const API_TIMEOUT = 12000;
+const API_TIMEOUT_LOCAL = 12000;
+const API_TIMEOUT_CLOUD = 90000;
 const API_DISABLED_ERR = "Backend integration is required. Please keep USE_API=true so the server endpoints remain reachable.";
+
+window.isCloudApiHost = function isCloudApiHost(base) {
+  const b = String(base || window.resolveApiBase() || "").toLowerCase();
+  return (
+    b.includes("onrender.com") ||
+    b.includes("netlify.app") ||
+    b.includes("koyeb.app") ||
+    b.includes("railway.app") ||
+    b.includes("vercel.app")
+  );
+};
+
+window.getApiTimeout = function getApiTimeout() {
+  return window.isCloudApiHost() ? API_TIMEOUT_CLOUD : API_TIMEOUT_LOCAL;
+};
 
 window.formatPrice = function formatPrice(value) {
   const num = Number(value ?? 0);
@@ -130,7 +146,7 @@ function buildApiUrl(path) {
 
 window.ApiHttp = async function apiHttp(
   path,
-  { method = "GET", headers = {}, body, timeoutMs = API_TIMEOUT, token } = {},
+  { method = "GET", headers = {}, body, timeoutMs = window.getApiTimeout(), token } = {},
 ) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -775,4 +791,34 @@ window.fileToDataURL = function fileToDataURL(file) {
     reader.readAsDataURL(file);
   });
 };
+
+/** Wake Render free tier before user clicks (reduces first-action delay). */
+(function setupBackendWarmup() {
+  function warmBackend() {
+    if (!window.isCloudApiHost || !window.isCloudApiHost()) return;
+    try {
+      const url = window.buildApiUrl("/health");
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), API_TIMEOUT_CLOUD);
+      fetch(url, { method: "GET", cache: "no-store", signal: ctrl.signal })
+        .then((res) => {
+          if (res.ok) window.__bayportBackendReady = true;
+        })
+        .catch(() => {})
+        .finally(() => clearTimeout(t));
+    } catch (_) {}
+  }
+
+  window.warmBackend = warmBackend;
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", warmBackend);
+  } else {
+    warmBackend();
+  }
+
+  setInterval(() => {
+    if (document.visibilityState === "visible") warmBackend();
+  }, 10 * 60 * 1000);
+})();
 

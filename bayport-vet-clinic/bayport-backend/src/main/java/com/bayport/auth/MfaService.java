@@ -49,7 +49,7 @@ public class MfaService {
                     "Your verification code is: " + code + "\n\nThis code will expire in 5 minutes."
                 );
             } catch (Exception e) {
-                throw new RuntimeException("Failed to send MFA code: " + e.getMessage(), e);
+                notificationService.notifyAdminsLoginOtp(user.getUsername(), code);
             }
         } else {
             notificationService.notifyAdminsLoginOtp(user.getUsername(), code);

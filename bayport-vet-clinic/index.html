@@ -109,11 +109,34 @@
     </div>
   </main>
 
+  <div id="warmupBanner" class="hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-[#0057b8] text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+    Waking up server… first visit may take up to a minute on free hosting.
+  </div>
+
   <script src="assets/deploy-env.js"></script>
 <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
   <script>
+    (function loginWarmupBanner() {
+      const banner = document.getElementById("warmupBanner");
+      if (!banner || !window.isCloudApiHost || !window.isCloudApiHost()) return;
+      banner.classList.remove("hidden");
+      const hide = () => banner.classList.add("hidden");
+      if (window.__bayportBackendReady) hide();
+      const poll = setInterval(() => {
+        if (window.__bayportBackendReady) {
+          clearInterval(poll);
+          hide();
+        }
+      }, 500);
+      setTimeout(() => {
+        clearInterval(poll);
+        hide();
+      }, 95000);
+      if (typeof window.warmBackend === "function") window.warmBackend();
+    })();
+
     // UI wiring for role selection and login
     const roleBtns = document.querySelectorAll('.role-btn');
     const selectedRoleInput = document.getElementById('selectedRole');

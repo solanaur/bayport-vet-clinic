@@ -85,6 +85,17 @@ SPRING_MAIL_PORT=587
 
 > **Note:** Free Render services sleep after ~15 min idle. First request may take 30–60 seconds to wake up.
 
+### Email (required for OTP & reminders)
+
+In Render **Environment**, you **must** set:
+
+| Key | Value |
+|-----|--------|
+| `SPRING_MAIL_USERNAME` | `bayportveterinaryclinic@gmail.com` |
+| `SPRING_MAIL_PASSWORD` | **Gmail App Password** (16 chars, from [Google App Passwords](https://myaccount.google.com/apppasswords)) — not your normal Gmail login password |
+
+After saving, redeploy. Check: `https://bayport-api.onrender.com/api/health` → `"mailConfigured":true`.
+
 ---
 
 ## STEP 3 — Netlify (website)
@@ -148,6 +159,8 @@ SPRING_WEB_CORS_ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app
 | Netlify “Set BAYPORT_API_BASE” | Add env var on Netlify, redeploy |
 | CORS error on login | `SPRING_WEB_CORS_ALLOWED_ORIGINS` must match Netlify URL exactly (https, no trailing `/`) |
 | Red “backend” banner | Wrong `BAYPORT_API_BASE` or Render not running |
+| Email not sending | Set `SPRING_MAIL_PASSWORD` to Gmail **app password** on Render; health must show `mailConfigured: true` |
+| Slow first click | Normal on Render free tier (~60s wake); open login page first to warm server |
 
 ---
 

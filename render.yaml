@@ -27,7 +27,7 @@ services:
       - key: SPRING_MAIL_PORT
         value: "587"
       - key: SPRING_MAIL_USERNAME
-        sync: false
+        value: bayportveterinaryclinic@gmail.com
       - key: SPRING_MAIL_PASSWORD
         sync: false
       - key: SPRING_WEB_CORS_ALLOWED_ORIGINS
