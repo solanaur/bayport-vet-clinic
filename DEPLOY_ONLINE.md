@@ -8,9 +8,9 @@
 
 ## STEP 1 — Supabase: get the **Session pooler** connection (Render needs this)
 
-> **Do not use** the direct `db.gmyoopqvqvpybloqsdix.supabase.co` host on Render — it is IPv6-only and fails there.
+> **Do not use** the direct `db.gmyoopqvqvpybloqadix.supabase.co` host on Render — it is IPv6-only and fails there.
 
-1. Open [supabase.com/dashboard/project/gmyoopqvqvpybloqsdix](https://supabase.com/dashboard/project/gmyoopqvqvpybloqsdix)
+1. Open [supabase.com/dashboard/project/gmyoopqvqvpybloqadix](https://supabase.com/dashboard/project/gmyoopqvqvpybloqadix)
 2. Click the green **Connect** button (top of project home)
 3. Open **Connection string** (or **ORMs** tab)
 4. Select **Session pooler** (port **5432**)
@@ -19,7 +19,7 @@
 | From Supabase | Render env var | Example shape |
 |---------------|----------------|---------------|
 | Host | part of `SPRING_DATASOURCE_URL` | `aws-1-ap-northeast-2.pooler.supabase.com` |
-| User | `SPRING_DATASOURCE_USERNAME` | `postgres.gmyoopqvqvpybloqsdix` |
+| User | `SPRING_DATASOURCE_USERNAME` | `postgres.gmyoopqvqvpybloqadix` |
 | Password | `SPRING_DATASOURCE_PASSWORD` | your DB password |
 
 **Build the JDBC URL** (replace `HOST` with what Supabase shows):
@@ -36,8 +36,8 @@ jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode
 
 | Item | Your value |
 |------|------------|
-| Project ID | `gmyoopqvqvpybloqsdix` |
-| Pooler user | `postgres.gmyoopqvqvpybloqsdix` |
+| Project ID | `gmyoopqvqvpybloqadix` |
+| Pooler user | `postgres.gmyoopqvqvpybloqadix` |
 | Password | *(set in Render only, never in Git)* |
 
 ---
@@ -52,7 +52,7 @@ jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode
 4. Render reads `render.yaml` at repo root
 5. When prompted, enter values (copy pooler URL + user from **Step 1**):
    - `SPRING_DATASOURCE_URL` → Session pooler JDBC URL from Supabase Connect
-   - `SPRING_DATASOURCE_USERNAME` → `postgres.gmyoopqvqvpybloqsdix`
+   - `SPRING_DATASOURCE_USERNAME` → `postgres.gmyoopqvqvpybloqadix`
    - `SPRING_DATASOURCE_PASSWORD` → your Supabase DB password
    - `SPRING_MAIL_USERNAME` → `bayportveterinaryclinic@gmail.com`
    - `SPRING_MAIL_PASSWORD` → Gmail app password
@@ -72,7 +72,7 @@ jdbc:postgresql://aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode
 ```
 SPRING_PROFILES_ACTIVE=freecloud
 SPRING_DATASOURCE_URL=jdbc:postgresql://<COPY-HOST-FROM-SUPABASE-CONNECT>:5432/postgres?sslmode=require
-SPRING_DATASOURCE_USERNAME=postgres.gmyoopqvqvpybloqsdix
+SPRING_DATASOURCE_USERNAME=postgres.gmyoopqvqvpybloqadix
 SPRING_DATASOURCE_PASSWORD=<your-supabase-password>
 JWT_SECRET=<long-random-string>
 SPRING_MAIL_USERNAME=bayportveterinaryclinic@gmail.com
@@ -143,7 +143,7 @@ SPRING_WEB_CORS_ALLOWED_ORIGINS=https://YOUR-SITE.netlify.app
 |---------|-----|
 | Render build fails | Check logs; ensure root dir is `bayport-vet-clinic/bayport-backend` |
 | `/api/health` timeout | Free tier sleeping — wait 60s and retry |
-| `tenant/user postgres.gmyoopqvqvpybloqsdix not found` | Wrong **pooler host** — copy Session pooler host from Supabase **Connect** (often `aws-1-…` not `aws-0-…`) |
+| `tenant/user postgres.... not found` | Wrong **project ref** in username (`adix` vs `sdix`) or wrong pooler host — copy User from Supabase **Connect** exactly |
 | Render “Exited with status 1” | Open **Logs** → database error; use Session pooler (not `db.*` direct host); set all three DB env vars |
 | Netlify “Set BAYPORT_API_BASE” | Add env var on Netlify, redeploy |
 | CORS error on login | `SPRING_WEB_CORS_ALLOWED_ORIGINS` must match Netlify URL exactly (https, no trailing `/`) |
