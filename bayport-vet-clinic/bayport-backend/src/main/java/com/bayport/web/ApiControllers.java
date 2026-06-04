@@ -673,6 +673,7 @@ public class ApiControllers {
         body.put("status", "UP");
         body.put("timestamp", java.time.Instant.now().toString());
         body.put("mailConfigured", emailService.isConfigured());
+        body.put("mailPort", System.getenv().getOrDefault("SPRING_MAIL_PORT", "465"));
         body.put("schedulingEnabled", true);
         return ResponseEntity.ok(body);
     }

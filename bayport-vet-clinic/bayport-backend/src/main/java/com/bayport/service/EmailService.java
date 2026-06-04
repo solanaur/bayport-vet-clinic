@@ -208,7 +208,11 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
             
             helper.setTo(to);
-            helper.setFrom(mailUsername, "Bayport Veterinary Clinic");
+            try {
+                helper.setFrom(mailUsername, "Bayport Veterinary Clinic");
+            } catch (Exception fromEx) {
+                helper.setFrom(mailUsername);
+            }
             helper.setSubject(subject);
             
             // Convert message to HTML and add footer

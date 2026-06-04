@@ -143,73 +143,34 @@
       }
       
       try {
-        // Fetch all data with proper error handling
-        let pets = [];
-        let appts = [];
-        let prescriptions = [];
+        const [petsResult, apptsResult, prescriptionsResult, usersResult] = await Promise.allSettled([
+          Api.pets.list(),
+          Api.appts.list(),
+          Api.rx.list(),
+          Api.users.list(),
+        ]);
+
+        let pets = petsResult.status === "fulfilled" && Array.isArray(petsResult.value) ? petsResult.value : [];
+        let appts = apptsResult.status === "fulfilled" && Array.isArray(apptsResult.value) ? apptsResult.value : [];
+        const allPrescriptions =
+          prescriptionsResult.status === "fulfilled" && Array.isArray(prescriptionsResult.value)
+            ? prescriptionsResult.value
+            : [];
+        let prescriptions = allPrescriptions.filter((rx) => {
+          if (!rx) return false;
+          const archived = rx.archived;
+          const isArchived = archived === true || archived === "true" || archived === 1 || archived === "1";
+          return !isArchived;
+        });
+
         let users = [];
-        
-        try {
-          const petsResult = await Api.pets.list();
-          pets = Array.isArray(petsResult) ? petsResult : [];
-          console.log('Loaded pets:', pets.length);
-        } catch (err) {
-          console.error('Error loading pets:', err);
-          pets = [];
-        }
-        
-        try {
-          const apptsResult = await Api.appts.list();
-          appts = Array.isArray(apptsResult) ? apptsResult : [];
-          console.log('Loaded appointments:', appts.length);
-        } catch (err) {
-          console.error('Error loading appointments:', err);
-          appts = [];
-        }
-        
-        try {
-          const prescriptionsResult = await Api.rx.list();
-          const allPrescriptions = Array.isArray(prescriptionsResult) ? prescriptionsResult : [];
-          
-          // Filter to show only active (non-archived) prescriptions
-          // Handle cases where archived might be undefined, null, false, or true
-          prescriptions = allPrescriptions.filter(rx => {
-            if (!rx) return false;
-            // Check for archived field - it might be a boolean, string, or undefined
-            const archived = rx.archived;
-            // If archived is explicitly true (boolean) or "true" (string) or 1, exclude it
-            const isArchived = archived === true || archived === 'true' || archived === 1 || archived === '1';
-            // Include if not archived (undefined, null, false, 'false', 0, '0' all count as active)
-            return !isArchived;
-          });
-          console.log('Dashboard: Loaded active prescriptions:', prescriptions.length, 'out of', allPrescriptions.length, 'total');
-        } catch (err) {
-          console.error('Error loading prescriptions:', err);
-          prescriptions = [];
-        }
-        
-        try {
-          const usersResult = await Api.users.list();
-          // Handle different response formats
-          if (Array.isArray(usersResult)) {
-            users = usersResult;
-          } else if (usersResult && typeof usersResult === 'object') {
-            if (Array.isArray(usersResult.content)) {
-              users = usersResult.content;
-            } else if (Array.isArray(usersResult.data)) {
-              users = usersResult.data;
-            } else if (Array.isArray(usersResult.users)) {
-              users = usersResult.users;
-            } else {
-              users = [];
-            }
-          } else {
-            users = [];
+        if (usersResult.status === "fulfilled") {
+          const u = usersResult.value;
+          if (Array.isArray(u)) users = u;
+          else if (u && typeof u === "object") {
+            users = u.content || u.data || u.users || [];
+            if (!Array.isArray(users)) users = [];
           }
-          console.log('Loaded users:', users.length);
-        } catch (err) {
-          console.error('Error loading users:', err);
-          users = [];
         }
         
         // Update UI with actual counts
@@ -239,8 +200,8 @@
       loadSystemStats();
     }, 500);
     
-    // Auto-refresh stats every 30 seconds to keep them updated
-    setInterval(loadSystemStats, 30000);
+    const statsRefreshMs = window.isCloudApiHost && window.isCloudApiHost() ? 300000 : 30000;
+    setInterval(loadSystemStats, statsRefreshMs);
     
     // Also refresh when window regains focus (user comes back to tab)
     document.addEventListener('visibilitychange', () => {

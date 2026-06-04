@@ -115,6 +115,21 @@ window.getApiTimeout = function getApiTimeout() {
   return window.isCloudApiHost() ? API_TIMEOUT_CLOUD : API_TIMEOUT_LOCAL;
 };
 
+(function addCloudPreconnect() {
+  try {
+    const base = window.resolveApiBase() || "";
+    if (!window.isCloudApiHost(base)) return;
+    const origin = new URL(base).origin;
+    if (!document.querySelector("link[data-bayport-preconnect]")) {
+      const link = document.createElement("link");
+      link.rel = "preconnect";
+      link.href = origin;
+      link.setAttribute("data-bayport-preconnect", "1");
+      document.head.appendChild(link);
+    }
+  } catch (_) {}
+})();
+
 window.formatPrice = function formatPrice(value) {
   const num = Number(value ?? 0);
   return num.toLocaleString("en-PH", {
@@ -257,6 +272,13 @@ window.Api = {
   },
 
   notifications: {
+    testEmail: (to, subject, message) =>
+      ApiHttp("/notifications/test-email", {
+        method: "POST",
+        body: { to, subject, message },
+        token: Api.token(),
+        timeoutMs: 120000,
+      }),
     list: () => ApiHttp("/notifications", { token: Api.token() }),
     getAll: () => ApiHttp("/notifications/all", { token: Api.token() }),
     markRead: (id) => ApiHttp(`/notifications/${id}/read`, { 
@@ -368,6 +390,7 @@ window.Api = {
         method: "POST",
         body: payload,
         token: Api.token(),
+        timeoutMs: 120000,
       });
     },
     dispatchDue() {
@@ -819,6 +842,6 @@ window.fileToDataURL = function fileToDataURL(file) {
 
   setInterval(() => {
     if (document.visibilityState === "visible") warmBackend();
-  }, 10 * 60 * 1000);
+  }, 5 * 60 * 1000);
 })();
 

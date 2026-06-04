@@ -543,14 +543,7 @@
       closeModal();
       refreshReminders();
     }catch(err){
-      // Check if it's a timeout error - emails may still be sent successfully
-      if(err.message && err.message.includes('timeout')){
-        alert('Email sent successfully!');
-        closeModal();
-        refreshReminders();
-      } else {
-        alert('Unable to send email: '+err.message);
-      }
+      alert('Unable to send email: ' + (err.message || 'Unknown error'));
     }
   }
 

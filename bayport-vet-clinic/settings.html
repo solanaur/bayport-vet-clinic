@@ -83,6 +83,12 @@
           </ul>
           <p class="text-xs text-amber-900">Create an app password at Google Account → Security → App passwords. Restart the desktop app or backend after changing these.</p>
           <p class="text-xs">If email is not configured, MFA codes appear in <strong>Admin notifications</strong> (bell icon) instead.</p>
+          <div id="emailTestPanel" class="hidden mt-3 space-y-2 border-t border-amber-200 pt-3">
+            <p class="text-xs font-semibold">Test email (admin)</p>
+            <input id="testEmailTo" type="email" class="w-full border rounded-md px-3 py-2 text-sm" placeholder="your-email@example.com" />
+            <button type="button" id="testEmailBtn" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 text-sm hover:brightness-95">Send test email</button>
+            <p id="testEmailResult" class="text-xs"></p>
+          </div>
         </div>
 
         <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Cloud API</h2>
@@ -286,6 +292,36 @@ ${logo}
         toast((err.message || 'Unable to print test page').slice(0, 160), true);
       }
     };
+
+    if (getRole() === 'admin') {
+      document.getElementById('emailTestPanel')?.classList.remove('hidden');
+      document.getElementById('testEmailBtn')?.addEventListener('click', async () => {
+        const to = document.getElementById('testEmailTo')?.value?.trim();
+        const resultEl = document.getElementById('testEmailResult');
+        if (!to) {
+          toast('Enter an email address to test.', true);
+          return;
+        }
+        const btn = document.getElementById('testEmailBtn');
+        btn.disabled = true;
+        if (resultEl) resultEl.textContent = 'Sending… (may take up to 2 minutes on cloud)';
+        try {
+          const res = await Api.notifications.testEmail(
+            to,
+            'Bayport test email',
+            'If you received this, SMTP is working from Render.'
+          );
+          const ok = res && (res.success === true || res.message?.includes('success'));
+          if (resultEl) resultEl.textContent = res?.message || 'Sent.';
+          toast(ok ? 'Test email sent — check inbox and spam.' : (res?.message || 'Send failed'), !ok);
+        } catch (err) {
+          if (resultEl) resultEl.textContent = err.message || 'Failed';
+          toast((err.message || 'Test email failed').slice(0, 200), true);
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    }
 
     loadSettings();
     loadPrinters();
