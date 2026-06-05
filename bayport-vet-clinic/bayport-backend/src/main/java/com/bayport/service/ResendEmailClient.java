@@ -46,7 +46,7 @@ public class ResendEmailClient {
         return from;
     }
 
-    public void sendHtmlEmail(String to, String subject, String html) {
+    public void sendHtmlEmail(String to, String subject, String html, String plainText) {
         if (!isEnabled()) {
             throw new IllegalStateException("RESEND_API_KEY is not set");
         }
@@ -63,6 +63,9 @@ public class ResendEmailClient {
         body.put("to", List.of(to.trim()));
         body.put("subject", subject == null ? "Bayport Veterinary Clinic" : subject);
         body.put("html", html == null ? "" : html);
+        if (plainText != null && !plainText.isBlank()) {
+            body.put("text", plainText.trim());
+        }
 
         try {
             ResponseEntity<String> response = restTemplate.exchange(

@@ -7,17 +7,9 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StreamUtils;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Base64;
 
 @Slf4j
 @Service
@@ -28,7 +20,13 @@ public class EmailService {
     private final String mailUsername;
     private final String mailPassword;
     private final boolean cloudPreferResend;
-    private String logoBase64 = null;
+    private final String logoUrl;
+
+    private static final String CLINIC_NAME = "BAYPORT VETERINARY CLINIC";
+    private static final String CLINIC_NAME_TITLE = "Bayport Veterinary Clinic";
+    private static final String CLINIC_ADDRESS = "322 Quirino Avenue, Brgy. Don Galo, Parañaque City";
+    private static final String CLINIC_PHONE = "0968 633 2940";
+    private static final String BRAND_PRIMARY = "#0057b8";
 
     @Autowired(required = false)
     public EmailService(
@@ -36,13 +34,14 @@ public class EmailService {
             ResendEmailClient resend,
             @Value("${spring.mail.username:}") String mailUsername,
             @Value("${spring.mail.password:}") String mailPassword,
-            @Value("${bayport.email.cloud-prefer-resend:true}") boolean cloudPreferResend) {
+            @Value("${bayport.email.cloud-prefer-resend:true}") boolean cloudPreferResend,
+            @Value("${bayport.email.logo-url:}") String logoUrl) {
         this.mailSender = mailSender;
         this.resend = resend;
         this.mailUsername = mailUsername == null ? "" : mailUsername.trim();
         this.mailPassword = mailPassword == null ? "" : mailPassword.trim();
         this.cloudPreferResend = cloudPreferResend;
-        loadLogo();
+        this.logoUrl = logoUrl == null ? "" : logoUrl.trim();
         if (usesResend()) {
             log.info("Email via Resend API (from={})", resend.getFrom());
         } else if (isSmtpConfigured()) {
@@ -80,142 +79,95 @@ public class EmailService {
     }
 
     /**
-     * Loads the logo from assets/logo.png and converts it to base64 for email embedding.
-     */
-    private void loadLogo() {
-        try {
-            byte[] logoBytes = null;
-            
-            // First, try classpath (most reliable for packaged JAR)
-            try {
-                Resource resource = new ClassPathResource("assets/logo.png");
-                if (resource.exists() && resource.isReadable()) {
-                    logoBytes = StreamUtils.copyToByteArray(resource.getInputStream());
-                    log.info("Logo loaded from classpath: assets/logo.png ({} bytes)", logoBytes.length);
-                }
-            } catch (Exception e) {
-                log.debug("Logo not found in classpath: {}", e.getMessage());
-            }
-
-            // If not found in classpath, try file system paths
-            if (logoBytes == null) {
-                Path[] possiblePaths = {
-                    Paths.get("src/main/resources/assets/logo.png"),
-                    Paths.get("assets/logo.png"),
-                    Paths.get("../assets/logo.png"),
-                    Paths.get("../../assets/logo.png"),
-                    Paths.get("bayport-vet-clinic/assets/logo.png")
-                };
-
-                for (Path path : possiblePaths) {
-                    try {
-                        if (Files.exists(path) && Files.isReadable(path)) {
-                            logoBytes = Files.readAllBytes(path);
-                            log.info("Logo loaded from file system: {} ({} bytes)", path.toAbsolutePath(), logoBytes.length);
-                            break;
-                        }
-                    } catch (Exception e) {
-                        log.debug("Could not read logo from {}: {}", path, e.getMessage());
-                    }
-                }
-            }
-
-            if (logoBytes != null && logoBytes.length > 0) {
-                logoBase64 = Base64.getEncoder().encodeToString(logoBytes);
-                log.info("Logo successfully encoded to base64. Base64 length: {} characters", logoBase64.length());
-            } else {
-                log.error("Logo file not found in any location. Emails will be sent without logo.");
-                log.error("Please ensure logo.png exists in: src/main/resources/assets/logo.png");
-            }
-        } catch (Exception e) {
-            log.error("Failed to load logo: {}", e.getMessage(), e);
-        }
-    }
-
-    private static final String BRAND_PRIMARY = "#0057b8";
-    private static final String BRAND_ACCENT = "#158a8a";
-
-    /**
-     * Branded email header with Bayport logo and accent bar.
-     */
-    private String buildEmailHeader(String subject) {
-        String safeSubject = subject == null ? "Bayport Veterinary Clinic" : subject
-                .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-        StringBuilder header = new StringBuilder();
-        header.append("<div style=\"background: linear-gradient(135deg, ").append(BRAND_PRIMARY).append(" 0%, ")
-              .append(BRAND_ACCENT).append(" 100%); padding: 28px 24px; text-align: center; border-radius: 12px 12px 0 0;\">");
-        if (logoBase64 != null && !logoBase64.isEmpty()) {
-            header.append("<img src=\"data:image/png;base64,").append(logoBase64)
-                  .append("\" alt=\"Bayport Veterinary Clinic\" style=\"max-width: 120px; height: auto; margin-bottom: 12px; background: #ffffff; border-radius: 10px; padding: 8px;\">");
-        } else {
-            header.append("<div style=\"display:inline-block;background:#ffffff;color:").append(BRAND_PRIMARY)
-                  .append(";font-size:22px;font-weight:bold;padding:12px 20px;border-radius:10px;margin-bottom:12px;\">BAYPORT</div>");
-        }
-        header.append("<p style=\"margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 1px; color: rgba(255,255,255,0.95); text-transform: uppercase;\">")
-              .append("Veterinary Clinic")
-              .append("</p>");
-        header.append("</div>");
-        header.append("<div style=\"background-color: #f0f7ff; border-left: 4px solid ").append(BRAND_PRIMARY)
-              .append("; padding: 14px 20px; margin: 0;\">");
-        header.append("<p style=\"margin: 0; font-size: 16px; font-weight: 600; color: ").append(BRAND_PRIMARY)
-              .append(";\">").append(safeSubject).append("</p>");
-        header.append("</div>");
-        return header.toString();
-    }
-
-    /**
-     * Builds the HTML email footer with clinic name, address, and contact.
-     */
-    private String buildEmailFooter() {
-        StringBuilder footer = new StringBuilder();
-        footer.append("<div style=\"margin-top: 0; padding: 24px 20px; border-top: 3px solid ").append(BRAND_PRIMARY)
-              .append("; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f6f9f9;\">");
-        footer.append("<p style=\"margin: 0 0 8px 0; font-size: 17px; font-weight: bold; color: ").append(BRAND_PRIMARY)
-              .append("; letter-spacing: 0.5px;\">")
-              .append("Bayport Veterinary Clinic")
-              .append("</p>");
-        footer.append("<p style=\"margin: 4px 0; font-size: 13px; color: #555; line-height: 1.6;\">")
-              .append("322 Quirino Avenue, Brgy. Don Galo, Parañaque City")
-              .append("</p>");
-        footer.append("<p style=\"margin: 4px 0 0 0; font-size: 13px; color: ").append(BRAND_ACCENT).append("; font-weight: 600;\">")
-              .append("0968 633 2940")
-              .append("</p>");
-        footer.append("<p style=\"margin: 16px 0 0 0; font-size: 11px; color: #999;\">")
-              .append("This is an automated message from Bayport VCMS. Please do not reply directly to this email.")
-              .append("</p>");
-        footer.append("</div>");
-        return footer.toString();
-    }
-
-    /**
-     * Converts plain text message to branded HTML email.
+     * Branded layout: compact header (logo + clinic name), message body, signature footer.
+     * Logo is loaded from a URL (not base64) so Gmail does not clip the email.
      */
     private String formatMessageAsHtml(String plainTextMessage, String subject) {
-        if (plainTextMessage == null) {
-            plainTextMessage = "";
+        String text = plainTextMessage == null ? "" : plainTextMessage.trim();
+        String bodyHtml = formatBodyParagraphsHtml(text);
+
+        return "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
+                + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>"
+                + "<body style=\"margin:0;padding:12px;font-family:Arial,Helvetica,sans-serif;"
+                + "font-size:16px;line-height:1.65;color:#1a1a1a;background:#f4f6f8;\">"
+                + "<div style=\"max-width:600px;margin:0 auto;background:#ffffff;"
+                + "border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.08);\">"
+                + buildEmailHeaderHtml()
+                + "<div style=\"padding:22px 22px 10px;\">" + bodyHtml + "</div>"
+                + buildEmailSignatureFooterHtml()
+                + "</div></body></html>";
+    }
+
+    /** MariBank-style top bar: logo left, clinic name beside it on brand color. */
+    private String buildEmailHeaderHtml() {
+        return "<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background:"
+                + BRAND_PRIMARY + ";\"><tr><td style=\"padding:16px 20px;\">"
+                + "<table role=\"presentation\" cellspacing=\"0\" cellpadding=\"0\"><tr>"
+                + "<td style=\"vertical-align:middle;padding-right:14px;\">"
+                + buildLogoImgTag(52, CLINIC_NAME_TITLE)
+                + "</td><td style=\"vertical-align:middle;\">"
+                + "<span style=\"color:#ffffff;font-family:Arial,Helvetica,sans-serif;"
+                + "font-size:18px;font-weight:bold;line-height:1.25;\">Bayport</span><br>"
+                + "<span style=\"color:rgba(255,255,255,0.92);font-size:13px;font-weight:600;"
+                + "letter-spacing:0.3px;\">Veterinary Clinic</span>"
+                + "</td></tr></table></td></tr></table>";
+    }
+
+    private String buildLogoImgTag(int sizePx, String alt) {
+        if (logoUrl.isEmpty()) {
+            return "<div style=\"width:" + sizePx + "px;height:" + sizePx + "px;background:#ffffff;"
+                    + "border-radius:50%;text-align:center;line-height:" + sizePx + "px;"
+                    + "color:" + BRAND_PRIMARY + ";font-weight:bold;font-size:20px;"
+                    + "font-family:Arial,Helvetica,sans-serif;\">B</div>";
         }
+        return "<img src=\"" + escapeHtml(logoUrl) + "\" alt=\"" + escapeHtml(alt) + "\" width=\"" + sizePx
+                + "\" height=\"" + sizePx + "\" style=\"display:block;width:" + sizePx + "px;height:" + sizePx
+                + "px;border-radius:50%;background:#ffffff;border:2px solid rgba(255,255,255,0.95);"
+                + "object-fit:contain;\">";
+    }
 
-        String htmlBody = plainTextMessage
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace("\n\n", "</p><p style=\"margin: 12px 0; color: #333;\">")
-            .replace("\n", "<br/>");
-
-        if (!htmlBody.startsWith("<p")) {
-            htmlBody = "<p style=\"margin: 12px 0; color: #333; font-size: 15px; line-height: 1.7;\">" + htmlBody + "</p>";
+    private String formatBodyParagraphsHtml(String text) {
+        if (text.isEmpty()) {
+            return "<p style=\"margin:0 0 14px;\">&nbsp;</p>";
         }
+        String[] blocks = text.split("\\n\\n+");
+        StringBuilder sb = new StringBuilder();
+        String paraStyle = "margin:0 0 16px;font-size:16px;line-height:1.65;color:#1a1a1a;";
+        for (String block : blocks) {
+            String line = escapeHtml(block).replace("\n", "<br/>");
+            if (!line.isBlank()) {
+                sb.append("<p style=\"").append(paraStyle).append("\">").append(line).append("</p>");
+            }
+        }
+        return sb.toString();
+    }
 
-        StringBuilder html = new StringBuilder();
-        html.append("<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"></head>");
-        html.append("<body style=\"margin: 0; padding: 0; background-color: #eef4fb; font-family: 'Segoe UI', Arial, sans-serif;\">");
-        html.append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"background-color: #eef4fb; padding: 24px 12px;\"><tr><td align=\"center\">");
-        html.append("<table role=\"presentation\" width=\"100%\" cellspacing=\"0\" cellpadding=\"0\" style=\"max-width: 600px; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,87,184,0.12);\">");
-        html.append("<tr><td>").append(buildEmailHeader(subject)).append("</td></tr>");
-        html.append("<tr><td style=\"padding: 24px 28px;\">").append(htmlBody).append("</td></tr>");
-        html.append("<tr><td>").append(buildEmailFooter()).append("</td></tr>");
-        html.append("</table></td></tr></table></body></html>");
-        return html.toString();
+    private static String escapeHtml(String raw) {
+        return raw.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    /** Bottom signature: small logo + clinic name + contact (like bank notification footers). */
+    private String buildEmailSignatureFooterHtml() {
+        return "<div style=\"border-top:1px solid #e0e0e0;padding:20px 22px 24px;text-align:center;\">"
+                + "<p style=\"margin:0 0 18px;font-size:11px;color:#888888;line-height:1.4;\">"
+                + "This is a system-generated message. Please do not reply to this email."
+                + "</p>"
+                + "<div style=\"margin:0 auto 12px;width:44px;\">"
+                + buildLogoImgTag(44, CLINIC_NAME_TITLE)
+                + "</div>"
+                + "<p style=\"margin:0 0 6px;font-weight:bold;font-size:15px;color:" + BRAND_PRIMARY
+                + ";letter-spacing:0.3px;\">" + CLINIC_NAME_TITLE + "</p>"
+                + "<p style=\"margin:0;font-size:13px;color:#555555;line-height:1.5;\">" + CLINIC_ADDRESS + "</p>"
+                + "<p style=\"margin:10px 0 0;font-size:13px;color:#555555;\">" + CLINIC_PHONE + "</p>"
+                + "</div>";
+    }
+
+    private String formatMessageAsPlainText(String plainTextMessage) {
+        String text = plainTextMessage == null ? "" : plainTextMessage.trim();
+        return text + "\n\n"
+                + CLINIC_NAME + "\n"
+                + CLINIC_ADDRESS + "\n"
+                + CLINIC_PHONE;
     }
 
     /** Generic email sender - now sends HTML emails */
@@ -226,9 +178,10 @@ public class EmailService {
         }
 
         String htmlContent = formatMessageAsHtml(message, subject);
+        String plainContent = formatMessageAsPlainText(message);
 
         if (usesResend()) {
-            resend.sendHtmlEmail(to, subject, htmlContent);
+            resend.sendHtmlEmail(to, subject, htmlContent, plainContent);
             return;
         }
 
@@ -259,7 +212,7 @@ public class EmailService {
                 helper.setFrom(mailUsername);
             }
             helper.setSubject(subject);
-            helper.setText(htmlContent, true);
+            helper.setText(plainContent, htmlContent);
             
             mailSender.send(mimeMessage);
             log.info("Email sent successfully to: {}, Subject: {}", to, subject);
