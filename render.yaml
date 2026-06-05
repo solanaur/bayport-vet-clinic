@@ -32,4 +32,4 @@ services:
       - key: SPRING_MAIL_PASSWORD
         sync: false
       - key: SPRING_WEB_CORS_ALLOWED_ORIGINS
-        value: https://adorable-daifuku-3966e7.netlify.app
+        value: https://bayport-vet-clinic-com.netlify.app
