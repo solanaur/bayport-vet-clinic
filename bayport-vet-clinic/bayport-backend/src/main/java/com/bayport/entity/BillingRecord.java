@@ -28,6 +28,14 @@ public class BillingRecord {
     @JsonSerialize(using = MoneySerializer.class)
     private BigDecimal amount;
 
+    @Column(name = "subtotal_amount", precision = 12, scale = 2)
+    @JsonSerialize(using = MoneySerializer.class)
+    private BigDecimal subtotalAmount;
+
+    @Column(name = "discount_amount", precision = 12, scale = 2)
+    @JsonSerialize(using = MoneySerializer.class)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     private Status status = Status.PENDING;
 
@@ -58,6 +66,14 @@ public class BillingRecord {
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = MoneyUtils.normalize(amount); }
+
+    public BigDecimal getSubtotalAmount() { return subtotalAmount; }
+    public void setSubtotalAmount(BigDecimal subtotalAmount) { this.subtotalAmount = MoneyUtils.normalize(subtotalAmount); }
+
+    public BigDecimal getDiscountAmount() { return discountAmount; }
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount == null ? BigDecimal.ZERO : MoneyUtils.normalize(discountAmount);
+    }
 
     public Status getStatus() { return status; }
     public void setStatus(Status status) { this.status = status; }

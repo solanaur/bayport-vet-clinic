@@ -83,31 +83,40 @@
       const base = apiBase();
       if (!base) return;
       try {
-        const response = await fetch(`${base}/notifications`, { headers: authHeaders() });
+        const response = await fetch(`${base}/notifications/all`, { headers: authHeaders() });
         if (!response.ok) return;
         const notifications = await response.json();
-        const unreadCount = Array.isArray(notifications) ? notifications.filter((n) => !n.read).length : 0;
+        const listItems = Array.isArray(notifications) ? notifications.slice(0, 25) : [];
+        const unreadCount = listItems.filter((n) => !n.read).length;
         if (unreadCount > 0) {
           count.textContent = String(unreadCount);
           count.classList.remove("hidden");
         } else {
           count.classList.add("hidden");
         }
-        if (!Array.isArray(notifications) || notifications.length === 0) {
+        if (!listItems.length) {
           list.innerHTML = '<div class="text-center text-gray-500 py-4">No notifications</div>';
         } else {
-          list.innerHTML = notifications
+          list.innerHTML = listItems
             .map(
               (notif) => `
-            <div class="p-3 border-b border-gray-100 ${notif.read ? "bg-white" : "bg-blue-50"} hover:bg-gray-50 cursor-pointer" data-bp-notif-id="${notif.id}">
+            <div class="p-3 border-b border-gray-100 ${notif.read ? "bg-white opacity-80" : "bg-blue-50"} hover:bg-gray-50" data-bp-notif-id="${notif.id}">
               <div class="text-sm text-gray-800">${esc(notif.message)}</div>
-              <div class="text-xs text-gray-500 mt-1">${esc(new Date(notif.createdAt).toLocaleString())}</div>
+              <div class="flex items-center justify-between gap-2 mt-2">
+                <div class="text-xs text-gray-500">${esc(new Date(notif.createdAt).toLocaleString())}</div>
+                ${
+                  notif.read
+                    ? '<span class="text-[10px] uppercase tracking-wide text-gray-400">Read</span>'
+                    : `<button type="button" class="text-xs font-semibold hover:underline bp-mark-one-read" data-bp-mark-id="${notif.id}" data-accent="${root.querySelector('#bpNotifBtn')?.getAttribute('data-accent') || 'soft-teal'}">Mark read</button>`
+                }
+              </div>
             </div>`,
             )
             .join("");
-          list.querySelectorAll("[data-bp-notif-id]").forEach((row) => {
-            row.addEventListener("click", async () => {
-              const id = Number(row.getAttribute("data-bp-notif-id"));
+          list.querySelectorAll(".bp-mark-one-read").forEach((btn) => {
+            btn.addEventListener("click", async (e) => {
+              e.stopPropagation();
+              const id = Number(btn.getAttribute("data-bp-mark-id"));
               if (id) await markNotificationRead(id);
             });
           });

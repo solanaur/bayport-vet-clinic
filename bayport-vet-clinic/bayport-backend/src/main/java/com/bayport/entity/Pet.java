@@ -29,6 +29,10 @@ public class Pet {
     private String breed;
     private String gender;
     private Integer age;
+
+    @Column(name = "age_display", length = 64)
+    private String ageDisplay;
+
     private String microchip;
 
     private String color;
@@ -135,6 +139,9 @@ public class Pet {
 
     public Integer getAge() { return age; }
     public void setAge(Integer age) { this.age = age; }
+
+    public String getAgeDisplay() { return ageDisplay; }
+    public void setAgeDisplay(String ageDisplay) { this.ageDisplay = ageDisplay; }
 
     public String getMicrochip() { return microchip; }
     public void setMicrochip(String microchip) { this.microchip = microchip; }

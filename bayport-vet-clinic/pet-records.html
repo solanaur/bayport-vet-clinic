@@ -185,10 +185,67 @@
       return Math.floor((b - a) / 86400000);
     }
 
-    function parseAgeYears(age) {
-      if (age == null || age === '') return null;
-      const n = Number(String(age).replace(/[^\d.]/g, ''));
-      return Number.isFinite(n) ? n : null;
+    function parseAgeYears(p) {
+      if (p?.ageDisplay) {
+        const s = String(p.ageDisplay).toLowerCase();
+        const mo = s.match(/([\d.]+)\s*month/);
+        if (mo) return Number(mo[1]) / 12;
+        const wk = s.match(/([\d.]+)\s*week/);
+        if (wk) return Number(wk[1]) / 52;
+        const yr = s.match(/([\d.]+)\s*year/);
+        if (yr) return Number(yr[1]);
+      }
+      if (p?.age == null || p?.age === "") return null;
+      const n = Number(String(p.age).replace(/[^\d.]/g, ""));
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function parseAgeForForm(p) {
+      if (p?.ageDisplay) {
+        const s = String(p.ageDisplay).trim();
+        const mo = s.match(/^([\d.]+)\s*month/i);
+        if (mo) return { value: mo[1], unit: "months" };
+        const wk = s.match(/^([\d.]+)\s*week/i);
+        if (wk) return { value: wk[1], unit: "weeks" };
+        const yr = s.match(/^([\d.]+)\s*year/i);
+        if (yr) return { value: yr[1], unit: "years" };
+      }
+      if (p?.age != null && Number(p.age) > 0) return { value: String(p.age), unit: "years" };
+      return { value: "", unit: "months" };
+    }
+
+    function buildPetAgePayload() {
+      const raw = String(document.getElementById("f_ageValue")?.value || "").trim();
+      const unit = document.getElementById("f_ageUnit")?.value || "months";
+      if (!raw) return { age: null, ageDisplay: null };
+      const val = parseFloat(raw);
+      if (!Number.isFinite(val) || val <= 0) return { age: null, ageDisplay: null };
+      const unitSingular =
+        unit === "years" ? "year" : unit === "weeks" ? "week" : "month";
+      const unitPlural =
+        unit === "years" ? "years" : unit === "weeks" ? "weeks" : "months";
+      const label = val === 1 ? unitSingular : unitPlural;
+      const ageDisplay = `${val} ${label}`;
+      let age = null;
+      if (unit === "years") age = Math.round(val);
+      else if (unit === "months") age = val >= 12 ? Math.floor(val / 12) : 0;
+      else age = 0;
+      return { age, ageDisplay };
+    }
+
+    function ageFieldHtml(editing) {
+      const parsed = parseAgeForForm(editing);
+      return `<label class="text-sm font-medium text-gray-700">Age
+        <div class="flex gap-2 mt-1">
+          <input id="f_ageValue" type="number" min="0" step="0.1" placeholder="e.g. 10" value="${parsed.value}" class="flex-1 border-2 border-gray-300 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all">
+          <select id="f_ageUnit" class="border-2 border-gray-300 rounded-lg p-3 bg-white min-w-[7rem] focus:border-[var(--soft-teal)] outline-none">
+            <option value="months" ${parsed.unit === "months" ? "selected" : ""}>Months</option>
+            <option value="years" ${parsed.unit === "years" ? "selected" : ""}>Years</option>
+            <option value="weeks" ${parsed.unit === "weeks" ? "selected" : ""}>Weeks</option>
+          </select>
+        </div>
+        <span class="text-xs text-gray-500 mt-1 block">Use months for young pets (e.g. 10 months). Leave blank if unknown.</span>
+      </label>`;
     }
 
     function computeBadges(p, apptsForPet) {
@@ -266,7 +323,7 @@
 
     function ageMatches(p, filterVal) {
       if (!filterVal || filterVal === 'all') return true;
-      const y = parseAgeYears(p.age);
+      const y = parseAgeYears(p);
       if (filterVal === 'unknown') return y == null;
       if (y == null) return false;
       if (filterVal === '0-1') return y >= 0 && y <= 1;
@@ -313,7 +370,7 @@
       const breed = p.breed ? String(p.breed) : '';
       const owner = p._ownerName || p.owner || '';
       const nm = p.name || 'Unnamed';
-      const ageDisp = p.age != null && String(p.age).trim() !== '' ? String(p.age) : '—';
+      const ageDisp = typeof window.formatPetAge === "function" ? window.formatPetAge(p) || "—" : p.age != null && String(p.age).trim() !== "" ? String(p.age) : "—";
       const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : null;
       const vaccLine = vacc && vacc.summary
         ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-2" title="${String(vacc.summary).replace(/"/g, '&quot;')}"><span class="text-gray-400">Last vacc:</span> ${vacc.place ? vacc.place : vacc.date || '—'}${vacc.vet ? ` · ${vacc.vet}` : ''}</p>`
@@ -340,7 +397,7 @@
         typeof renderPetPhotoHtml === 'function'
           ? renderPetPhotoHtml(p.photo, 'relative h-11 w-11 shrink-0 rounded-md overflow-hidden', 'object-cover w-full h-full')
           : `<div class="relative h-11 w-11 shrink-0 rounded-md bg-[var(--soft-teal)]"></div>`;
-      const ageDisp = p.age != null && String(p.age).trim() !== '' ? `${p.age}` : '—';
+      const ageDisp = typeof window.formatPetAge === "function" ? window.formatPetAge(p) || "—" : p.age != null && String(p.age).trim() !== "" ? `${p.age}` : "—";
       const breedDisp = p.breed ? String(p.breed) : '—';
       const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : null;
       const vaccDisp = vacc && (vacc.place || vacc.vet)
@@ -605,7 +662,9 @@
                 <input id="f_breedOther" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Enter breed">
               </label>
               ${selectField('gender','Gender',editing?.gender||'Female',['Female','Male'])}
-              ${field('age','Age',editing?.age,'number')}
+              ${ageFieldHtml(editing)}
+              ${field('microchip','Microchip ID', editing?.microchip || '')}
+              <p class="text-xs text-gray-500 -mt-2 md:col-span-2">Type the microchip number manually. USB barcode scanners paste here like a keyboard (no special setup).</p>
               ${field('color','Color',editing?.color || '')}
               <label class="text-sm font-medium text-gray-700">Weight (kg)
                 <input id="f_weight" type="text" inputmode="decimal" autocomplete="off" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="e.g. 12.5" value="${weightKgDisplay(editing?.weight)}">
@@ -1166,16 +1225,18 @@
 
         let breedValue = gv('breed');
         if(breedValue==='Others'){ breedValue = (document.getElementById('f_breedOther').value||'').trim(); }
+        const agePayload = buildPetAgePayload();
         const base={
           name:gv('name'),
           species:gv('species'),
           breed:breedValue,
           gender:gv('gender'),
-          age:Number(gv('age')||0),
+          age: agePayload.age,
+          ageDisplay: agePayload.ageDisplay,
           color:(gv('color')||'').trim(),
           weight:(gv('weight')||'').trim(),
           dateOfBirth: readPetDobSave(),
-          microchip: editId ? prevPet?.microchip ?? null : null,
+          microchip: (gv('microchip') || '').trim() || null,
           owner:ownerName,
           address:addressInput?.value||'',
           federation:gv('federation')||'N/A',

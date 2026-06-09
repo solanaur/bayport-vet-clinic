@@ -165,6 +165,7 @@ public class PosService {
         if (discount.signum() < 0) {
             throw new IllegalArgumentException("Discount cannot be negative");
         }
+        BigDecimal subtotalBeforeDiscount = total;
         if (discount.compareTo(total) > 0) {
             discount = total;
         }
@@ -198,18 +199,57 @@ public class PosService {
         }
 
         if (!billingIdsToSettle.isEmpty()) {
+            Long primaryBillingId = null;
             for (Long billingId : billingIdsToSettle) {
                 BillingRecord record = billingRecordRepository.findById(billingId)
                         .orElseThrow(() -> new IllegalArgumentException("Billing record not found: " + billingId));
                 if (record.getPetId() != null && request.getPetId() != null && !record.getPetId().equals(request.getPetId())) {
                     throw new IllegalArgumentException("Billing record " + billingId + " does not belong to selected pet");
                 }
+                BigDecimal lineSubtotal = record.getSubtotalAmount() != null
+                        ? record.getSubtotalAmount()
+                        : record.getAmount();
+                if (lineSubtotal == null) {
+                    lineSubtotal = subtotalBeforeDiscount;
+                }
+                record.setSubtotalAmount(lineSubtotal);
+                record.setDiscountAmount(discount);
+                record.setAmount(MoneyUtils.normalize(lineSubtotal.subtract(discount)));
                 if (record.getStatus() != BillingRecord.Status.PAID) {
                     record.setStatus(BillingRecord.Status.PAID);
                     record.setPaidAt(java.time.LocalDateTime.now());
-                    billingRecordRepository.save(record);
+                }
+                billingRecordRepository.save(record);
+                if (primaryBillingId == null) {
+                    primaryBillingId = billingId;
                 }
             }
+            if (primaryBillingId != null) {
+                saved.setBillingId(primaryBillingId);
+                saleRepository.save(saved);
+            }
+        } else {
+            BillingRecord invoice = new BillingRecord();
+            invoice.setPetId(request.getPetId());
+            invoice.setPetName(petName);
+            if (request.getPetId() != null) {
+                petRepository.findById(request.getPetId()).ifPresent(p -> {
+                    invoice.setOwnerId(p.getOwnerId());
+                    invoice.setOwnerName(p.getOwner());
+                });
+            }
+            invoice.setDescription("POS checkout");
+            invoice.setSubtotalAmount(subtotalBeforeDiscount);
+            invoice.setDiscountAmount(discount);
+            invoice.setAmount(total);
+            invoice.setStatus(BillingRecord.Status.PAID);
+            invoice.setPaidAt(java.time.LocalDateTime.now());
+            invoice.setIssuedAt(java.time.LocalDateTime.now());
+            invoice.setReferenceType("POS");
+            invoice.setReferenceId(saved.getId());
+            BillingRecord savedInvoice = billingRecordRepository.save(invoice);
+            saved.setBillingId(savedInvoice.getId());
+            saleRepository.save(saved);
         }
 
         if (request.getFulfillPrescriptionIds() != null && !request.getFulfillPrescriptionIds().isEmpty()) {

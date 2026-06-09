@@ -15,7 +15,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     /**
      * Find appointments assigned to a specific veterinarian.
      */
-    @Query("SELECT a FROM Appointment a WHERE a.vet = :vetName")
+    @Query("SELECT a FROM Appointment a WHERE LOWER(TRIM(a.vet)) = LOWER(TRIM(:vetName))")
     List<Appointment> findByVet(@Param("vetName") String vetName);
     
     /**

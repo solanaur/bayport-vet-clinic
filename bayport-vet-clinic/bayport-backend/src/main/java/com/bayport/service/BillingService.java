@@ -33,6 +33,12 @@ public class BillingService {
     }
 
     public BillingRecord create(BillingRecord record) {
+        if (record.getSubtotalAmount() == null && record.getAmount() != null) {
+            record.setSubtotalAmount(record.getAmount());
+        }
+        if (record.getDiscountAmount() == null) {
+            record.setDiscountAmount(java.math.BigDecimal.ZERO);
+        }
         BillingRecord saved = billingRecordRepository.save(record);
         if (saved.getStatus() == BillingRecord.Status.PAID) {
             salesService.recordSale(saved, "Manual", "Manual payment");

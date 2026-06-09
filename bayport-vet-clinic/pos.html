@@ -1070,16 +1070,32 @@
       const key = "b:" + record.id;
       const existing = cart.find((l) => cartKey(l) === key);
       if (existing) return;
+      const lineSubtotal = Number(record.subtotalAmount != null ? record.subtotalAmount : record.amount || 0);
       cart.push({
         kind: "billing",
         billingId: record.id,
         name: String(record.description || "Consultation charge"),
-        unitPrice: Number(record.amount || 0),
+        unitPrice: lineSubtotal,
         qty: 1,
         needsPrice: false,
         billingIssuedAt: record.issuedAt || null,
+        billingDiscount: Number(record.discountAmount || 0) || 0,
       });
+      if (Number(record.discountAmount || 0) > 0) {
+        applyPosDiscountAmount(Number(record.discountAmount));
+      }
       renderCart();
+    }
+
+    function applyPosDiscountAmount(amount) {
+      const wrap = document.getElementById("posDiscountWrap");
+      const btn = document.getElementById("posDiscountAddBtn");
+      const inp = document.getElementById("posDiscountInp");
+      if (!wrap || !btn || !inp) return;
+      wrap.classList.remove("hidden");
+      btn.textContent = "Remove";
+      inp.value = String(Math.max(0, Number(amount) || 0));
+      refreshCartMoney();
     }
 
     function getCartSubtotalNumber() {
@@ -1918,12 +1934,27 @@
       await loadPendingBillingQueue();
       const prefillPetId = sessionStorage.getItem("posPrefillPetId");
       const focusPending = sessionStorage.getItem("posFocusPendingBilling") === "1";
+      const prefillBillingId = sessionStorage.getItem("posPrefillBillingId");
+      const prefillDiscount = sessionStorage.getItem("posPrefillDiscount");
       if (prefillPetId) {
         await setSelectedPet(String(prefillPetId));
         sessionStorage.removeItem("posPrefillPetId");
         sessionStorage.removeItem("posFocusPendingBilling");
-        if (focusPending) {
+        if (prefillBillingId) {
+          sessionStorage.removeItem("posPrefillBillingId");
+          try {
+            const record = await Api.billing.get(Number(prefillBillingId));
+            if (record) addBillingLine(record);
+          } catch (_) {
+            await loadPendingBillingQueue();
+          }
+        } else if (focusPending) {
+          await loadPendingBillingQueue();
           document.getElementById("billFold")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        if (prefillDiscount && Number(prefillDiscount) > 0) {
+          sessionStorage.removeItem("posPrefillDiscount");
+          applyPosDiscountAmount(Number(prefillDiscount));
         }
       }
       await resolveAppointmentIdForPosPet(getSelectedPetId());

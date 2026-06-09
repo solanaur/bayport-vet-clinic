@@ -120,6 +120,11 @@
     renderSidebar(document.getElementById('sidebarNav'), role, 'dashboard.html');
     renderQuickActions(document.getElementById('quickActions'), role);
 
+    // Vets and front office see shortcuts only — hide filler blocks (clinic tips / system stats clutter).
+    if (role === "vet" || role === "front_office" || role === "receptionist" || role === "pharmacist") {
+      document.getElementById("dashboardSecondary")?.classList.add("hidden");
+    }
+
     // Check backend connectivity via /api/health and show a clear message if it's down.
     (async function runHealthCheck(){
       const ok = await checkBackendHealth();

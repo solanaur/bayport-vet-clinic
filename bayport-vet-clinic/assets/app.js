@@ -60,6 +60,28 @@ window.tryLogin = async function(username, password, role, otp) {
   }
 };
 
+/** Display pet age from ageDisplay, numeric age, or date of birth. */
+window.formatPetAge = function formatPetAge(p) {
+  if (!p) return "";
+  if (p.ageDisplay && String(p.ageDisplay).trim()) return String(p.ageDisplay).trim();
+  if (p.age != null && p.age !== "" && Number(p.age) > 0) {
+    const n = Number(p.age);
+    return `${n} yr${n === 1 ? "" : "s"}`;
+  }
+  if (p.dateOfBirth) {
+    try {
+      const dob = new Date(String(p.dateOfBirth).slice(0, 10) + "T12:00:00");
+      const now = new Date();
+      let months = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
+      if (now.getDate() < dob.getDate()) months -= 1;
+      if (months < 12 && months >= 0) return `${months} month${months === 1 ? "" : "s"}`;
+      const years = Math.floor(months / 12);
+      if (years > 0) return `${years} yr${years === 1 ? "" : "s"}`;
+    } catch (_) {}
+  }
+  return "";
+};
+
 /* ===== Log out ===== */
 window.logout = function() {
   const confirmed = window.confirm("Are you sure you want to log out?");
