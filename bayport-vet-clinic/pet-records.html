@@ -261,7 +261,7 @@
         }
       }
       const procs = p.procedures || [];
-      let lastVacc = '';
+      let lastVacc = p.lastVaccinationDate ? String(p.lastVaccinationDate).slice(0, 10) : '';
       for (const pr of procs) {
         const d = pr.performedAt || '';
         if (!d) continue;
@@ -1275,7 +1275,7 @@
         }
         closeModal();
         if (typeof window.showToast === 'function') {
-          window.showToast(editId ? 'Profile updated successfully' : 'Pet record added');
+          window.showToast(editId ? 'Profile updated successfully' : `Pet saved (ID ${savedPetId}) — synced to database`);
         }
         render();
         if (savedPetId) viewPet(savedPetId);

@@ -45,7 +45,7 @@ public class ReminderEmailController {
     ) {
         if (!emailService.isConfigured()) {
             throw new IllegalStateException(
-                    "Email (SMTP) is not configured. Set SPRING_MAIL_USERNAME and SPRING_MAIL_PASSWORD and restart.");
+                    "Email is not configured. Set RESEND_API_KEY on Render (cloud) or SPRING_MAIL_USERNAME + SPRING_MAIL_PASSWORD locally.");
         }
         Reminder r = reminders.findById(id).orElseThrow();
         Owner owner = r.getOwnerId() != null ? owners.findById(r.getOwnerId()).orElse(null) : null;

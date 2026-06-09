@@ -477,7 +477,7 @@ window.renderSidebar = function (container, role, activeFile) {
       const tip = NAV_TOOLTIPS[key];
       if (tip) btn.title = tip;
       btn.className =
-        "w-full text-left px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-blue-50/90 hover:text-[var(--soft-teal)] transition-colors flex items-center gap-2.5";
+        "w-full text-left px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-blue-50/90 hover:text-[var(--soft-teal,#0057b8)] transition-colors flex items-center gap-2.5";
       const iconHtml = SIDEBAR_ICONS[key] || "";
       btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
@@ -492,7 +492,7 @@ window.renderSidebar = function (container, role, activeFile) {
       if (`${key}.html` === activeFile) {
         btn.dataset.sidebarActive = "1";
         btn.className =
-          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--soft-teal)] text-white font-medium shadow-sm flex items-center gap-2.5";
+          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--soft-teal,#0057b8)] text-white font-medium shadow-sm flex items-center gap-2.5";
       }
       wrap.appendChild(btn);
     });

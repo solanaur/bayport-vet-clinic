@@ -22,7 +22,13 @@ services:
         sync: false
       - key: JWT_SECRET
         generateValue: true
-      # Render FREE blocks SMTP — use Resend (https://resend.com) API key over HTTPS
+      # Render FREE blocks SMTP — use Brevo (recommended) or Resend with verified domain
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_FROM_EMAIL
+        value: bayport.vetclinic@gmail.com
+      - key: BREVO_FROM_NAME
+        value: Bayport Veterinary Clinic
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM

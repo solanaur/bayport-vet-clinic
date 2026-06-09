@@ -97,7 +97,8 @@ public class PdfService {
             Font fieldLabel = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
             Font fieldValue = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
             Font rxSymbol = new Font(padBase, 48, Font.BOLD, Color.BLACK);
-            Font medFont = new Font(padBase, 11, Font.NORMAL, Color.BLACK);
+            // IDENTITY_H required so circled medication indices (①②…) render like the on-screen Rx pad.
+            Font medFont = new Font(base, 11, Font.NORMAL, Color.BLACK);
 
             addPrescriptionPadHeader(document, clinicTitle, contactLine);
             addPrescriptionPadPatientBlock(document, first, fieldLabel, fieldValue);

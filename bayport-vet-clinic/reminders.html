@@ -101,25 +101,63 @@
     try {
       const health = await Api.health.check();
       const configured = health.mailConfigured === true;
+      const canSendAny = health.canSendToAnyRecipient === true;
+      const sandbox = health.resendSandbox === true && !canSendAny;
       emailStatusBanner.classList.remove('hidden');
-      if (configured) {
+      if (configured && canSendAny) {
+        emailStatusBanner.className = 'mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800';
+        const via = health.emailProvider === 'brevo' ? 'Brevo' : (health.emailProvider === 'resend' ? 'Resend' : 'Email');
+        emailStatusBanner.innerHTML = '<strong>Email delivery active (' + via + ').</strong> Reminders can be sent to any pet owner email address.';
+      } else if (configured && sandbox) {
+        emailStatusBanner.className = 'mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900';
+        emailStatusBanner.innerHTML = '<strong>Email limited (Resend test mode).</strong> '
+          + (health.resendSandboxNote || 'Set BREVO_API_KEY + BREVO_FROM_EMAIL on Render — see Settings → Email.');
+      } else if (configured) {
         emailStatusBanner.className = 'mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800';
         emailStatusBanner.innerHTML = '<strong>Email delivery active.</strong> Due vaccination reminders are sent automatically on startup, hourly, and daily at 9 AM.';
       } else {
         emailStatusBanner.className = 'mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900';
-        emailStatusBanner.innerHTML = '<strong>Email not configured.</strong> Automatic reminders will not be delivered until SMTP is set up. '
-          + 'For the desktop app, copy <code class="text-xs bg-white/70 px-1 rounded">data/mail.env.example</code> to '
-          + '<code class="text-xs bg-white/70 px-1 rounded">data/mail.env</code> with your Gmail app password, then restart. '
-          + 'See Settings → Email for details.';
+        emailStatusBanner.innerHTML = '<strong>Email not configured.</strong> Set <code class="text-xs bg-white/70 px-1 rounded">BREVO_API_KEY</code> + <code class="text-xs bg-white/70 px-1 rounded">BREVO_FROM_EMAIL</code> on Render. See Settings → Email.';
       }
       if (getRole() === 'admin') {
         dispatchDueBtn.classList.remove('hidden');
-        dispatchDueBtn.disabled = !configured;
-        dispatchDueBtn.title = configured ? 'Send all due pet reminders now' : 'Configure SMTP first';
+        dispatchDueBtn.disabled = !canSendAny;
+        dispatchDueBtn.title = canSendAny ? 'Send all due pet reminders now' : 'Configure Brevo on Render first (Settings → Email)';
       }
     } catch (err) {
       console.warn('Could not load email status:', err);
     }
+  }
+
+  function showDispatchResult(result) {
+    const sent = result.sentCount || 0;
+    const failed = result.failedCount || 0;
+    const skipped = result.skippedCount || 0;
+    const failures = Array.isArray(result.failures) ? result.failures : [];
+    const ok = failed === 0 && sent > 0;
+    const partial = sent > 0 && failed > 0;
+    emailStatusBanner.classList.remove('hidden');
+    emailStatusBanner.className = 'mb-6 rounded-xl border px-4 py-3 text-sm';
+    if (ok) {
+      emailStatusBanner.classList.add('border-green-200', 'bg-green-50', 'text-green-800');
+    } else if (partial) {
+      emailStatusBanner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
+    } else {
+      emailStatusBanner.classList.add('border-red-200', 'bg-red-50', 'text-red-800');
+    }
+    let html = '<p><strong>' + (result.message || `Sent ${sent}, failed ${failed}, skipped ${skipped}.`) + '</strong></p>';
+    if (failures.length) {
+      html += '<ul class="mt-2 list-disc pl-5 space-y-1 text-xs">';
+      failures.forEach((f) => {
+        const who = [f.ownerName, f.email].filter(Boolean).join(' — ');
+        html += '<li>' + (who ? who + ': ' : '') + (f.reason || 'Send failed') + '</li>';
+      });
+      html += '</ul>';
+    }
+    if (result.resendSandboxNote && failed > 0) {
+      html += '<p class="mt-2 text-xs border-t border-current/20 pt-2">' + result.resendSandboxNote + '</p>';
+    }
+    emailStatusBanner.innerHTML = html;
   }
 
   dispatchDueBtn.addEventListener('click', async () => {
@@ -127,11 +165,12 @@
     dispatchDueBtn.textContent = 'Sending…';
     try {
       const result = await Api.reminders.dispatchDue();
-      const msg = result.message || `Sent ${result.sentCount || 0}, failed ${result.failedCount || 0}, skipped ${result.skippedCount || 0}.`;
-      alert(msg);
+      showDispatchResult(result);
       await refreshReminders();
     } catch (err) {
-      alert(err.message || 'Failed to send due reminders.');
+      emailStatusBanner.classList.remove('hidden');
+      emailStatusBanner.className = 'mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800';
+      emailStatusBanner.innerHTML = '<strong>Could not send reminders.</strong> ' + (err.message || 'Unknown error');
     } finally {
       dispatchDueBtn.disabled = false;
       dispatchDueBtn.textContent = 'Send due reminders now';

@@ -35,6 +35,13 @@ public class ApiExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request.getRequestURI(), ex);
     }
 
+    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
+    public ResponseEntity<Map<String, Object>> handleClientError(RuntimeException ex,
+                                                                 HttpServletRequest request) {
+        log.warn("Client error on {}: {}", request.getRequestURI(), ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request.getRequestURI(), ex);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex,
                                                                 HttpServletRequest request) {
@@ -46,7 +53,6 @@ public class ApiExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, message, request.getRequestURI(), ex);
     }
 
-    // JSON parse errors (bad payload shape)
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<Object> handleJsonParseError(HttpMessageNotReadableException ex,
                                                        HttpServletRequest request) {
@@ -66,12 +72,18 @@ public class ApiExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
-    // Catch-all for everything else
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex,
                                                              HttpServletRequest request) {
-        log.error("Unexpected error processing request {}: {}", request.getRequestURI(),
-                ex.getMessage(), ex);
+        String msg = ex.getMessage() != null ? ex.getMessage() : "";
+        if (msg.contains("Failed to send email") || msg.contains("Resend failed")
+                || msg.contains("Email delivery failed")) {
+            String friendly = msg.replaceFirst("^(Failed to send email:\\s*)+", "")
+                    .replaceFirst("^(Resend failed:\\s*)+", "");
+            log.warn("Email delivery failed on {}: {}", request.getRequestURI(), friendly);
+            return buildResponse(HttpStatus.BAD_GATEWAY, friendly, request.getRequestURI(), ex);
+        }
+        log.error("Unexpected error processing request {}: {}", request.getRequestURI(), msg, ex);
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
                 "Unexpected server error",
                 request.getRequestURI(),

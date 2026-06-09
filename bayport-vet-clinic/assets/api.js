@@ -214,10 +214,32 @@ window.ApiHttp = async function apiHttp(
     } else {
       console.error("API error raw body:", textBody);
     }
-    // Extract clean error message - prefer message field, fallback to error field, then status text
+    // Extract clean error message — prefer actionable email/API text over generic wrappers
     let cleanMessage = parsed?.message || parsed?.error || textBody || res.statusText;
-    if (parsed?.cause && typeof parsed.cause === "string" && parsed.cause.length > 0) {
-      cleanMessage = `${cleanMessage} (${parsed.cause})`;
+    const causeStr = typeof parsed?.cause === "string" ? parsed.cause : "";
+    if (causeStr) {
+      const jsonMatch = causeStr.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          const j = JSON.parse(jsonMatch[0]);
+          if (j.message) cleanMessage = j.message;
+        } catch (_) {}
+      }
+      if (cleanMessage === "Unexpected server error" || cleanMessage === "Bad Request") {
+        cleanMessage = causeStr
+          .replace(/^\w+Exception:\s*(Resend failed:\s*|Brevo failed:\s*)?/i, "")
+          .trim();
+        if (jsonMatch) {
+          try {
+            const j = JSON.parse(jsonMatch[0]);
+            if (j.message) cleanMessage = j.message;
+          } catch (_) {}
+        }
+      }
+    }
+    if (typeof cleanMessage === "string" && parsed?.error && parsed.error !== cleanMessage
+        && parsed.error.length > cleanMessage.length && !cleanMessage.includes("only send")) {
+      cleanMessage = parsed.error;
     }
     // Remove any JSON formatting artifacts
     if (typeof cleanMessage === 'string') {
@@ -252,6 +274,11 @@ window.ApiHttp = async function apiHttp(
 };
 
 window.Api = {
+  _petsListCache: { data: null, ts: 0, ttl: 15000 },
+  invalidatePetsCache() {
+    window.Api._petsListCache.data = null;
+    window.Api._petsListCache.ts = 0;
+  },
   token() {
     return localStorage.getItem("jwt") || localStorage.getItem("token") || null;
   },
@@ -293,11 +320,34 @@ window.Api = {
   },
 
   pets: {
-    list: () => ApiHttp("/pets", { token: Api.token() }),
+    list: async () => {
+      const cache = window.Api._petsListCache;
+      const now = Date.now();
+      if (cache.data && now - cache.ts < cache.ttl) {
+        return cache.data;
+      }
+      const data = await ApiHttp("/pets", { token: Api.token() });
+      cache.data = data;
+      cache.ts = now;
+      return data;
+    },
     get: (id) => ApiHttp(`/pets/${id}`, { token: Api.token() }),
-    create: (pet) => ApiHttp("/pets", { method: "POST", body: pet, token: Api.token() }),
-    update: (pet) => ApiHttp(`/pets/${pet.id}`, { method: "PUT", body: pet, token: Api.token() }),
-    remove: (id) => ApiHttp(`/pets/${id}`, { method: "DELETE", token: Api.token() }),
+    create: async (pet) => {
+      const created = await ApiHttp("/pets", { method: "POST", body: pet, token: Api.token() });
+      window.Api.invalidatePetsCache();
+      return created;
+    },
+    update: async (pet) => {
+      const updated = await ApiHttp(`/pets/${pet.id}`, { method: "PUT", body: pet, token: Api.token() });
+      window.Api.invalidatePetsCache();
+      return updated;
+    },
+    remove: async (id) => {
+      const result = await ApiHttp(`/pets/${id}`, { method: "DELETE", token: Api.token() });
+      window.Api.invalidatePetsCache();
+      return result;
+    },
+    search: (name) => ApiHttp(`/pets/search?name=${encodeURIComponent(name)}`, { token: Api.token() }),
     uploadPhoto: (id, file) => {
       const fd = new FormData();
       fd.append("file", file);
@@ -307,7 +357,7 @@ window.Api = {
       method: "POST",
       body: proc,
       token: Api.token(),
-    }),
+    }).then((r) => { window.Api.invalidatePetsCache(); return r; }),
     updateProcedure: (petId, procedureId, body) => ApiHttp(`/pets/${petId}/procedures/${procedureId}`, {
       method: "PUT",
       body,

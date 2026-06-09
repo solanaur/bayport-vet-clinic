@@ -15,5 +15,7 @@ public interface PetRepository extends JpaRepository<Pet, Long> {
     List<Pet> findByDeletedFalse();
     List<Pet> findByDeletedTrue();
     Optional<Pet> findByIdAndDeletedFalse(Long id);
+    long countByDeletedFalse();
+    List<Pet> findByNameContainingIgnoreCaseAndDeletedFalse(String name);
 }
 

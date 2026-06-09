@@ -19,8 +19,13 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -76,28 +81,60 @@ public class BayportService {
 
     // Pet operations
     public List<Pet> getAllPets() {
-        // Use soft delete - only get non-deleted pets
+        return getAllPets(false);
+    }
+
+    /** Full pet rows including procedures (PDF export, admin reports). */
+    public List<Pet> getAllPetsWithDetails() {
+        return getAllPets(true);
+    }
+
+    private List<Pet> getAllPets(boolean includeProcedures) {
         List<Pet> pets = petRepository.findByDeletedFalse();
-        if (pets == null) {
+        if (pets == null || pets.isEmpty()) {
             return new ArrayList<>();
         }
-        // Initialize lazy-loaded procedures to avoid LazyInitializationException
+
+        Set<Long> ownerIds = pets.stream()
+                .map(Pet::getOwnerId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, String> ownerNames = ownerIds.isEmpty()
+                ? Map.of()
+                : ownerRepository.findAllById(ownerIds).stream()
+                        .collect(Collectors.toMap(Owner::getId, Owner::getFullName, (a, b) -> a));
+
         for (Pet pet : pets) {
-            if (pet != null) {
-                if (pet.getOwnerId() != null
-                        && (pet.getOwner() == null || pet.getOwner().isBlank())) {
-                    ownerRepository.findById(pet.getOwnerId())
-                            .ifPresent(o -> pet.setOwner(o.getFullName()));
-                }
+            if (pet == null) {
+                continue;
+            }
+            if (pet.getOwnerId() != null
+                    && (pet.getOwner() == null || pet.getOwner().isBlank())) {
+                pet.setOwner(ownerNames.get(pet.getOwnerId()));
+            }
+            if (includeProcedures) {
                 if (pet.getProcedures() != null) {
-                    pet.getProcedures().size(); // Force initialization
+                    pet.getProcedures().size();
                 } else {
                     pet.setProcedures(new ArrayList<>());
                 }
                 backfillLastVaccinationFromProcedures(pet);
+            } else {
+                pet.setProcedures(new ArrayList<>());
             }
         }
         return pets;
+    }
+
+    public long countActivePets() {
+        return petRepository.countByDeletedFalse();
+    }
+
+    public List<Pet> findPetsByName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return List.of();
+        }
+        return petRepository.findByNameContainingIgnoreCaseAndDeletedFalse(name.trim());
     }
 
     public Optional<Pet> getPetById(Long id) {
@@ -116,7 +153,7 @@ public class BayportService {
     public Pet savePet(Pet pet) {
         validatePet(pet);
         syncOwnerName(pet);
-        Pet savedPet = petRepository.save(pet);
+        Pet savedPet = petRepository.saveAndFlush(pet);
         logOperation("PET_CREATED", "Added pet " + savedPet.getName(), savedPet.getId());
         return savedPet;
     }

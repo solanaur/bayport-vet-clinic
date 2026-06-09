@@ -103,7 +103,7 @@ public class ApiControllers {
 
     @GetMapping(value = "/pets/pdf/all", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadAllPetsPdf() {
-        List<Pet> pets = bayportService.getAllPets();
+        List<Pet> pets = bayportService.getAllPetsWithDetails();
         if (pets.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
@@ -673,12 +673,34 @@ public class ApiControllers {
         body.put("status", "UP");
         body.put("timestamp", java.time.Instant.now().toString());
         body.put("mailConfigured", emailService.isConfigured());
+        body.put("canSendToAnyRecipient", emailService.canSendToAnyRecipient());
         body.put("emailProvider", emailService.describeProvider());
+        body.put("resendSandbox", emailService.isResendSandbox());
+        if (emailService.usesBrevo()) {
+            body.put("brevoFrom", emailService.getBrevoFromEmail());
+        }
+        if (emailService.isResendSandbox()) {
+            body.put("resendFrom", emailService.getResendFrom());
+            body.put("resendSandboxNote", emailService.resendSandboxNote());
+        }
         body.put("renderSmtpBlocked", true);
         body.put("mailHost", emailService.usesResend() ? "api.resend.com" : "smtp.gmail.com");
         body.put("mailPort", emailService.usesResend() ? "443" : System.getenv().getOrDefault("SPRING_MAIL_PORT", "465"));
         body.put("schedulingEnabled", true);
+        try {
+            long petCount = bayportService.countActivePets();
+            body.put("databaseConnected", true);
+            body.put("petCount", petCount);
+        } catch (Exception dbEx) {
+            body.put("databaseConnected", false);
+            body.put("databaseError", dbEx.getMessage());
+        }
         return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/pets/search")
+    public ResponseEntity<List<Pet>> searchPets(@RequestParam(name = "name") String name) {
+        return ResponseEntity.ok(bayportService.findPetsByName(name));
     }
 
     @GetMapping(value = "/prescriptions/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
@@ -722,7 +744,18 @@ public class ApiControllers {
                     String body = (request != null && request.get("message") != null && !request.get("message").isBlank())
                             ? request.get("message")
                             : buildPrescriptionEmailBody(prescriptions);
-                    emailService.sendEmail(to, subject, body);
+                    try {
+                        emailService.sendEmail(to, subject, body);
+                    } catch (RuntimeException mailEx) {
+                        Map<String, Object> err = new HashMap<>();
+                        err.put("status", "failed");
+                        err.put("error", emailService.toClientMessage(mailEx));
+                        err.put("resendSandbox", emailService.isResendSandbox());
+                        if (emailService.isResendSandbox()) {
+                            err.put("resendSandboxNote", emailService.resendSandboxNote());
+                        }
+                        return ResponseEntity.status(502).body(err);
+                    }
                     Map<String, Object> response = new HashMap<>();
                     response.put("status", "sent");
                     response.put("to", to);

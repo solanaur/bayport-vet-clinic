@@ -712,7 +712,8 @@
         }
         alert(`Prescription email sent${owner?.email ? ` to ${owner.email}` : ''}.`);
       } catch (err) {
-        alert('Unable to send prescription email: ' + (err.message || 'Unknown error'));
+        const msg = err.message || 'Unknown error';
+        alert('Unable to send prescription email: ' + msg + (msg.includes('Resend test') ? '' : '. If using Resend test mode, verify your domain or use your Resend account email.'));
       }
     }
 

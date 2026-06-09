@@ -167,7 +167,15 @@
     });
 
     loadNotifications();
-    setInterval(loadNotifications, 30000);
+    let pollMs = 60000;
+    const schedulePoll = () => {
+      if (document.hidden) return;
+      loadNotifications();
+    };
+    setInterval(schedulePoll, pollMs);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) loadNotifications();
+    });
   }
 
   function wireUserMenu(root) {

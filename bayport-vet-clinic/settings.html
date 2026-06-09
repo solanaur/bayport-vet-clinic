@@ -75,7 +75,17 @@
 
         <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Email (MFA &amp; reminders)</h2>
         <div class="space-y-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
-          <p><strong>Online (Render):</strong> Render FREE blocks Gmail SMTP. Use <a href="https://resend.com" class="underline" target="_blank" rel="noopener">Resend</a> — sign up → API Keys → set <code>RESEND_API_KEY</code> in Render Environment.</p>
+          <p><strong>Online (Render):</strong> Render FREE blocks Gmail SMTP. Use <strong>Brevo</strong> (recommended) or Resend with a verified domain.</p>
+          <ol class="text-xs list-decimal pl-5 space-y-1 mt-2">
+            <li>Sign up at <a href="https://www.brevo.com" class="underline" target="_blank" rel="noopener">brevo.com</a> (free — 300 emails/day).</li>
+            <li><strong>Senders → Add sender</strong> — verify <code>bayport.vetclinic@gmail.com</code> (check inbox for Brevo link).</li>
+            <li><strong>SMTP &amp; API → API Keys</strong> — create key, copy it.</li>
+            <li>In <strong>Render → bayport-api → Environment</strong>, set:<br/>
+              <code>BREVO_API_KEY</code> = your key<br/>
+              <code>BREVO_FROM_EMAIL</code> = verified sender (e.g. bayport.vetclinic@gmail.com)<br/>
+              Redeploy Render.</li>
+          </ol>
+          <p class="text-xs text-amber-900 mt-2"><strong>Resend only:</strong> <code>onboarding@resend.dev</code> can email <em>your Resend login only</em>. To use Resend for pet owners, verify a domain at resend.com/domains and set <code>RESEND_FROM</code>.</p>
           <p class="text-xs text-amber-900"><strong>Local desktop:</strong> Gmail app password in <code>data/mail.env</code> still works.</p>
           <p class="text-xs">If email is not configured, MFA codes appear in <strong>Admin notifications</strong> (bell icon) instead.</p>
           <p class="text-xs text-amber-900 border-t border-amber-200/80 pt-2 mt-2"><strong>Inbox profile logo</strong> (circle next to sender name, like Paw Care) is set on your <strong>Google account profile photo</strong> when sending from Gmail, or via <strong>BIMI + your own domain</strong> on Resend — not inside the email template. See <code>docs/EMAIL_SENDER_AVATAR.md</code> in the repo.</p>
@@ -84,6 +94,10 @@
             <input id="testEmailTo" type="email" class="w-full border rounded-md px-3 py-2 text-sm" placeholder="your-email@example.com" />
             <button type="button" id="testEmailBtn" class="bg-[var(--soft-teal)] text-white rounded-md px-4 py-2 text-sm hover:brightness-95">Send test email</button>
             <p id="testEmailResult" class="text-xs"></p>
+          </div>
+          <div id="dbStatusPanel" class="hidden mt-3 space-y-1 border-t border-amber-200 pt-3 text-xs">
+            <p class="font-semibold">Database sync (Supabase)</p>
+            <p id="dbStatusText" class="text-gray-700">Checking…</p>
           </div>
         </div>
 
@@ -291,6 +305,20 @@ ${logo}
 
     if (getRole() === 'admin') {
       document.getElementById('emailTestPanel')?.classList.remove('hidden');
+      document.getElementById('dbStatusPanel')?.classList.remove('hidden');
+      (async () => {
+        const el = document.getElementById('dbStatusText');
+        try {
+          const health = await Api.health.check();
+          if (health.databaseConnected === true) {
+            el.innerHTML = `<span class="text-green-800">Connected.</span> ${health.petCount ?? 0} active pet(s) in database. New pets save immediately to Supabase when Render API is online.`;
+          } else {
+            el.innerHTML = `<span class="text-red-700">Not connected.</span> ${health.databaseError || 'Check Render SPRING_DATASOURCE_* variables.'}`;
+          }
+        } catch (err) {
+          el.textContent = 'Could not reach API: ' + (err.message || 'unknown');
+        }
+      })();
       document.getElementById('testEmailBtn')?.addEventListener('click', async () => {
         const to = document.getElementById('testEmailTo')?.value?.trim();
         const resultEl = document.getElementById('testEmailResult');

@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final BrevoEmailClient brevo;
     private final ResendEmailClient resend;
     private final String mailUsername;
     private final String mailPassword;
@@ -31,28 +32,39 @@ public class EmailService {
     @Autowired(required = false)
     public EmailService(
             JavaMailSender mailSender,
+            BrevoEmailClient brevo,
             ResendEmailClient resend,
             @Value("${spring.mail.username:}") String mailUsername,
             @Value("${spring.mail.password:}") String mailPassword,
             @Value("${bayport.email.cloud-prefer-resend:true}") boolean cloudPreferResend,
             @Value("${bayport.email.logo-url:}") String logoUrl) {
         this.mailSender = mailSender;
+        this.brevo = brevo;
         this.resend = resend;
         this.mailUsername = mailUsername == null ? "" : mailUsername.trim();
         this.mailPassword = mailPassword == null ? "" : mailPassword.trim();
         this.cloudPreferResend = cloudPreferResend;
         this.logoUrl = logoUrl == null ? "" : logoUrl.trim();
-        if (usesResend()) {
+        if (usesBrevo()) {
+            log.info("Email via Brevo API (from={} <{}>)", brevo.getFromName(), brevo.getFromEmail());
+        } else if (usesResend() && !isResendSandbox()) {
             log.info("Email via Resend API (from={})", resend.getFrom());
+        } else if (usesResend()) {
+            log.warn("Email via Resend TEST sender — only your Resend account inbox receives mail. "
+                    + "Set BREVO_API_KEY + BREVO_FROM_EMAIL on Render to email pet owners.");
         } else if (isSmtpConfigured()) {
             log.info("Email via SMTP for sender: {}", mailUsername);
         } else if (cloudPreferResend) {
             log.warn(
                     "Email not configured for cloud: Render FREE tier blocks SMTP. "
-                            + "Sign up at https://resend.com → API Keys → set RESEND_API_KEY in Render Environment.");
+                            + "Set BREVO_API_KEY + BREVO_FROM_EMAIL (recommended) or RESEND_API_KEY with a verified domain.");
         } else {
             log.warn("Email (SMTP) not configured. Set SPRING_MAIL_USERNAME and SPRING_MAIL_PASSWORD.");
         }
+    }
+
+    public boolean usesBrevo() {
+        return brevo != null && brevo.isEnabled();
     }
 
     public boolean usesResend() {
@@ -63,19 +75,53 @@ public class EmailService {
         return mailSender != null && !mailUsername.isEmpty() && !mailPassword.isEmpty();
     }
 
-    /** True when Resend API key is set, or SMTP is fully configured (local / paid Render). */
+    /** True when Brevo, verified Resend domain, or SMTP is ready for any recipient. */
+    public boolean canSendToAnyRecipient() {
+        return usesBrevo() || (usesResend() && !isResendSandbox()) || (isSmtpConfigured() && !cloudPreferResend);
+    }
+
+    /** True when an outbound email provider is configured (may still be Resend test-only). */
     public boolean isConfigured() {
-        return usesResend() || isSmtpConfigured();
+        return usesBrevo() || usesResend() || isSmtpConfigured();
     }
 
     public String describeProvider() {
+        if (usesBrevo()) {
+            return "brevo";
+        }
         if (usesResend()) {
-            return "resend";
+            return isResendSandbox() ? "resend-test" : "resend";
         }
         if (isSmtpConfigured()) {
             return "smtp";
         }
         return "none";
+    }
+
+    /** True when using Resend's shared test sender — only delivers to your Resend account email. */
+    public boolean isResendSandbox() {
+        return usesResend() && resend.getFrom().toLowerCase().contains("onboarding@resend.dev");
+    }
+
+    public String getResendFrom() {
+        return usesResend() ? resend.getFrom() : "";
+    }
+
+    public String resendSandboxNote() {
+        if (canSendToAnyRecipient()) {
+            return "";
+        }
+        if (isResendSandbox()) {
+            return "Resend test sender (onboarding@resend.dev) can only deliver to your Resend login email. "
+                    + "To email pet owners: sign up at brevo.com (free), verify your clinic sender email, "
+                    + "then set BREVO_API_KEY and BREVO_FROM_EMAIL in Render → Environment and redeploy. "
+                    + "Or verify a custom domain at resend.com/domains and set RESEND_FROM.";
+        }
+        return "";
+    }
+
+    public String getBrevoFromEmail() {
+        return usesBrevo() ? brevo.getFromEmail() : "";
     }
 
     /**
@@ -180,9 +226,31 @@ public class EmailService {
         String htmlContent = formatMessageAsHtml(message, subject);
         String plainContent = formatMessageAsPlainText(message);
 
+        if (usesBrevo()) {
+            try {
+                brevo.sendHtmlEmail(to, subject, htmlContent, plainContent);
+                log.info("Email sent successfully to: {}, Subject: {}", to, subject);
+                return;
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Failed to send email: " + toClientMessage(e), e);
+            }
+        }
+
+        if (usesResend() && isResendSandbox()) {
+            throw new IllegalStateException(
+                    "Cannot send to " + to.trim() + " using Resend test mode (onboarding@resend.dev). "
+                            + "Add BREVO_API_KEY and BREVO_FROM_EMAIL in Render Environment (free at brevo.com — verify your sender email), "
+                            + "or verify a domain at resend.com/domains and set RESEND_FROM, then redeploy.");
+        }
+
         if (usesResend()) {
-            resend.sendHtmlEmail(to, subject, htmlContent, plainContent);
-            return;
+            try {
+                resend.sendHtmlEmail(to, subject, htmlContent, plainContent);
+                log.info("Email sent successfully to: {}, Subject: {}", to, subject);
+                return;
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Failed to send email: " + toClientMessage(e), e);
+            }
         }
 
         if (!isSmtpConfigured()) {
@@ -265,6 +333,41 @@ public class EmailService {
         
         // Return a cleaned version of the error
         return msg.length() > 200 ? msg.substring(0, 200) + "..." : msg;
+    }
+
+    /** User-facing message for API responses and UI toasts. */
+    public String toClientMessage(Throwable error) {
+        if (error == null) {
+            return "Email delivery failed.";
+        }
+        String msg = error.getMessage();
+        Throwable cause = error.getCause();
+        while ((msg == null || msg.isBlank()) && cause != null) {
+            msg = cause.getMessage();
+            cause = cause.getCause();
+        }
+        if (msg == null || msg.isBlank()) {
+            return "Email delivery failed.";
+        }
+        msg = msg.replaceFirst("^(Failed to send email:\\s*)+", "")
+                .replaceFirst("^(Resend failed:\\s*)+", "");
+        String lower = msg.toLowerCase();
+        if (lower.contains("only send") && lower.contains("your own email")) {
+            return "Resend test mode blocks delivery to pet owners. "
+                    + "Set BREVO_API_KEY + BREVO_FROM_EMAIL on Render (brevo.com — verify sender email), "
+                    + "or verify a domain at resend.com/domains and set RESEND_FROM.";
+        }
+        if (lower.contains("brevo failed")) {
+            if (lower.contains("sender") || lower.contains("not verified")) {
+                return "Brevo sender not verified. In brevo.com → Senders, verify "
+                        + "BREVO_FROM_EMAIL, then try again.";
+            }
+            return msg.length() > 280 ? msg.substring(0, 280) + "…" : msg;
+        }
+        if (lower.contains("resend failed") || lower.contains("validation_error")) {
+            return extractUserFriendlyError(new Exception(msg));
+        }
+        return extractUserFriendlyError(new Exception(msg));
     }
 
     /** Old controllers expect this name */
