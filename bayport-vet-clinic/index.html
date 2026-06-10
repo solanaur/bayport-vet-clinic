@@ -185,6 +185,22 @@
       loginBtn.disabled = true;
       const originalText = loginBtn.textContent;
       loginBtn.textContent = 'Signing in...';
+      errorBox.classList.add('hidden');
+
+      if (window.isCloudApiHost && window.isCloudApiHost() && typeof window.ensureBackendReady === 'function') {
+        loginBtn.textContent = 'Starting server…';
+        const ready = await window.ensureBackendReady(120000);
+        if (!ready) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = originalText;
+          errorBox.textContent = 'Server is still waking up (Render free tier). Wait 30 seconds and click Log In again.';
+          errorBox.classList.remove('hidden');
+          errorBox.classList.remove('bg-blue-50', 'border-blue-200', 'text-blue-700');
+          errorBox.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+          return;
+        }
+        loginBtn.textContent = 'Signing in...';
+      }
       
       let res;
       if (otp && mfaUsername) {

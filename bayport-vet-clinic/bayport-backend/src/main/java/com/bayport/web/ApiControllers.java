@@ -679,6 +679,7 @@ public class ApiControllers {
         if (emailService.usesBrevo()) {
             body.put("brevoFrom", emailService.getBrevoFromEmail());
         }
+        body.put("netlifyEmailRelay", emailService.usesNetlifyRelay());
         if (emailService.isResendSandbox()) {
             body.put("resendFrom", emailService.getResendFrom());
             body.put("resendSandboxNote", emailService.resendSandboxNote());

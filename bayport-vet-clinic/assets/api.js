@@ -97,7 +97,7 @@ window.resolveApiBase = function resolveApiBase() {
 };
 window.API_BASE = window.resolveApiBase();
 const API_TIMEOUT_LOCAL = 12000;
-const API_TIMEOUT_CLOUD = 90000;
+const API_TIMEOUT_CLOUD = 120000;
 const API_DISABLED_ERR = "Backend integration is required. Please keep USE_API=true so the server endpoints remain reachable.";
 
 window.isCloudApiHost = function isCloudApiHost(base) {
@@ -291,10 +291,12 @@ window.Api = {
     login: (username, password, otp) => ApiHttp("/auth/login", {
       method: "POST",
       body: { username, password },
+      timeoutMs: 180000,
     }),
     verifyMfa: (username, code) => ApiHttp("/auth/mfa/verify", {
       method: "POST",
       body: { username, code },
+      timeoutMs: 180000,
     }),
   },
 
@@ -883,6 +885,23 @@ window.fileToDataURL = function fileToDataURL(file) {
   }
 
   window.warmBackend = warmBackend;
+
+  /** Wait for Render cold start (retry /health until up or timeout). */
+  window.ensureBackendReady = async function ensureBackendReady(maxWaitMs = 120000) {
+    if (!window.isCloudApiHost || !window.isCloudApiHost()) return true;
+    if (window.__bayportBackendReady) return true;
+    const started = Date.now();
+    while (Date.now() - started < maxWaitMs) {
+      try {
+        await ApiHttp("/health", { timeoutMs: 20000 });
+        window.__bayportBackendReady = true;
+        return true;
+      } catch (_) {
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
+    return false;
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", warmBackend);

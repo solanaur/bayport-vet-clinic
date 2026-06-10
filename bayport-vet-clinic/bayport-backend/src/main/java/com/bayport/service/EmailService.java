@@ -17,6 +17,7 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final BrevoEmailClient brevo;
+    private final NetlifyEmailRelayClient netlifyRelay;
     private final ResendEmailClient resend;
     private final String mailUsername;
     private final String mailPassword;
@@ -33,6 +34,7 @@ public class EmailService {
     public EmailService(
             JavaMailSender mailSender,
             BrevoEmailClient brevo,
+            NetlifyEmailRelayClient netlifyRelay,
             ResendEmailClient resend,
             @Value("${spring.mail.username:}") String mailUsername,
             @Value("${spring.mail.password:}") String mailPassword,
@@ -40,6 +42,7 @@ public class EmailService {
             @Value("${bayport.email.logo-url:}") String logoUrl) {
         this.mailSender = mailSender;
         this.brevo = brevo;
+        this.netlifyRelay = netlifyRelay;
         this.resend = resend;
         this.mailUsername = mailUsername == null ? "" : mailUsername.trim();
         this.mailPassword = mailPassword == null ? "" : mailPassword.trim();
@@ -47,6 +50,8 @@ public class EmailService {
         this.logoUrl = logoUrl == null ? "" : logoUrl.trim();
         if (usesBrevo()) {
             log.info("Email via Brevo API (from={} <{}>)", brevo.getFromName(), brevo.getFromEmail());
+        } else if (usesNetlifyRelay()) {
+            log.info("Email via Netlify relay (Brevo on Netlify)");
         } else if (usesResend() && !isResendSandbox()) {
             log.info("Email via Resend API (from={})", resend.getFrom());
         } else if (usesResend()) {
@@ -63,6 +68,10 @@ public class EmailService {
         }
     }
 
+    public boolean usesNetlifyRelay() {
+        return netlifyRelay != null && netlifyRelay.isEnabled();
+    }
+
     public boolean usesBrevo() {
         return brevo != null && brevo.isEnabled();
     }
@@ -75,19 +84,23 @@ public class EmailService {
         return mailSender != null && !mailUsername.isEmpty() && !mailPassword.isEmpty();
     }
 
-    /** True when Brevo, verified Resend domain, or SMTP is ready for any recipient. */
+    /** True when Brevo, Netlify relay, verified Resend domain, or SMTP can reach any recipient. */
     public boolean canSendToAnyRecipient() {
-        return usesBrevo() || (usesResend() && !isResendSandbox()) || (isSmtpConfigured() && !cloudPreferResend);
+        return usesBrevo() || usesNetlifyRelay() || (usesResend() && !isResendSandbox())
+                || (isSmtpConfigured() && !cloudPreferResend);
     }
 
     /** True when an outbound email provider is configured (may still be Resend test-only). */
     public boolean isConfigured() {
-        return usesBrevo() || usesResend() || isSmtpConfigured();
+        return usesBrevo() || usesNetlifyRelay() || usesResend() || isSmtpConfigured();
     }
 
     public String describeProvider() {
         if (usesBrevo()) {
             return "brevo";
+        }
+        if (usesNetlifyRelay()) {
+            return "brevo-netlify";
         }
         if (usesResend()) {
             return isResendSandbox() ? "resend-test" : "resend";
@@ -112,10 +125,8 @@ public class EmailService {
             return "";
         }
         if (isResendSandbox()) {
-            return "Resend test sender (onboarding@resend.dev) can only deliver to your Resend login email. "
-                    + "To email pet owners: sign up at brevo.com (free), verify your clinic sender email, "
-                    + "then set BREVO_API_KEY and BREVO_FROM_EMAIL in Render → Environment and redeploy. "
-                    + "Or verify a custom domain at resend.com/domains and set RESEND_FROM.";
+            return "Resend test sender blocks pet-owner email. Set Brevo on Netlify (BREVO_API_KEY, BREVO_FROM_EMAIL, "
+                    + "BAYPORT_EMAIL_HOOK_SECRET) and the same BAYPORT_EMAIL_HOOK_SECRET on Render, then redeploy both.";
         }
         return "";
     }
@@ -236,11 +247,21 @@ public class EmailService {
             }
         }
 
+        if (usesNetlifyRelay()) {
+            try {
+                netlifyRelay.sendHtmlEmail(to, subject, htmlContent, plainContent);
+                log.info("Email sent via Netlify relay to: {}, Subject: {}", to, subject);
+                return;
+            } catch (RuntimeException e) {
+                throw new RuntimeException("Failed to send email: " + toClientMessage(e), e);
+            }
+        }
+
         if (usesResend() && isResendSandbox()) {
             throw new IllegalStateException(
-                    "Cannot send to " + to.trim() + " using Resend test mode (onboarding@resend.dev). "
-                            + "Add BREVO_API_KEY and BREVO_FROM_EMAIL in Render Environment (free at brevo.com — verify your sender email), "
-                            + "or verify a domain at resend.com/domains and set RESEND_FROM, then redeploy.");
+                    "Cannot send to " + to.trim() + " using Resend test mode. "
+                            + "Configure Brevo on Netlify (BREVO_API_KEY, BREVO_FROM_EMAIL, BAYPORT_EMAIL_HOOK_SECRET) "
+                            + "and set BAYPORT_EMAIL_HOOK_SECRET on Render, then redeploy.");
         }
 
         if (usesResend()) {

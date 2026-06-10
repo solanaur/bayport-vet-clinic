@@ -16,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Autowired;
 
+import org.springframework.beans.factory.annotation.Value;
+
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 
 import org.springframework.context.event.EventListener;
@@ -66,11 +68,25 @@ public class ReminderScheduler {
 
 
 
-    /** Run once after the app starts so due vaccine reminders are not missed until 9 AM. */
+    @Value("${bayport.reminders.dispatch-on-startup:false}")
+
+    private boolean dispatchOnStartup;
+
+
+
+    /** Optional startup pass — disabled on cloud by default so Render cold start stays fast. */
 
     @EventListener(ApplicationReadyEvent.class)
 
     public void onApplicationReady() {
+
+        if (!dispatchOnStartup) {
+
+            log.info("Startup reminder dispatch skipped (set bayport.reminders.dispatch-on-startup=true to enable)");
+
+            return;
+
+        }
 
         log.info("Running startup reminder dispatch…");
 

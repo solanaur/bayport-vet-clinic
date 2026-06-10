@@ -29,6 +29,10 @@ services:
         value: bayport.vetclinic@gmail.com
       - key: BREVO_FROM_NAME
         value: Bayport Veterinary Clinic
+      - key: BAYPORT_EMAIL_NETLIFY_FUNCTION_URL
+        value: https://bayport-vet-clinic-com.netlify.app/.netlify/functions/send-email
+      - key: BAYPORT_EMAIL_HOOK_SECRET
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM

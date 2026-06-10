@@ -9,6 +9,9 @@
 [build.environment]
   NODE_VERSION = "20"
 
+[functions]
+  directory = "netlify/functions"
+
 # Enforce HTTPS and basic security headers (site is already on TLS via Netlify).
 [[redirects]]
   from = "http://*"

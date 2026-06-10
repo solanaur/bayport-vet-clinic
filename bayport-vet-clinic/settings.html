@@ -75,17 +75,15 @@
 
         <h2 class="text-lg font-semibold text-gray-800 mt-6 mb-4">Email (MFA &amp; reminders)</h2>
         <div class="space-y-3 rounded-lg border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-950">
-          <p><strong>Online (Render):</strong> Render FREE blocks Gmail SMTP. Use <strong>Brevo</strong> (recommended) or Resend with a verified domain.</p>
+          <p><strong>Online (Render + Netlify):</strong> Render FREE blocks Gmail SMTP. Use <strong>Brevo</strong> via Netlify (easiest):</p>
           <ol class="text-xs list-decimal pl-5 space-y-1 mt-2">
-            <li>Sign up at <a href="https://www.brevo.com" class="underline" target="_blank" rel="noopener">brevo.com</a> (free — 300 emails/day).</li>
-            <li><strong>Senders → Add sender</strong> — verify <code>bayport.vetclinic@gmail.com</code> (check inbox for Brevo link).</li>
-            <li><strong>SMTP &amp; API → API Keys</strong> — create key, copy it.</li>
-            <li>In <strong>Render → bayport-api → Environment</strong>, set:<br/>
-              <code>BREVO_API_KEY</code> = your key<br/>
-              <code>BREVO_FROM_EMAIL</code> = verified sender (e.g. bayport.vetclinic@gmail.com)<br/>
-              Redeploy Render.</li>
+            <li>Sign up at <a href="https://www.brevo.com" class="underline" target="_blank" rel="noopener">brevo.com</a> → <strong>Senders</strong> → verify <code>bayport.vetclinic@gmail.com</code>.</li>
+            <li><strong>Brevo → SMTP &amp; API → API Keys</strong> — create and copy key.</li>
+            <li><strong>Netlify → Environment variables</strong> (same site as the clinic UI):<br/>
+              <code>BREVO_API_KEY</code>, <code>BREVO_FROM_EMAIL</code>, <code>BAYPORT_EMAIL_HOOK_SECRET</code> (pick any long random string)</li>
+            <li><strong>Render → bayport-api → Environment</strong> — add the <em>same</em> <code>BAYPORT_EMAIL_HOOK_SECRET</code>, then redeploy Render + Netlify.</li>
           </ol>
-          <p class="text-xs text-amber-900 mt-2"><strong>Resend only:</strong> <code>onboarding@resend.dev</code> can email <em>your Resend login only</em>. To use Resend for pet owners, verify a domain at resend.com/domains and set <code>RESEND_FROM</code>.</p>
+          <p class="text-xs text-amber-900 mt-2">Or set <code>BREVO_API_KEY</code> directly on Render instead of Netlify relay.</p>
           <p class="text-xs text-amber-900"><strong>Local desktop:</strong> Gmail app password in <code>data/mail.env</code> still works.</p>
           <p class="text-xs">If email is not configured, MFA codes appear in <strong>Admin notifications</strong> (bell icon) instead.</p>
           <p class="text-xs text-amber-900 border-t border-amber-200/80 pt-2 mt-2"><strong>Inbox profile logo</strong> (circle next to sender name, like Paw Care) is set on your <strong>Google account profile photo</strong> when sending from Gmail, or via <strong>BIMI + your own domain</strong> on Resend — not inside the email template. See <code>docs/EMAIL_SENDER_AVATAR.md</code> in the repo.</p>
