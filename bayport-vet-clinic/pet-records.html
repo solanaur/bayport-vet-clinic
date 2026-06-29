@@ -5,11 +5,12 @@
   <title>Pet profiles - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
-    body{font-family:'Poppins',sans-serif}
-    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
-    .shadow-card{box-shadow:0 2px 8px rgba(0,0,0,.08)}
-    :root{--soft-teal:#0057b8}
+    body{font-family:Inter,system-ui,sans-serif}
+    .shadow-soft{box-shadow:0 1px 3px rgba(16,24,40,.07)}
+    .shadow-card{box-shadow:0 1px 3px rgba(16,24,40,.07)}
+    :root{--soft-teal:#0F5CC0;--bp-primary:#0F5CC0}
     .pet-card-actions > summary{list-style:none}
     .pet-card-actions > summary::-webkit-details-marker{display:none}
     .pet-card-actions[open] > summary{z-index:30}
@@ -17,39 +18,38 @@
     #petFiltersPanel > summary::-webkit-details-marker{display:none}
   </style>
 </head>
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col bp-page-open">
   <header id="bpAppHeader"></header>
 
   <div class="flex flex-1">
-    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet profiles</h2>
+    <aside class="w-72 border-r border-[#E4E7EC] p-6">
       <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
     </aside>
 
     <main class="flex-1 p-6 lg:p-8">
-      <div class="bg-white rounded-2xl shadow-soft p-6 lg:p-8">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+      <div class="bp-page-inner max-w-7xl mx-auto">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
           <div>
-            <h3 class="text-2xl font-semibold text-gray-800 mb-1">Pet profiles</h3>
+            <h1 class="bp-page-title">Pet profiles</h1>
           </div>
           <div class="flex items-center gap-3 flex-wrap">
             <div class="relative flex-1 min-w-[200px]">
-              <input id="petSearch" class="w-full border-2 border-gray-200 rounded-lg p-3 pl-10 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" placeholder="Search name, owner, breed, species…">
-              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <input id="petSearch" class="w-full border border-[#D0D5DD] rounded-lg p-3 pl-10 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/15 outline-none transition-all" placeholder="Search name, owner, breed, species…">
+              <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-[18px] h-[18px] text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
               </svg>
             </div>
-            <button id="printAllBtn" onclick="printAllPets()" class="px-4 py-3 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-semibold hover:bg-[var(--soft-teal)] hover:text-white shadow-sm hover:shadow-md transition-all duration-200 flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="printAllBtn" onclick="printAllPets()" class="bp-btn-secondary px-4 py-2.5 text-sm font-medium flex items-center gap-2">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
               </svg>
-              Print All Pets
+              Print all
             </button>
-            <button id="addBtn" class="px-6 py-3 rounded-lg bg-gradient-to-r from-[var(--soft-teal)] to-[#1d4ed8] text-white font-semibold hover:from-[#1d4ed8] hover:to-[var(--soft-teal)] shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2">
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <button id="addBtn" class="bp-btn-primary px-5 py-2.5 text-sm font-medium flex items-center gap-2">
+              <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
               </svg>
-              Add Record
+              Add record
             </button>
           </div>
         </div>
@@ -256,7 +256,7 @@
         const d = String(a.date || '').slice(0, 10);
         const st = String(a.status || '').toLowerCase();
         if (d && d >= today && d <= weekEnd && st !== 'done') {
-          badges.push({ lbl: 'Appt soon', cls: 'bg-sky-600 text-white' });
+          badges.push({ lbl: 'Appt soon', cls: 'bp-chip bp-chip--blue' });
           break;
         }
       }
@@ -272,14 +272,14 @@
         }
       }
       if (lastVacc && daysBetween(lastVacc, today) > 330) {
-        badges.push({ lbl: 'Vaccination due', cls: 'bg-amber-500 text-white' });
+        badges.push({ lbl: 'Vaccination due', cls: 'bp-chip bp-chip--amber' });
       }
       const last = lastProcedureDate(p);
       if (last && daysBetween(last, today) > 180) {
-        badges.push({ lbl: 'Follow-up?', cls: 'bg-violet-600 text-white' });
+        badges.push({ lbl: 'Follow-up?', cls: 'bp-chip bp-chip--purple' });
       }
       if (procs.length && (p.notes || '').toLowerCase().includes('follow')) {
-        badges.push({ lbl: 'Follow-up', cls: 'bg-rose-600 text-white' });
+        badges.push({ lbl: 'Follow-up', cls: 'bp-chip bp-chip--purple' });
       }
       return badges.slice(0, 3);
     }
@@ -288,7 +288,7 @@
 
     function badgesHtml(badges) {
       if (!badges || !badges.length) return '';
-      return `<div class="absolute top-1 right-1 z-10 flex max-w-[65%] flex-wrap justify-end gap-0.5 pointer-events-none">${badges.map((b) => `<span class="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide shadow ${b.cls}">${b.lbl}</span>`).join('')}</div>`;
+      return `<div class="absolute top-1.5 right-1.5 z-10 flex max-w-[70%] flex-wrap justify-end gap-1 pointer-events-none">${badges.map((b) => `<span class="${b.cls}">${b.lbl}</span>`).join('')}</div>`;
     }
 
     /** Primary: view profile; optional start consultation (vet/admin); then record tools. */
@@ -365,28 +365,33 @@
     function renderCompactCard(p) {
       const photoBlock =
         typeof renderPetPhotoHtml === 'function'
-          ? renderPetPhotoHtml(p.photo, 'relative h-20 w-full shrink-0', 'object-cover w-full h-full')
-          : `<div class="relative h-20 w-full shrink-0 bg-[var(--soft-teal)]"></div>`;
+          ? renderPetPhotoHtml(p.photo, 'relative h-24 w-full shrink-0', 'object-cover w-full h-full')
+          : `<div class="relative h-24 w-full shrink-0 bg-slate-200"></div>`;
       const breed = p.breed ? String(p.breed) : '';
       const owner = p._ownerName || p.owner || '';
       const nm = p.name || 'Unnamed';
       const ageDisp = typeof window.formatPetAge === "function" ? window.formatPetAge(p) || "—" : p.age != null && String(p.age).trim() !== "" ? String(p.age) : "—";
-      const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : null;
-      const vaccLine = vacc && vacc.summary
-        ? `<p class="text-[10px] text-gray-500 mt-1 line-clamp-2" title="${String(vacc.summary).replace(/"/g, '&quot;')}"><span class="text-gray-400">Last vacc:</span> ${vacc.place ? vacc.place : vacc.date || '—'}${vacc.vet ? ` · ${vacc.vet}` : ''}</p>`
+      const speciesChip = p.species
+        ? `<span class="bp-chip bp-chip--teal">${String(p.species).replace(/</g, '&lt;')}</span>`
         : '';
+      const vaccDue = (p._badges || []).some((b) => b.lbl === 'Vaccination due');
+      const vaccChip = vaccDue ? `<span class="bp-chip bp-chip--amber">Vacc due</span>` : '';
+      const lastVisit = p._lastVisit
+        ? `<div class="bp-pet-meta-line"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>Last visit ${String(p._lastVisit).slice(0, 10)}</div>`
+        : `<div class="bp-pet-meta-line"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>No visits recorded</div>`;
       return `
-<div class="relative flex h-full min-h-[168px] flex-col rounded-lg border border-gray-200 bg-white shadow-card transition hover:border-[var(--soft-teal)]/40 hover:shadow-md overflow-visible group cursor-pointer" title="Open pet profile" onclick="viewPet(${p.id})">
-  <div class="relative h-20 shrink-0 w-full overflow-hidden">
+<div class="bp-pet-card relative flex h-full min-h-[180px] flex-col overflow-visible group cursor-pointer" title="Open pet profile" onclick="viewPet(${p.id})">
+  <div class="relative h-24 shrink-0 w-full overflow-hidden rounded-t-[7px]">
     ${photoBlock}
     ${badgesHtml(p._badges)}
   </div>
-  <div class="flex flex-1 flex-col px-2.5 pt-2 pb-1 min-h-0">
-    <h4 class="truncate text-sm font-bold text-gray-900">${nm}</h4>
-    ${owner ? `<p class="truncate text-xs text-gray-600">${owner}</p>` : '<p class="text-xs text-gray-400">No owner</p>'}
-    ${breed ? `<p class="truncate text-xs text-gray-500">${breed}</p>` : ''}
-    <p class="text-xs text-gray-500 mt-0.5"><span class="text-gray-400">Age</span> ${ageDisp}</p>
-    ${vaccLine}
+  <div class="flex flex-1 flex-col px-3 pt-2.5 pb-1 min-h-0">
+    <h4 class="truncate text-sm font-semibold text-[#101828]">${nm}</h4>
+    ${owner ? `<p class="truncate text-xs text-[#667085] mt-0.5">${owner}</p>` : '<p class="text-xs text-[#98a2b3] mt-0.5">No owner</p>'}
+    ${breed ? `<p class="truncate text-xs text-[#667085]">${breed}</p>` : ''}
+    <div class="bp-pet-meta">${speciesChip}${vaccChip}</div>
+    <p class="text-[11px] text-[#667085] mt-1"><span class="text-[#98a2b3]">Age</span> ${ageDisp}</p>
+    ${lastVisit}
   </div>
   ${cardCareMenuHtml(p, 'grid')}
 </div>`;
@@ -491,7 +496,9 @@
         }
 
         if (total === 0) {
-          rows.innerHTML = `<div class="col-span-full py-12 text-center text-gray-500">No pets match your search or filters.</div>`;
+          rows.innerHTML = typeof bpEmptyState === 'function'
+            ? `<div class="col-span-full">${bpEmptyState('No pets match your search or filters.', 'search')}</div>`
+            : `<div class="col-span-full py-12 text-center text-gray-500">No pets match your search or filters.</div>`;
           updatePagination(0);
           return;
         }
@@ -540,51 +547,19 @@
     
     async function printPetProfile(id) {
       try {
-        const response = await fetch(`${window.API_BASE}/pets/${id}/pdf`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt') || ''}`
-          }
-        });
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `Pet_Profile_${id}.pdf`;
-          link.click();
-          window.URL.revokeObjectURL(url);
-        } else {
-          alert('Error generating PDF. Please try again.');
-        }
+        await Api.pets.downloadProfilePdf(id);
       } catch (err) {
         console.error('Error printing pet profile:', err);
-        alert('Error printing pet profile. Please try again.');
+        alert(err.message || 'Error printing pet profile. Please try again.');
       }
     }
     
     async function printAllPets() {
       try {
-        const response = await fetch(`${window.API_BASE}/pets/pdf/all`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token') || localStorage.getItem('jwt') || ''}`
-          }
-        });
-        if (response.ok) {
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `All_Pets_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-          link.click();
-          window.URL.revokeObjectURL(url);
-        } else {
-          alert('Error generating PDF. Please try again.');
-        }
+        await Api.pets.downloadAllPdf();
       } catch (err) {
         console.error('Error printing all pets:', err);
-        alert('Error printing all pets. Please try again.');
+        alert(err.message || 'Error generating PDF. Please try again.');
       }
     }
     
@@ -694,7 +669,6 @@
                 <input id="f_address" class="w-full border-2 border-gray-300 mt-1 rounded-lg p-3 bg-gray-50 focus:border-[var(--soft-teal)] focus:ring-2 focus:ring-[var(--soft-teal)]/20 outline-none transition-all" value="${editing?.address??''}" readonly>
                 <span class="text-xs text-gray-500 mt-1 block">Auto-copied from owner information</span>
               </label>
-              ${selectField('federation','Federation',editing?.federation||'N/A',['FCCI','FCPI','N/A'])}
               <div class="col-span-1 md:col-span-2">
                 <div class="text-sm font-medium text-gray-700 mb-2">Photo</div>
                 <div class="flex flex-wrap items-start gap-4">
@@ -1204,10 +1178,11 @@
         let ownerId = selectedOwnerId;
         let ownerName = null;
         if(ownerMode.value==='create'){
-          const fullName = gv('ownerName').trim();
+          const cap = (v) => (typeof window.bayportCapWords === 'function' ? window.bayportCapWords(v) : v);
+          const fullName = cap(gv('ownerName').trim());
           const phone = gv('ownerPhone').trim();
           const email = (document.getElementById('f_ownerEmail')?.value||'').trim();
-          const address = (document.getElementById('f_ownerAddress')?.value||'').trim();
+          const address = cap((document.getElementById('f_ownerAddress')?.value||'').trim());
           if(!fullName){ alert('Owner full name is required'); return; }
           if(!phone || !validatePhone(phone)){ alert('Valid phone is required'); return; }
           if(email && !validateEmail(email)){ alert('Email looks invalid'); return; }
@@ -1225,29 +1200,29 @@
 
         let breedValue = gv('breed');
         if(breedValue==='Others'){ breedValue = (document.getElementById('f_breedOther').value||'').trim(); }
+        const cap = (v) => (typeof window.bayportCapWords === 'function' ? window.bayportCapWords(String(v || '').trim()) : String(v || '').trim());
         const agePayload = buildPetAgePayload();
         const base={
-          name:gv('name'),
+          name:cap(gv('name')),
           species:gv('species'),
-          breed:breedValue,
+          breed:cap(breedValue),
           gender:gv('gender'),
           age: agePayload.age,
           ageDisplay: agePayload.ageDisplay,
-          color:(gv('color')||'').trim(),
+          color:cap(gv('color')),
           weight:(gv('weight')||'').trim(),
           dateOfBirth: readPetDobSave(),
           microchip: (gv('microchip') || '').trim() || null,
           owner:ownerName,
-          address:addressInput?.value||'',
-          federation:gv('federation')||'N/A',
+          address:cap(addressInput?.value||''),
           photo: window.USE_API ? (prevPet?.photo ?? null) : currentPhoto,
           ownerId,
           allergies: (document.getElementById('f_allergies')?.value || '').trim(),
           chronicConditions: (document.getElementById('f_chronic')?.value || '').trim(),
           knownMedications: (document.getElementById('f_meds')?.value || '').trim(),
           lastVaccinationDate: (document.getElementById('f_lastVaccDate')?.value || '').trim() || null,
-          lastVaccinationPlace: (document.getElementById('f_lastVaccPlace')?.value || '').trim(),
-          lastVaccinationVet: (document.getElementById('f_lastVaccVet')?.value || '').trim(),
+          lastVaccinationPlace: cap(document.getElementById('f_lastVaccPlace')?.value || ''),
+          lastVaccinationVet: cap(document.getElementById('f_lastVaccVet')?.value || ''),
         };
         let savedPetId = editId;
         try {

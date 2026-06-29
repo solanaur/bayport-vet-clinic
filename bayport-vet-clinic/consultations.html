@@ -15,7 +15,6 @@
 </head>
 <body class="bg-[#f6f9f9] min-h-screen flex flex-col">
   <header id="bpAppHeader"></header>
-  <div id="bpPetContext" class="hidden"></div>
 
   <div class="flex flex-1">
     <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
@@ -72,28 +71,12 @@
                   <div id="consult_pet_age" class="font-semibold text-gray-900 mt-0.5"></div>
                 </div>
                 <div>
-                  <div class="text-xs text-gray-500 font-normal">Microchip ID</div>
-                  <div id="consult_pet_microchip" class="font-semibold text-gray-900 mt-0.5"></div>
-                </div>
-                <div>
                   <div class="text-xs text-gray-500 font-normal">Color</div>
                   <div id="consult_pet_color" class="font-semibold text-gray-900 mt-0.5"></div>
                 </div>
                 <div>
                   <div class="text-xs text-gray-500 font-normal">Weight</div>
                   <div id="consult_pet_weight" class="font-semibold text-gray-900 mt-0.5"></div>
-                </div>
-                <div class="sm:col-span-3 border-t border-gray-100 pt-3 mt-1">
-                  <div class="text-xs text-gray-500 font-normal">Place last vaccinated</div>
-                  <div id="consult_pet_vacc_place" class="font-semibold text-gray-900 mt-0.5"></div>
-                </div>
-                <div class="sm:col-span-2 border-t border-gray-100 pt-3 mt-1">
-                  <div class="text-xs text-gray-500 font-normal">Vaccinating veterinarian</div>
-                  <div id="consult_pet_vacc_vet" class="font-semibold text-gray-900 mt-0.5"></div>
-                </div>
-                <div class="sm:col-span-1 border-t border-gray-100 pt-3 mt-1">
-                  <div class="text-xs text-gray-500 font-normal">Last vaccination</div>
-                  <div id="consult_pet_vacc_date" class="font-semibold text-gray-900 mt-0.5"></div>
                 </div>
               </div>
             </div>
@@ -227,7 +210,6 @@
   <script src="assets/rx-registry.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/app-header.js"></script>
-  <script src="assets/pet-context.js"></script>
   <script src="assets/rx-pad-editor.js"></script>
   <script>
     guard('consultations');
@@ -330,13 +312,8 @@
       document.getElementById('consult_pet_breed').textContent = consultPetDisplayDash(p.breed);
       document.getElementById('consult_pet_gender').textContent = consultPetDisplayDash(p.gender);
       document.getElementById('consult_pet_age').textContent = consultPetAgeDisplay(p);
-      document.getElementById('consult_pet_microchip').textContent = consultPetDisplayDash(p.microchip);
       document.getElementById('consult_pet_color').textContent = consultPetDisplayDash(p.color);
       document.getElementById('consult_pet_weight').textContent = consultPetDisplayDash(p.weight);
-      const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : null;
-      document.getElementById('consult_pet_vacc_place').textContent = consultPetDisplayDash(vacc?.place);
-      document.getElementById('consult_pet_vacc_vet').textContent = consultPetDisplayDash(vacc?.vet);
-      document.getElementById('consult_pet_vacc_date').textContent = consultPetDisplayDash(vacc?.date);
     }
 
     function php(v){ return `PHP ${Number(v || 0).toFixed(2)}`; }
@@ -734,22 +711,6 @@
       } else {
         petSelect.value = '';
       }
-      async function syncPetContextBar() {
-        const pid = Number(petSelect.value);
-        if (!pid) {
-          document.getElementById('bpPetContext')?.classList.add('hidden');
-          return;
-        }
-        try {
-          const pet = await Api.pets.get(pid);
-          if (typeof initBayportPetContextBar === 'function') {
-            initBayportPetContextBar(document.getElementById('bpPetContext'), pet);
-          }
-        } catch (_) {}
-      }
-      petSelect.addEventListener('change', syncPetContextBar);
-      await syncPetContextBar();
-
       populateProcedureCategories();
       renderProcedures();
       updateConsultPetSummary();

@@ -486,17 +486,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
         }
         // Use first prescription ID and pass group key
         const firstId = groupRxs[0].id;
-        const tok = localStorage.getItem('jwt') || localStorage.getItem('token');
-        const res = await fetch(`${window.API_BASE}/prescriptions/${firstId}/pdf?group=${encodeURIComponent(groupKey)}`, {
-          headers: {
-            Accept: 'application/pdf',
-            ...(tok ? { Authorization: `Bearer ${tok}` } : {})
-          }
-        });
-        if (!res.ok) {
-          throw new Error(`Failed to generate PDF: ${res.status}`);
-        }
-        const blob = await res.blob();
+        const blob = await Api.rx.downloadPdf(firstId, groupKey);
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;

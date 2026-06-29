@@ -4,217 +4,267 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>
-    body{font-family:'Poppins',sans-serif}
-    .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
-    :root{--soft-teal:#0057b8}
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
+  <style>:root{--soft-teal:#0F5CC0;--bp-blue:#0F5CC0;--bp-primary:#0F5CC0}</style>
 </head>
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col">
   <header id="bpAppHeader"></header>
 
-  <div class="flex flex-1">
-    <!-- Sidebar -->
-    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 id="roleTitle" class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">ROLE</h2>
-      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  <div class="flex flex-1 min-h-0">
+    <aside class="w-60 shrink-0 border-r border-[#E4E7EC] p-5">
+      <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
     </aside>
 
-    <!-- Main -->
-    <main class="flex-1 p-8">
-      <div class="bg-white p-8 rounded-2xl shadow-soft">
-        <div id="backendAlert" class="hidden mb-4 px-4 py-3 rounded-md border border-red-200 bg-red-50 text-sm text-red-700">
+    <main class="flex-1 min-w-0 p-6 lg:p-8 overflow-y-auto">
+      <div class="max-w-5xl mx-auto space-y-8">
+        <div id="backendAlert" class="hidden px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
           Cannot connect to the Bayport backend. Please make sure the server is running and reachable.
         </div>
-        <h2 id="welcomeTitle" class="text-2xl font-semibold text-gray-800 mb-2">Welcome!</h2>
 
-        <h3 class="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-3">Shortcuts</h3>
-        <div id="quickActions" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div>
+          <h1 class="bp-page-title">Dashboard</h1>
+        </div>
 
-        <!-- Filler Section -->
-        <div id="dashboardSecondary" class="mt-12 pt-8 border-t border-gray-200">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Clinic Information -->
-            <div class="bg-gradient-to-br from-[var(--soft-teal)]/10 to-blue-50 rounded-xl p-6 border border-[var(--soft-teal)]/20">
-              <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <svg class="w-5 h-5 text-[var(--soft-teal)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                </svg>
-                Clinic Information
-              </h3>
-              <div class="space-y-2 text-sm text-gray-600">
-                <p><strong class="text-gray-800">Operating Hours:</strong> Monday - Saturday, 8:00 AM - 9:00 PM</p>
-                <p><strong class="text-gray-800">Emergency Services:</strong> Available 24/7</p>
-                <p><strong class="text-gray-800">Address:</strong> 322 Quirino Avenue, Brgy. Don Galo, Parañaque City</p>
-                <p><strong class="text-gray-800">Contact:</strong> 0968 633 2940</p>
+        <div id="dashStats" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bp-dash-stat bp-dash-stat--blue">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div class="bp-dash-stat-value" id="statTodayAppts">—</div>
+                <div class="bp-dash-stat-label">Today's appointments</div>
               </div>
-            </div>
-
-            <!-- Quick Tips -->
-            <div id="dashboardTipsCard" class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-              <h3 class="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
-                </svg>
-                Pet Care Tips
-              </h3>
-              <div class="space-y-2 text-sm text-gray-600">
-                <p>• Regular check-ups help detect health issues early</p>
-                <p>• Keep vaccinations up to date for your pet's protection</p>
-                <p>• Maintain a balanced diet and exercise routine</p>
-                <p>• Watch for changes in behavior or appetite</p>
+              <div class="bp-stat-icon bp-stat-icon--blue" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
               </div>
             </div>
           </div>
-
-          <!-- System Statistics -->
-          <div id="dashboardSystemStats" class="mt-6 bg-white rounded-xl p-6 border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <svg class="w-5 h-5 text-[var(--soft-teal)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-              </svg>
-              System Overview
-            </h3>
-            <div id="systemStats" class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-              <div class="p-4 bg-gray-50 rounded-lg">
-                <div class="text-2xl font-semibold text-[var(--soft-teal)]" id="statPets">-</div>
-                <div class="text-sm text-gray-600 mt-1">Total Pets</div>
+          <div class="bp-dash-stat bp-dash-stat--amber">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div class="bp-dash-stat-value" id="statPendingBilling">—</div>
+                <div class="bp-dash-stat-label">Pending invoices</div>
               </div>
-              <div class="p-4 bg-gray-50 rounded-lg">
-                <div class="text-2xl font-semibold text-[var(--soft-teal)]" id="statAppts">-</div>
-                <div class="text-sm text-gray-600 mt-1">Appointments</div>
+              <div class="bp-stat-icon bp-stat-icon--amber" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               </div>
-              <div class="p-4 bg-gray-50 rounded-lg">
-                <div class="text-2xl font-semibold text-[var(--soft-teal)]" id="statPrescriptions">-</div>
-                <div class="text-sm text-gray-600 mt-1">Prescriptions</div>
+            </div>
+          </div>
+          <div class="bp-dash-stat bp-dash-stat--orange">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div class="bp-dash-stat-value" id="statLowStock">—</div>
+                <div class="bp-dash-stat-label">Low stock items</div>
               </div>
-              <div class="p-4 bg-gray-50 rounded-lg">
-                <div class="text-2xl font-semibold text-[var(--soft-teal)]" id="statUsers">-</div>
-                <div class="text-sm text-gray-600 mt-1">Users</div>
+              <div class="bp-stat-icon bp-stat-icon--orange" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="bp-dash-stat bp-dash-stat--green">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div class="bp-dash-stat-value" id="statTodayRevenue">—</div>
+                <div class="bp-dash-stat-label">Paid today</div>
+              </div>
+              <div class="bp-stat-icon bp-stat-icon--green" aria-hidden="true">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
               </div>
             </div>
           </div>
         </div>
 
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <section class="bp-dash-panel bp-panel-tint-blue">
+            <div class="bp-dash-panel-head">
+              <span class="bp-section-head">
+                <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></span>
+                Today's schedule
+              </span>
+            </div>
+            <div id="dashApptList"></div>
+          </section>
+          <section class="bp-dash-panel bp-panel-tint-orange">
+            <div class="bp-dash-panel-head">
+              <span class="bp-section-head">
+                <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg></span>
+                Pending billing
+              </span>
+            </div>
+            <div id="dashBillingList"></div>
+          </section>
+        </div>
+
+        <section id="dashLowStockSection" class="bp-dash-panel bp-panel-tint-yellow hidden">
+          <div class="bp-dash-panel-head">
+            <span class="bp-section-head">
+              <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></span>
+              Inventory alerts
+            </span>
+          </div>
+          <div id="dashLowStockList"></div>
+        </section>
       </div>
     </main>
   </div>
 
   <script src="assets/deploy-env.js"></script>
-
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/app-header.js"></script>
   <script>
     ensureLoggedIn();
-    const role=getRole();
-    const headerRole = typeof getBayportHeaderRoleTitle === "function" ? getBayportHeaderRoleTitle() : role;
-    roleTitle.innerText = headerRole.toUpperCase() + ' Dashboard';
-    welcomeTitle.innerText = `Welcome, ${headerRole}!`;
+    const role = getRole();
 
     if (typeof initBayportAppHeader === "function") {
       initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     }
 
-    renderSidebar(document.getElementById('sidebarNav'), role, 'dashboard.html');
-    renderQuickActions(document.getElementById('quickActions'), role);
+    renderSidebar(document.getElementById("sidebarNav"), role, "dashboard.html");
 
-    // Vets and front office see shortcuts only — hide filler blocks (clinic tips / system stats clutter).
-    if (role === "vet" || role === "front_office" || role === "receptionist" || role === "pharmacist") {
-      document.getElementById("dashboardSecondary")?.classList.add("hidden");
+    function peso(n) {
+      return Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    // Check backend connectivity via /api/health and show a clear message if it's down.
-    (async function runHealthCheck(){
-      const ok = await checkBackendHealth();
-      const alertBox = document.getElementById('backendAlert');
-      if (!alertBox) return;
-      alertBox.classList.toggle('hidden', !!ok);
-    })();
+    function todayKey() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
 
-    // Load system statistics
-    async function loadSystemStats() {
-      const statPetsEl = document.getElementById('statPets');
-      const statApptsEl = document.getElementById('statAppts');
-      const statPrescriptionsEl = document.getElementById('statPrescriptions');
-      const statUsersEl = document.getElementById('statUsers');
-      
-      // Check if elements exist
-      if (!statPetsEl || !statApptsEl || !statPrescriptionsEl || !statUsersEl) {
-        console.warn('System stats elements not found, retrying in 1 second...');
-        setTimeout(loadSystemStats, 1000);
+    function apptDateKey(a) {
+      const raw = a.date || a.appointmentDate || a.scheduledAt || a.startTime || "";
+      return String(raw).slice(0, 10);
+    }
+
+    function apptPetLabel(a) {
+      if (a.petName) return a.petName;
+      const pet = a.pet;
+      if (pet && typeof pet === "object") return pet.name || "—";
+      if (typeof pet === "string" && pet.trim()) return pet;
+      return "—";
+    }
+
+    function renderApptList(appts) {
+      const el = document.getElementById("dashApptList");
+      const today = todayKey();
+      const rows = (appts || [])
+        .filter((a) => apptDateKey(a) === today)
+        .sort((a, b) => String(a.time || a.startTime || "").localeCompare(String(b.time || b.startTime || "")))
+        .slice(0, 8);
+      if (!rows.length) {
+        el.innerHTML = bpEmptyState("No appointments scheduled for today.", "calendar");
         return;
       }
-      
-      try {
-        const [petsResult, apptsResult, prescriptionsResult, usersResult] = await Promise.allSettled([
-          Api.pets.list(),
-          Api.appts.list(),
-          Api.rx.list(),
-          Api.users.list(),
-        ]);
-
-        let pets = petsResult.status === "fulfilled" && Array.isArray(petsResult.value) ? petsResult.value : [];
-        let appts = apptsResult.status === "fulfilled" && Array.isArray(apptsResult.value) ? apptsResult.value : [];
-        const allPrescriptions =
-          prescriptionsResult.status === "fulfilled" && Array.isArray(prescriptionsResult.value)
-            ? prescriptionsResult.value
-            : [];
-        let prescriptions = allPrescriptions.filter((rx) => {
-          if (!rx) return false;
-          const archived = rx.archived;
-          const isArchived = archived === true || archived === "true" || archived === 1 || archived === "1";
-          return !isArchived;
-        });
-
-        let users = [];
-        if (usersResult.status === "fulfilled") {
-          const u = usersResult.value;
-          if (Array.isArray(u)) users = u;
-          else if (u && typeof u === "object") {
-            users = u.content || u.data || u.users || [];
-            if (!Array.isArray(users)) users = [];
-          }
-        }
-        
-        // Update UI with actual counts
-        statPetsEl.textContent = pets.length;
-        statApptsEl.textContent = appts.length;
-        statPrescriptionsEl.textContent = prescriptions.length;
-        statUsersEl.textContent = users.length;
-        
-        console.log('System stats updated:', {
-          pets: pets.length,
-          appointments: appts.length,
-          prescriptions: prescriptions.length,
-          users: users.length
-        });
-      } catch (err) {
-        console.error('Error loading system stats:', err);
-        // Set to 0 on error
-        if (statPetsEl) statPetsEl.textContent = '0';
-        if (statApptsEl) statApptsEl.textContent = '0';
-        if (statPrescriptionsEl) statPrescriptionsEl.textContent = '0';
-        if (statUsersEl) statUsersEl.textContent = '0';
-      }
+      el.innerHTML = rows
+        .map((a) => {
+          const time = a.time || (a.startTime ? String(a.startTime).slice(11, 16) : "—");
+          const pet = bpEscHtml(apptPetLabel(a));
+          const svc = a.service || a.reason || a.type || "";
+          const st = String(a.status || "").toUpperCase();
+          const badge = st ? `<span class="bp-badge bp-badge--muted">${bpEscHtml(st)}</span>` : "";
+          return `<div class="bp-dash-list-item">
+            <div><span class="font-medium text-[#101828]">${time}</span> · ${pet}${svc ? `<span class="text-[#667085]"> — ${bpEscHtml(svc)}</span>` : ""}</div>
+            ${badge ? `<span class="shrink-0">${badge}</span>` : ""}
+          </div>`;
+        })
+        .join("");
     }
-    
-    // Load stats after a short delay to ensure everything is initialized
-    setTimeout(() => {
-      loadSystemStats();
-    }, 500);
-    
-    const statsRefreshMs = window.isCloudApiHost && window.isCloudApiHost() ? 300000 : 30000;
-    setInterval(loadSystemStats, statsRefreshMs);
-    
-    // Also refresh when window regains focus (user comes back to tab)
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) {
-        loadSystemStats();
+
+    function renderBillingList(billing) {
+      const el = document.getElementById("dashBillingList");
+      const pending = (billing || [])
+        .filter((b) => String(b.status || "").toUpperCase() === "PENDING")
+        .sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")))
+        .slice(0, 8);
+      if (!pending.length) {
+        el.innerHTML = bpEmptyState("No pending invoices.", "document");
+        return;
       }
+      el.innerHTML = pending
+        .map(
+          (b) => `<div class="bp-dash-list-item">
+            <div><span class="font-medium text-[#101828]">${b.petName || "—"}</span><span class="text-[#667085]"> · ${b.description || "Invoice"}</span></div>
+            <span class="font-medium tabular-nums shrink-0">₱${peso(b.amount)}</span>
+          </div>`,
+        )
+        .join("");
+    }
+
+    function isInventoryProduct(i) {
+      return String(i?.category || "").toUpperCase() !== "SERVICE";
+    }
+
+    function renderLowStock(items) {
+      const low = (items || []).filter((i) => {
+        if (!isInventoryProduct(i)) return false;
+        const qty = Number(i.quantity ?? i.stock ?? 0);
+        const reorder = Number(i.reorderLevel ?? i.reorderPoint ?? 5);
+        return qty <= reorder;
+      });
+      document.getElementById("statLowStock").textContent = String(low.length);
+      const section = document.getElementById("dashLowStockSection");
+      const list = document.getElementById("dashLowStockList");
+      if (!low.length) {
+        section.classList.add("hidden");
+        return;
+      }
+      section.classList.remove("hidden");
+      list.innerHTML = low
+        .slice(0, 6)
+        .map((i) => {
+          const qty = Number(i.quantity ?? i.stock ?? 0);
+          const dot = qty <= 0 ? "bp-status-dot--red" : "bp-status-dot--amber";
+          return `<div class="bp-dash-list-item">
+            <div class="font-medium text-[#101828]">${i.name || "Item"}</div>
+            <span class="bp-stock-qty text-sm tabular-nums"><span class="bp-status-dot ${dot}"></span>${qty} left</span>
+          </div>`;
+        })
+        .join("");
+    }
+
+    async function loadDashboard() {
+      const today = todayKey();
+      const [apptsRes, billingRes, invRes] = await Promise.allSettled([
+        Api.appts.list(),
+        Api.billing.list(),
+        role === "vet" ? Promise.resolve([]) : Api.inventory.list(),
+      ]);
+
+      const appts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
+      const billing = billingRes.status === "fulfilled" && Array.isArray(billingRes.value) ? billingRes.value : [];
+      const inventory = invRes.status === "fulfilled" && Array.isArray(invRes.value) ? invRes.value : [];
+
+      const todayAppts = appts.filter((a) => apptDateKey(a) === today);
+      document.getElementById("statTodayAppts").textContent = String(todayAppts.length);
+
+      const pending = billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
+      document.getElementById("statPendingBilling").textContent = String(pending.length);
+
+      const paidToday = billing
+        .filter((b) => {
+          if (String(b.status || "").toUpperCase() !== "PAID") return false;
+          const raw = b.paidAt || b.issuedAt || "";
+          return String(raw).slice(0, 10) === today;
+        })
+        .reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      document.getElementById("statTodayRevenue").textContent = "₱" + peso(paidToday);
+
+      renderApptList(appts);
+      renderBillingList(billing);
+      if (role !== "vet") renderLowStock(inventory);
+      else document.getElementById("statLowStock").textContent = "—";
+    }
+
+    (async function runHealthCheck() {
+      const ok = await checkBackendHealth();
+      document.getElementById("backendAlert")?.classList.toggle("hidden", !!ok);
+    })();
+
+    loadDashboard().catch(() => {});
+    const refreshMs = window.isCloudApiHost && window.isCloudApiHost() ? 300000 : 60000;
+    setInterval(() => loadDashboard().catch(() => {}), refreshMs);
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) loadDashboard().catch(() => {});
     });
   </script>
 </body>
 </html>
-

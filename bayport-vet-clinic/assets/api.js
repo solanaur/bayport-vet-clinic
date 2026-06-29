@@ -120,16 +120,13 @@ window.isHostedProductionSite = function isHostedProductionSite() {
 
 window.isCloudApiHost = function isCloudApiHost(base) {
   const b = String(base || window.resolveApiBase() || "").toLowerCase();
-  if (
+  return (
     b.includes("onrender.com") ||
     b.includes("netlify.app") ||
     b.includes("koyeb.app") ||
     b.includes("railway.app") ||
     b.includes("vercel.app")
-  ) {
-    return true;
-  }
-  return window.isHostedProductionSite && window.isHostedProductionSite();
+  );
 };
 
 window.getApiTimeout = function getApiTimeout() {
@@ -179,6 +176,46 @@ function buildApiUrl(path) {
   window.API_BASE = base;
   return base + p;
 }
+window.buildApiUrl = buildApiUrl;
+
+/** Download a PDF from the API with auth and trigger a browser save. */
+window.downloadBayportPdf = async function downloadBayportPdf(path, filename) {
+  const token = window.Api && typeof window.Api.token === "function" ? window.Api.token() : null;
+  if (!token) {
+    throw new Error("Please sign in again to download PDFs.");
+  }
+  const response = await fetch(buildApiUrl(path), {
+    method: "GET",
+    headers: {
+      Accept: "application/pdf",
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) {
+    let detail = `PDF request failed (${response.status})`;
+    try {
+      const ct = (response.headers.get("content-type") || "").toLowerCase();
+      if (ct.includes("application/json")) {
+        const j = await response.json();
+        detail = j.message || j.error || detail;
+      } else {
+        const text = await response.text();
+        if (text && text.trim()) detail = text.trim().slice(0, 240);
+      }
+    } catch (_) {}
+    throw new Error(detail);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename || "bayport.pdf";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return blob;
+};
 
 window.ApiHttp = async function apiHttp(
   path,
@@ -390,6 +427,18 @@ window.Api = {
       method: "DELETE",
       token: Api.token(),
     }),
+    downloadProfilePdf: (id) =>
+      window.downloadBayportPdf(`/pets/${id}/pdf`, `Pet_Profile_${id}.pdf`),
+    downloadAllPdf: () =>
+      window.downloadBayportPdf(
+        "/pets/pdf/all",
+        `All_Pets_Report_${new Date().toISOString().split("T")[0]}.pdf`,
+      ),
+    downloadMedicalHistoryPdf: (petId, petName) =>
+      window.downloadBayportPdf(
+        `/pets/${petId}/medical-history/pdf`,
+        `Medical_History_${String(petName || "pet").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+      ),
   },
 
   medicalRecords: {
@@ -509,21 +558,11 @@ window.Api = {
     get: (id) => ApiHttp(`/prescriptions/${id}`, { token: Api.token() }),
     create: (rx) => ApiHttp("/prescriptions", { method: "POST", body: rx, token: Api.token() }),
     downloadPdf: async (id, groupKey) => {
-      const token = Api.token();
-      const response = await fetch(
-        buildApiUrl(`/prescriptions/${id}/pdf?group=${encodeURIComponent(groupKey || "")}`),
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/pdf",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        },
+      const blob = await window.downloadBayportPdf(
+        `/prescriptions/${id}/pdf?group=${encodeURIComponent(groupKey || "")}`,
+        `Prescription_${id}.pdf`,
       );
-      if (!response.ok) {
-        throw new Error(`PDF generation failed (${response.status})`);
-      }
-      return response.blob();
+      return blob;
     },
     email: (id, groupKey, payload) =>
       ApiHttp(`/prescriptions/${id}/email?group=${encodeURIComponent(groupKey || "")}`, {
@@ -556,6 +595,16 @@ window.Api = {
         ...(to ? { to } : {}),
       }).toString();
       return ApiHttp(`/reports/summary?${params}`, { token: Api.token() });
+    },
+    downloadPdf: (period, from, to, preparedBy) => {
+      const params = new URLSearchParams({
+        period: period || "day",
+        preparedBy: preparedBy || "",
+      });
+      if (from) params.append("from", from);
+      if (to) params.append("to", to);
+      const name = `Bayport_Summary_${from || ""}_${to || ""}.pdf`;
+      return window.downloadBayportPdf(`/reports/summary/pdf?${params.toString()}`, name);
     },
     log: (from, to) => {
       const params = new URLSearchParams({ from, to }).toString();

@@ -1029,7 +1029,6 @@ public class PdfService {
             addRow(infoTable, "Microchip:", nullToEmpty(pet.getMicrochip()), label, value);
             addRow(infoTable, "Owner:", nullToEmpty(pet.getOwner()), label, value);
             addRow(infoTable, "Address:", nullToEmpty(pet.getAddress()), label, value);
-            addRow(infoTable, "Federation:", nullToEmpty(pet.getFederation()), label, value);
             if (pet.getLastVaccinationDate() != null) {
                 addRow(infoTable, "Last vaccination:", pet.getLastVaccinationDate().toString(), label, value);
             }

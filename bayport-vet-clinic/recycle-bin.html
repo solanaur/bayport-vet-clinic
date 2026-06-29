@@ -4,27 +4,26 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Recycle Bin - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-  <style>body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}:root{--soft-teal:#0057b8}</style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
+  <style>:root{--soft-teal:#0F5CC0;--bp-primary:#0F5CC0}</style>
 </head>
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
   <header id="bpAppHeader"></header>
 
-  <div class="flex flex-1">
-    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Recycle Bin</h2>
-      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  <div class="flex flex-1 min-h-0">
+    <aside class="w-64 lg:w-72 bg-white border-r border-gray-200 p-5 shrink-0 hidden md:block">
+      <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
     </aside>
 
-    <main class="flex-1 p-8">
-      <div class="bg-white rounded-2xl shadow-soft p-8">
-        <div class="flex items-center justify-between mb-6">
-          <h3 class="text-2xl font-semibold text-gray-800">Deleted Items</h3>
-          <button id="refreshBtn" class="bg-[var(--soft-teal)] text-white px-5 py-3 rounded-md hover:brightness-95">Refresh</button>
+    <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
+      <div class="max-w-5xl mx-auto space-y-5">
+        <div class="flex items-center justify-between gap-4">
+          <h1 class="bp-page-title">Deleted Items</h1>
+          <button id="refreshBtn" class="bp-btn-primary">Refresh</button>
         </div>
         
-        <div id="recycleBinContainer" class="space-y-6">
-          <!-- Deleted items will be displayed here -->
+        <div id="recycleBinContainer" class="space-y-5">
         </div>
       </div>
     </main>

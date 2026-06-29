@@ -23,11 +23,13 @@
     }
     loadFullCalendar().catch(() => {});
   </script>
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
     :root {
-      --soft-teal: #0057b8;
-      --bp-blue: #0057b8;
-      --bp-bg: #f8f9fa;
+      --soft-teal: #0F5CC0;
+      --bp-blue: #0F5CC0;
+      --bp-primary: #0F5CC0;
+      --bp-bg: #F5F7FA;
       --bp-green-bg: #dcfce7;
       --bp-green-text: #166534;
       --bp-orange-bg: #ffedd5;
@@ -39,10 +41,10 @@
     .shadow-soft { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06); }
     .queue-row-active { background-color: #ecfdf5 !important; }
     .tab-pill-active { background-color: var(--bp-blue); color: #fff; }
-    .tab-pill { border-radius: 9999px; padding: 0.35rem 0.9rem; font-size: 0.8125rem; font-weight: 500; transition: background 0.15s, color 0.15s; }
+    .tab-pill { border-radius: 8px; padding: 0.35rem 0.9rem; font-size: 0.8125rem; font-weight: 500; }
     .tab-pill:not(.tab-pill-active) { background: #fff; color: #4b5563; border: 1px solid #e5e7eb; }
     .tab-pill:not(.tab-pill-active):hover { background: #f9fafb; }
-    .status-pill { border-radius: 9999px; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.65rem; display: inline-block; white-space: nowrap; }
+    .status-pill { border-radius: 6px; font-size: 0.75rem; font-weight: 600; padding: 0.2rem 0.65rem; display: inline-block; white-space: nowrap; }
     .status-in { background: var(--bp-green-bg); color: var(--bp-green-text); }
     .status-wait { background: var(--bp-orange-bg); color: var(--bp-orange-text); }
     .status-done { background: var(--bp-gray-pill-bg); color: var(--bp-gray-pill-text); }
@@ -78,8 +80,8 @@
         <div class="bg-white rounded-xl shadow-soft border border-gray-100/80 overflow-hidden">
           <div class="p-5 lg:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
-              <h2 class="text-2xl font-bold text-gray-900 tracking-tight">Appointment Queue</h2>
-              <p id="queueScopeHint" class="text-sm text-gray-500 mt-1">Showing upcoming appointments (today through the next 60 days).</p>
+              <h2 class="bp-page-title tracking-tight">Appointment Queue</h2>
+              <p id="queueScopeHint" class="hidden" aria-hidden="true"></p>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0 items-center">
               <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm">
@@ -113,10 +115,6 @@
 
           <div class="px-5 lg:px-6 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-gray-500 border-t border-gray-100">
             <span id="queueFooterLeft"></span>
-            <span class="flex items-center gap-2">
-              <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-              Queue is updated in real-time
-            </span>
           </div>
 
         </div>
@@ -443,10 +441,7 @@
           : "px-3 py-2 font-semibold bg-white text-gray-700 hover:bg-gray-50";
       }
       if (hint) {
-        hint.textContent =
-          dateScope === "today"
-            ? "Showing today\u2019s appointments only."
-            : "Showing upcoming appointments (today through the next 60 days).";
+        hint.textContent = "";
       }
     }
 

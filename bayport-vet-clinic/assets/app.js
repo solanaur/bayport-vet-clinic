@@ -2,6 +2,61 @@
    Bayport Veterinary Clinic — Main App Script (Frontend)
    =========================================================== */
 
+(function injectBayportDesign() {
+  try {
+    if (document.getElementById("bayport-design-css")) return;
+    const link = document.createElement("link");
+    link.id = "bayport-design-css";
+    link.rel = "stylesheet";
+    link.href = "assets/bayport-design.css";
+    (document.head || document.documentElement).appendChild(link);
+  } catch (_) {}
+  try {
+    const file = (location.pathname.split("/").pop() || "").toLowerCase();
+    const accentMap = {
+      "dashboard.html": "blue",
+      "billing.html": "blue",
+      "consultations.html": "blue",
+      "appointments.html": "blue",
+      "pos.html": "blue",
+      "inventory.html": "green",
+      "pet-records.html": "teal",
+      "pet-profile.html": "teal",
+      "reports.html": "purple",
+      "reminders.html": "blue",
+      "manage-users.html": "blue",
+      "activity-logs.html": "blue",
+      "recycle-bin.html": "blue",
+    };
+    const accent = accentMap[file] || "blue";
+    const apply = () => document.body?.setAttribute("data-bp-page", accent);
+    if (document.body) apply();
+    else document.addEventListener("DOMContentLoaded", apply, { once: true });
+  } catch (_) {}
+})();
+
+(function bootBayportSidebarState() {
+  try {
+    const collapsed = localStorage.getItem("bayport_sidebar_collapsed") === "1";
+    if (!collapsed) return;
+    document.documentElement.classList.add("bp-sidebar-collapsed-pending");
+    if (document.getElementById("bp-sidebar-boot-styles")) return;
+    const style = document.createElement("style");
+    style.id = "bp-sidebar-boot-styles";
+    style.textContent = `
+      html.bp-sidebar-collapsed-pending aside:has(#sidebarNav) {
+        width: 0 !important;
+        min-width: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        overflow: hidden !important;
+        border-right-color: transparent !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  } catch (_) {}
+})();
+
 window.tryLogin = async function(username, password, role, otp) {
   if (!role) return { ok: false, msg: "Please select a role first." };
   ensureApiEnabled();
@@ -63,7 +118,7 @@ window.tryLogin = async function(username, password, role, otp) {
         && typeof window.isCurrentDeviceAuthorized === "function" && !window.isCurrentDeviceAuthorized()) {
       return {
         ok: false,
-        msg: "Unauthorized device. Ask an administrator to trust this device in Settings → Security.",
+        msg: "Unauthorized device. Ask an administrator to trust this device.",
       };
     }
     return { ok: true };
@@ -116,13 +171,13 @@ window.logout = function() {
 
 /* ===== Role & Sidebar ===== */
 const CONFIG = {
-  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","pos","reports","reminders","activity-logs","recycle-bin","settings","manage-users","help"],
-  /** Clinical focus: no billing, POS, inventory, or reports in nav (billing still flows from consultations). */
-  vet:          ["dashboard","pet-records","appointments","consultations","help"],
+  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","reports","reminders","activity-logs","recycle-bin","manage-users"],
+  /** Clinical focus: no billing, inventory, or reports in nav (billing still flows from consultations). */
+  vet:          ["dashboard","pet-records","appointments","consultations"],
   // Front Office = reception + pharmacy — no Consultations module (vet/clinical only).
-  front_office: ["dashboard","pet-records","appointments","inventory","billing","pos","reminders","help"],
-  receptionist: ["dashboard","pet-records","appointments","inventory","billing","pos","reminders","help"],
-  pharmacist:   ["dashboard","pet-records","appointments","inventory","billing","pos","reminders","help"]
+  front_office: ["dashboard","pet-records","appointments","inventory","billing","reminders"],
+  receptionist: ["dashboard","pet-records","appointments","inventory","billing","reminders"],
+  pharmacist:   ["dashboard","pet-records","appointments","inventory","billing","reminders"]
 };
 
 const LABEL = {
@@ -132,15 +187,12 @@ const LABEL = {
   "consultations":"Consultations & Rx",
   "prescriptions":"Consultations & Rx",
   "billing":"Billing",
-  "pos":"Point of sale",
   "activity-logs":"Activity Logs",
   "recycle-bin":"Recycle Bin",
-  "settings":"Settings",
   "inventory":"Inventory",
   "reports":"Reports",
   "reminders":"Reminders",
-  "manage-users":"Users & Roles",
-  "help":"Help & support"
+  "manage-users":"Users & Roles"
 };
 
 /** Shorter labels in the sidebar only (less visual noise). */
@@ -148,26 +200,26 @@ const SIDEBAR_LABEL = {
   ...LABEL,
   "pet-records": "Pet profiles",
   "manage-users": "Users & roles",
-  "billing": "Billing & payments"
+  "billing": "Billing"
 };
 
-/** Inline SVG (h-5 w-5) for sidebar rows — keeps actions recognizable at a glance. */
+/** Inline SVG for sidebar rows — compact, muted by default. */
 const SIDEBAR_ICONS = {
-  dashboard: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`,
-  "pet-records": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
-  appointments: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
-  consultations: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
-  prescriptions: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>`,
-  billing: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>`,
-  pos: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`,
-  inventory: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
-  reports: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
-  reminders: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`,
-  settings: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
-  "manage-users": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
-  "activity-logs": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
-  "recycle-bin": `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`,
-  help: `<svg class="h-5 w-5 shrink-0 opacity-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+  dashboard: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>`,
+  "pet-records": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
+  appointments: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
+  consultations: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>`,
+  prescriptions: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>`,
+  billing: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>`,
+  pos: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>`,
+  inventory: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
+  reports: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>`,
+  reminders: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>`,
+  settings: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`,
+  "manage-users": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
+  "activity-logs": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+  "recycle-bin": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`,
+  help: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
 };
 
 const NAV_TOOLTIPS = {
@@ -181,11 +233,9 @@ const NAV_TOOLTIPS = {
   inventory: "Stock and catalog",
   reports: "Revenue and operational summaries",
   reminders: "Vaccination and pet owner email reminders",
-  settings: "Clinic and system preferences",
   "manage-users": "Staff accounts and roles",
   "activity-logs": "Who changed what",
-  "recycle-bin": "Restore deleted records",
-  help: "FAQs, tips, and how to get support"
+  "recycle-bin": "Restore deleted records"
 };
 
 /**
@@ -193,20 +243,17 @@ const NAV_TOOLTIPS = {
  */
 const _SIDEBAR_FRONT_OFFICE = [
   { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments"] },
-  { label: "Operations", open: true, keys: ["billing", "pos", "inventory", "reminders"] },
-  { label: "Help & support", open: false, keys: ["help"] }
+  { label: "Operations", open: true, keys: ["billing", "inventory", "reminders"] }
 ];
 const SIDEBAR_GROUPS = {
   admin: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
-    { label: "Operations", open: true, keys: ["billing", "pos", "inventory", "reports", "reminders"] },
-    { label: "Admin settings", open: false, keys: ["settings", "manage-users"] },
-    { label: "Records & audit", open: false, keys: ["activity-logs", "recycle-bin"] },
-    { label: "Help & support", open: false, keys: ["help"] }
+    { label: "Operations", open: true, keys: ["billing", "inventory", "reports", "reminders"] },
+    { label: "Admin", open: false, keys: ["manage-users"] },
+    { label: "Records & audit", open: false, keys: ["activity-logs", "recycle-bin"] }
   ],
   vet: [
-    { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
-    { label: "Help & support", open: false, keys: ["help"] }
+    { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] }
   ],
   front_office: _SIDEBAR_FRONT_OFFICE,
   receptionist: _SIDEBAR_FRONT_OFFICE,
@@ -231,6 +278,44 @@ window.getBayportHeaderRoleTitle = function () {
   if (r === "vet") return "Vet";
   if (typeof window.isFrontOffice === "function" && window.isFrontOffice(r)) return "Staff";
   return "Staff";
+};
+
+/** Shared HTML escape for visual helpers. */
+window.bpEscHtml = function (s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+};
+
+/** Semantic status badges — Paid, Pending, Cancelled, Out of stock. */
+window.bpStatusBadge = function (status) {
+  const u = String(status || "").toUpperCase();
+  if (u === "PAID") return '<span class="bp-badge bp-badge--paid">Paid</span>';
+  if (u === "PENDING") return '<span class="bp-badge bp-badge--pending">Pending</span>';
+  if (u === "COMPLETED" || u === "DONE") return '<span class="bp-badge bp-badge--completed">Completed</span>';
+  if (u === "CANCELLED" || u === "CANCELED") return '<span class="bp-badge bp-badge--cancelled">Cancelled</span>';
+  if (u === "DRAFT") return '<span class="bp-badge bp-badge--draft">Draft</span>';
+  if (u === "OUT OF STOCK" || u === "OUT") return '<span class="bp-badge bp-badge--danger">Out of stock</span>';
+  return `<span class="bp-badge bp-badge--muted">${window.bpEscHtml(u)}</span>`;
+};
+
+const BP_EMPTY_ICONS = {
+  calendar:
+    '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>',
+  document:
+    '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+  box: '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>',
+  search:
+    '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>',
+};
+
+/** Understated empty state with gray icon. */
+window.bpEmptyState = function (message, iconKey, extraClass) {
+  const ic = BP_EMPTY_ICONS[iconKey] || BP_EMPTY_ICONS.document;
+  const cls = ["bp-empty-state", extraClass].filter(Boolean).join(" ");
+  return `<div class="${cls}"><div class="bp-empty-state-icon">${ic}</div><span>${window.bpEscHtml(message)}</span></div>`;
 };
 const RECEIPT_PRINTER_KEY = "bayport_receipt_printer";
 const BRANCH_CODE_KEY = "bayport_branch_code";
@@ -314,9 +399,9 @@ window.isCurrentDeviceAuthorized = function () {
 
 window.enforceDeviceAuthorization = function () {
   if (window.isCurrentDeviceAuthorized()) return true;
-  alert("Unauthorized device. Ask an administrator to approve this device in Settings → Security.");
+  alert("Unauthorized device. Ask an administrator to approve this device.");
   if (typeof window.logout === "function") window.logout();
-  else location.href = "index.html";
+  else location.href = "login.html";
   return false;
 };
 
@@ -448,7 +533,7 @@ window.setClinicSettings = function(settings) {
 };
 
 window.ensureLoggedIn = function(){
-  if(!localStorage.getItem("role")) location.href="index.html";
+  if(!localStorage.getItem("role")) location.href="login.html";
   if (typeof window.enforceDeviceAuthorization === "function") window.enforceDeviceAuthorization();
 };
 
@@ -461,7 +546,7 @@ window.isFrontOffice = function(role) {
 /** Map sub-pages to the sidebar item that should stay highlighted. */
 function normalizeActiveFile(activeFile) {
   const f = String(activeFile || "").toLowerCase();
-  if (f === "appointments-calendar.html" || f === "procedure.html") return "appointments.html";
+  if (f === "appointments-calendar.html") return "appointments.html";
   if (f === "reminders-calendar.html") return "reminders.html";
   return activeFile;
 }
@@ -498,7 +583,7 @@ window.renderSidebar = function (container, role, activeFile) {
       const tip = NAV_TOOLTIPS[key];
       if (tip) btn.title = tip;
       btn.className =
-        "w-full text-left px-3 py-2 text-sm rounded-lg text-gray-700 hover:bg-blue-50/90 hover:text-[var(--soft-teal,#0057b8)] transition-colors flex items-center gap-2.5";
+        "w-full text-left px-3 py-2 text-sm rounded-lg text-[#374151] hover:bg-[#EFF6FF] flex items-center gap-2.5";
       const iconHtml = SIDEBAR_ICONS[key] || "";
       btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
@@ -513,7 +598,7 @@ window.renderSidebar = function (container, role, activeFile) {
       if (`${key}.html` === activeFile) {
         btn.dataset.sidebarActive = "1";
         btn.className =
-          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--soft-teal,#0057b8)] text-white font-medium shadow-sm flex items-center gap-2.5";
+          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--bp-primary,#0F5CC0)] text-white font-medium flex items-center gap-2.5";
       }
       wrap.appendChild(btn);
     });
@@ -525,16 +610,16 @@ window.renderSidebar = function (container, role, activeFile) {
 
     const det = document.createElement("details");
     det.className =
-      "sidebar-group mb-1 border-b border-gray-100 pb-2 last:border-0 last:pb-0";
+      "sidebar-group mb-1 border-b border-gray-100 pb-1 last:border-0 last:pb-0 last:mb-0";
     if (group.open) det.open = true;
 
     const sum = document.createElement("summary");
     sum.className =
-      "cursor-pointer select-none list-none flex items-center justify-between gap-2 px-1 py-2 text-[11px] font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600 [&::-webkit-details-marker]:hidden";
+      "cursor-pointer select-none list-none flex items-center justify-between gap-2 px-1 py-1.5 text-[10px] font-medium uppercase tracking-wider text-gray-400 hover:text-gray-500 [&::-webkit-details-marker]:hidden";
     const tit = document.createElement("span");
     tit.textContent = group.label;
     const chev = document.createElement("span");
-    chev.className = "text-gray-300 text-xs transition-transform duration-200 sidebar-chevron shrink-0";
+    chev.className = "text-gray-300 text-xs sidebar-chevron shrink-0";
     chev.textContent = "▼";
     sum.appendChild(tit);
     sum.appendChild(chev);
@@ -555,6 +640,100 @@ window.renderSidebar = function (container, role, activeFile) {
   container.querySelectorAll("details.sidebar-group").forEach((det) => {
     if (det.querySelector("button[data-sidebar-active='1']")) det.open = true;
   });
+
+  if (typeof window.initBayportSidebar === "function") window.initBayportSidebar();
+};
+
+const SIDEBAR_COLLAPSED_KEY = "bayport_sidebar_collapsed";
+
+/** Collapsible app sidebar — shared across all modules; state persists in localStorage. */
+window.initBayportSidebar = function initBayportSidebar() {
+  const nav = document.getElementById("sidebarNav");
+  if (!nav) return;
+  const aside = nav.closest("aside");
+  if (!aside || aside.dataset.bpSidebarInit === "1") return;
+  aside.dataset.bpSidebarInit = "1";
+  if (!aside.id) aside.id = "bpSidebar";
+
+  aside.classList.add(
+    "bp-sidebar",
+    "w-72",
+    "shrink-0",
+    "bg-white",
+    "border-r",
+    "border-slate-200",
+    "p-5",
+    "overflow-hidden",
+    "flex",
+    "flex-col",
+    "min-h-0",
+  );
+  aside.classList.remove("shadow-soft", "hidden", "md:block", "w-64", "lg:w-72", "p-6");
+
+  aside.querySelectorAll("h2:not(.bp-sidebar-heading)").forEach((h) => h.remove());
+  let heading = aside.querySelector(".bp-sidebar-heading");
+  if (!heading) {
+    heading = document.createElement("h2");
+    heading.className =
+      "bp-sidebar-heading text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 shrink-0";
+    heading.textContent = "Menu";
+    aside.insertBefore(heading, nav);
+  }
+  nav.className = "flex flex-col gap-1 text-sm flex-1 min-h-0 overflow-hidden";
+
+  if (!document.getElementById("bp-sidebar-styles")) {
+    const style = document.createElement("style");
+    style.id = "bp-sidebar-styles";
+    style.textContent = `
+      aside.bp-sidebar.bp-sidebar--collapsed {
+        width: 0 !important;
+        min-width: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+        border-right-color: transparent !important;
+        overflow: hidden;
+      }
+      aside.bp-sidebar.bp-sidebar--collapsed > * { visibility: hidden; }
+    `;
+    document.head.appendChild(style);
+  }
+
+  let hideBtn = aside.querySelector("#bpSidebarHide");
+  if (!hideBtn) {
+    hideBtn = document.createElement("button");
+    hideBtn.type = "button";
+    hideBtn.id = "bpSidebarHide";
+    hideBtn.className =
+      "bp-sidebar-hide mt-auto w-full flex items-center gap-2 text-left text-xs font-medium text-slate-500 hover:text-slate-800 py-2.5 border-t border-slate-100 shrink-0";
+    hideBtn.innerHTML = `<svg class="w-4 h-4 shrink-0 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg><span>Hide menu</span>`;
+    aside.appendChild(hideBtn);
+  }
+
+  let showBtn = document.getElementById("bpSidebarShow");
+  if (!showBtn) {
+    showBtn = document.createElement("button");
+    showBtn.type = "button";
+    showBtn.id = "bpSidebarShow";
+    showBtn.className =
+      "fixed left-0 top-[4.25rem] z-[85] hidden items-center gap-1.5 pl-2.5 pr-3 py-2 bg-white border border-slate-200 border-l-0 rounded-r-lg shadow-md text-xs font-semibold text-slate-700 hover:bg-slate-50";
+    showBtn.innerHTML = `<svg class="w-4 h-4 text-[var(--soft-teal,#0057b8)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg><span>Show menu</span>`;
+    document.body.appendChild(showBtn);
+  }
+
+  function setCollapsed(collapsed, persist) {
+    if (persist !== false) localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    aside.classList.toggle("bp-sidebar--collapsed", collapsed);
+    showBtn.classList.toggle("hidden", !collapsed);
+    showBtn.classList.toggle("flex", collapsed);
+    hideBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    showBtn.setAttribute("aria-expanded", collapsed ? "true" : "false");
+    document.documentElement.classList.remove("bp-sidebar-collapsed-pending");
+  }
+
+  hideBtn.onclick = () => setCollapsed(true);
+  showBtn.onclick = () => setCollapsed(false);
+
+  setCollapsed(localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1", false);
 };
 
 window.ROLE_COPY = ROLE_COPY;
@@ -639,7 +818,7 @@ window.renderQuickActions = function (el, role) {
     b.title = title;
     const ic = QA_ICON[iconKey] || QA_ICON.clipboard;
     const base =
-      "text-left w-full rounded-xl p-5 shadow-soft border flex gap-4 items-start transition-transform hover:scale-[1.01] active:scale-[0.99]";
+      "text-left w-full rounded-lg p-5 shadow-soft border flex gap-4 items-start";
     const style = primary
       ? `${base} bg-[var(--soft-teal)] text-white border-[var(--soft-teal)] ring-2 ring-offset-2 ring-[var(--soft-teal)]/30`
       : `${base} bg-[#f7fbfb] hover:bg-[#eef6f6] border-gray-200 text-gray-800`;
@@ -657,12 +836,10 @@ window.renderQuickActions = function (el, role) {
       make("Start consultation", "consultations.html", "clipboard", { primary: true, subtitle: "Diagnosis and procedures" }),
       make("Create appointment", "appointments.html", "calendar", { subtitle: "Book the next visit" }),
       make("Pet profiles", "pet-records.html", "book"),
-      make("Billing & payments", "billing.html", "cash"),
-      make("Point of sale", "pos.html", "cash", { subtitle: "Fast checkout" }),
+      make("Billing", "billing.html", "cash", { subtitle: "Invoices & checkout" }),
       make("Reports", "reports.html", "chart"),
       make("Inventory", "inventory.html", "cube"),
-      make("Users & roles", "manage-users.html", "users"),
-      make("Settings", "settings.html", "cog")
+      make("Users & roles", "manage-users.html", "users")
     ],
     vet: [
       make("Start consultation", "consultations.html", "clipboard", { primary: true, subtitle: "Step-by-step visit workflow" }),
@@ -672,8 +849,7 @@ window.renderQuickActions = function (el, role) {
     front_office: [
       make("Create appointment", "appointments.html", "calendar", { primary: true, subtitle: "Book visits and manage queue" }),
       make("Pet profiles", "pet-records.html", "book"),
-      make("Billing & payments", "billing.html", "cash"),
-      make("Point of sale", "pos.html", "cash", { subtitle: "Checkout" }),
+      make("Billing", "billing.html", "cash", { subtitle: "Invoices & checkout" }),
       make("Inventory", "inventory.html", "cube")
     ],
     receptionist: null,
@@ -870,4 +1046,91 @@ window.ownerForPet = async function(id) {
   if (pet.ownerId){ const o = await repoGetOwner(pet.ownerId); return o? o.fullName : "Unknown Owner"; }
   return "Unknown Owner";
 };
+
+/* ===== Auto-capitalize names, addresses, and proper nouns ===== */
+(function initBayportCapitalize() {
+  const EXCLUDE_TYPES = new Set(["email", "password", "tel", "number", "date", "datetime-local", "search", "url", "time"]);
+  const EXCLUDE_ID = /^(username|edit_username|f_username|f_ownerSearch|petSearch|f_pet_search|f_owner|f_email|edit_email)$/i;
+  const INCLUDE_ID = new Set([
+    "f_name", "ep_name", "f_ownerName", "f_ownerAddress", "f_breedOther", "f_color",
+    "f_lastVaccPlace", "f_lastVaccVet", "ep_breed", "ep_color", "ep_address",
+    "ep_lastVaccPlace", "ep_lastVaccVet", "inv_name", "pr_name",
+  ]);
+
+  function capSegment(seg) {
+    if (!seg || !/[a-zA-Z\u00C0-\u024F]/.test(seg)) return seg;
+    return seg.replace(/([a-zA-Z\u00C0-\u024F])([^\s-']*)/g, (_, ch, rest) => ch.toUpperCase() + rest.toLowerCase());
+  }
+
+  function capLine(line) {
+    return line.replace(/([a-zA-Z\u00C0-\u024F0-9]+(?:[-'][a-zA-Z\u00C0-\u024F0-9]+)*)/g, (word) =>
+      word.split(/([-'])/).map((part) => (part === "-" || part === "'" ? part : capSegment(part))).join("")
+    );
+  }
+
+  window.bayportCapWords = function bayportCapWords(str) {
+    if (str == null) return "";
+    const s = String(str);
+    if (!s.trim()) return s;
+    return s.split("\n").map(capLine).join("\n");
+  };
+
+  function shouldCapitalize(el) {
+    if (!el || el.readOnly || el.disabled) return false;
+    const tag = el.tagName;
+    if (tag !== "INPUT" && tag !== "TEXTAREA") return false;
+    if (EXCLUDE_TYPES.has(String(el.type || "text").toLowerCase())) return false;
+    if (el.getAttribute("data-bp-capitalize") === "off") return false;
+    if (el.getAttribute("data-bp-capitalize") === "words") return true;
+    const df = el.getAttribute("data-field");
+    if (df === "owner" || df === "pet") return true;
+    const id = el.id || "";
+    if (EXCLUDE_ID.test(id)) return false;
+    if (INCLUDE_ID.has(id)) return true;
+    if (/Address$/i.test(id)) return true;
+    if (/(^|_)name$/i.test(id) && !/username|search/i.test(id)) return true;
+    if (/ownerName|fullName|petName/i.test(id)) return true;
+    return false;
+  }
+
+  function applyCapitalize(el) {
+    if (!shouldCapitalize(el)) return;
+    const next = window.bayportCapWords(el.value);
+    if (next === el.value) return;
+    el.value = next;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  window.bayportCapitalizeField = applyCapitalize;
+
+  function bindCapitalize(el) {
+    if (!el || el.dataset.bpCapBound === "1") return;
+    if (!shouldCapitalize(el)) return;
+    el.dataset.bpCapBound = "1";
+    el.addEventListener("blur", () => applyCapitalize(el));
+  }
+
+  function scan(root) {
+    if (!root || !root.querySelectorAll) return;
+    root.querySelectorAll("input, textarea").forEach(bindCapitalize);
+  }
+
+  function boot() {
+    scan(document);
+    if (!document.body || window.__bayportCapObserver) return;
+    window.__bayportCapObserver = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.matches?.("input, textarea")) bindCapitalize(node);
+          scan(node);
+        }
+      }
+    });
+    window.__bayportCapObserver.observe(document.body, { childList: true, subtree: true });
+  }
+
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot, { once: true });
+  else boot();
+})();
 

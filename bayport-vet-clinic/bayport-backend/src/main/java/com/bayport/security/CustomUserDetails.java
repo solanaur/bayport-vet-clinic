@@ -6,6 +6,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CustomUserDetails implements UserDetails {
@@ -17,9 +19,21 @@ public class CustomUserDetails implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return user.getRoles().stream()
-                .map(role -> new SimpleGrantedAuthority(role.getName()))
-                .collect(Collectors.toList());
+        Set<GrantedAuthority> authorities = new LinkedHashSet<>();
+        if (user.getRoles() != null) {
+            authorities.addAll(
+                    user.getRoles().stream()
+                            .filter(role -> role != null && role.getName() != null && !role.getName().isBlank())
+                            .map(role -> new SimpleGrantedAuthority(SecurityUtils.normalizeRoleAuthority(role.getName())))
+                            .collect(Collectors.toSet()));
+        }
+        if (user.getRole() != null && !user.getRole().isBlank()) {
+            authorities.add(new SimpleGrantedAuthority(SecurityUtils.normalizeRoleAuthority(user.getRole())));
+        }
+        if (authorities.isEmpty()) {
+            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        }
+        return authorities;
     }
 
     @Override

@@ -4,26 +4,398 @@
   <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Pet Profile - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
-    body{font-family:'Poppins',sans-serif}.shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.06)}:root{--soft-teal:#0057b8}
-    .pp-card{background:#fff;border:1px solid #e5e7eb;border-radius:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06)}
-    .pp-card-h{padding:1.25rem 1.5rem;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;gap:.5rem}
-    .pp-card-b{padding:1.25rem 1.5rem}
+    :root { --soft-teal: #0F5CC0; --bp-primary: #0F5CC0; }
+    .pp-card { background: #fff; border: 1px solid #E5E7EB; border-radius: 8px; box-shadow: 0 1px 2px rgba(16,24,40,0.06); }
+    .pp-card-h { padding: 1rem 1.25rem; border-bottom: 1px solid #F3F4F6; display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: 14px; }
+    .pp-card-b { padding: 1rem 1.25rem; }
+    .visit-history-head {
+      display: none;
+      grid-template-columns: minmax(6.5rem, 7.5rem) minmax(8rem, 1.35fr) minmax(5rem, 1fr) 2rem;
+      gap: 12px;
+      padding: 0 14px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #94A3B8;
+    }
+    @media (min-width: 640px) {
+      .visit-history-head.has-rows { display: grid; }
+    }
+    .visit-accordion {
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .visit-accordion + .visit-accordion { margin-top: 8px; }
+    .visit-accordion-header {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .visit-accordion-header:hover .visit-accordion-summary { background: #F9FAFB; }
+    .visit-accordion-header.is-open .visit-accordion-summary { background: #F0F7FF; border-bottom: 1px solid #E5E7EB; }
+    .visit-accordion-summary {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(6.5rem, 7.5rem) minmax(8rem, 1.35fr) minmax(5rem, 1fr);
+      gap: 12px;
+      align-items: center;
+      padding: 12px 0 12px 14px;
+      min-width: 0;
+      transition: background .15s ease;
+    }
+    @media (max-width: 639px) {
+      .visit-accordion-summary {
+        grid-template-columns: 1fr;
+        gap: 4px;
+        padding: 12px 0 12px 14px;
+      }
+      .visit-accordion-summary .visit-col-diagnosis .dx-lbl { display: inline; }
+    }
+    .visit-col-date { font-weight: 600; color: #111827; white-space: nowrap; font-size: 13px; }
+    .visit-col-type { color: #374151; font-weight: 500; font-size: 13px; }
+    .visit-col-diagnosis { color: #4B5563; font-size: 13px; }
+    .visit-col-diagnosis .dx-lbl { color: #94A3B8; font-weight: 500; }
+    .visit-chevron-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 2.25rem;
+      flex-shrink: 0;
+      color: #94A3B8;
+    }
+    .visit-chevron { transition: transform .25s ease; }
+    .visit-accordion-header.is-open .visit-chevron { transform: rotate(180deg); color: var(--soft-teal); }
+    .visit-accordion-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .25s ease;
+    }
+    .visit-accordion-panel.is-open { grid-template-rows: 1fr; }
+    .visit-accordion-panel-inner { overflow: hidden; min-height: 0; }
+    .visit-accordion-body {
+      padding: 12px 14px 14px;
+      background: #FAFBFC;
+      font-size: 13px;
+      color: #374151;
+      line-height: 1.45;
+    }
+    .visit-expand-block + .visit-expand-block {
+      margin-top: 22px;
+      padding-top: 22px;
+      border-top: 1px solid #EEF2F6;
+    }
+    .visit-expand-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #64748B;
+      margin-bottom: 10px;
+    }
+    .visit-kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 18px;
+    }
+    @media (max-width: 640px) {
+      .visit-kv-grid { grid-template-columns: 1fr; gap: 8px; }
+    }
+    .visit-kv { min-width: 0; }
+    .visit-kv .k { font-size: 11px; color: #94A3B8; font-weight: 500; margin-bottom: 2px; }
+    .visit-kv .v { color: #111827; font-weight: 500; word-break: break-word; }
+    .visit-kv .v.notes { font-weight: 400; white-space: pre-wrap; }
+    .visit-compact-list { margin: 0; padding: 0; list-style: none; }
+    .visit-compact-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+    .visit-compact-list li + li { border-top: 1px solid #F1F5F9; }
+    .visit-compact-list .sub { font-size: 11px; color: #64748B; margin-top: 2px; font-weight: 400; }
+    .visit-sub-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748B;
+      margin: 10px 0 4px;
+    }
+    .visit-sub-lbl:first-child { margin-top: 0; }
+    .visit-attach-list { margin: 0; padding: 0; list-style: none; }
+    .visit-attach-list li { padding: 4px 0; }
+    .visit-attach-list a {
+      color: var(--soft-teal);
+      font-weight: 600;
+      font-size: 12px;
+      text-decoration: none;
+    }
+    .visit-attach-list a:hover { text-decoration: underline; }
+    .visit-actions {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #EEF2F6;
+    }
+    .pet-reminders-head {
+      display: none;
+      grid-template-columns: minmax(7rem, 1.4fr) minmax(5.5rem, 6.5rem) minmax(4.5rem, 5.5rem) auto;
+      gap: 12px;
+      padding: 0 14px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #94A3B8;
+    }
+    @media (min-width: 640px) {
+      .pet-reminders-head.has-rows { display: grid; }
+    }
+    .pet-reminder-row {
+      display: grid;
+      grid-template-columns: minmax(7rem, 1.4fr) minmax(5.5rem, 6.5rem) minmax(4.5rem, 5.5rem) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 13px;
+    }
+    .pet-reminder-row + .pet-reminder-row { margin-top: 8px; }
+    @media (max-width: 639px) {
+      .pet-reminder-row {
+        grid-template-columns: 1fr auto;
+        grid-template-areas:
+          "type actions"
+          "due actions"
+          "status actions";
+        gap: 6px 10px;
+      }
+      .pet-rem-col-type { grid-area: type; }
+      .pet-rem-col-due { grid-area: due; font-size: 12px; color: #6B7280; }
+      .pet-rem-col-status { grid-area: status; }
+      .pet-rem-col-actions { grid-area: actions; align-self: center; }
+    }
+    .pet-rem-col-type { font-weight: 600; color: #111827; min-width: 0; }
+    .pet-rem-col-type .sub { font-size: 11px; font-weight: 400; color: #94A3B8; margin-top: 2px; }
+    .pet-rem-col-due { color: #374151; font-weight: 500; white-space: nowrap; }
+    .pet-rem-col-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .pet-rem-btn {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #E5E7EB;
+      background: #fff;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s ease, color .12s ease;
+    }
+    .pet-rem-btn:hover { background: #F9FAFB; }
+    .pet-rem-btn--send { border-color: #0F5CC0; color: #0F5CC0; }
+    .pet-rem-btn--send:hover { background: #F3F8FF; }
+    .pet-rem-btn--send:disabled { opacity: .45; cursor: not-allowed; }
+    .pet-rem-btn--delete { border-color: transparent; color: #B42318; }
+    .pet-rem-btn--delete:hover { background: #FEF2F2; }
+    .pet-rem-badge {
+      display: inline-flex;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 2px 8px;
+    }
+    .pet-rem-badge--sent { background: #ECFDF5; color: #047857; }
+    .pet-rem-badge--pending { background: #EFF6FF; color: #1D4ED8; }
+    .ext-rec-empty {
+      text-align: center;
+      padding: 32px 24px;
+      border-radius: 8px;
+      background: #F8FAFC;
+    }
+    .ext-rec-empty-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 14px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #E5E7EB;
+      color: #94A3B8;
+    }
+    .ext-rec-empty-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+      margin: 0 0 8px;
+    }
+    .ext-rec-empty-desc {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #6B7280;
+      max-width: 32rem;
+      margin: 0 auto 18px;
+    }
+    .ext-rec-add-btn {
+      display: inline-flex;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--soft-teal);
+      background: var(--soft-teal);
+      color: #fff;
+      cursor: pointer;
+      transition: filter .12s ease;
+    }
+    .ext-rec-add-btn:hover { filter: brightness(1.05); }
+    .ext-rec-timeline { display: flex; flex-direction: column; gap: 8px; }
+    .ext-rec-accordion {
+      border: 1px solid #E5E7EB;
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .ext-rec-header {
+      display: flex;
+      align-items: stretch;
+      gap: 8px;
+      width: 100%;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+    .ext-rec-header:hover .ext-rec-summary { background: #F9FAFB; }
+    .ext-rec-header.is-open .ext-rec-summary { background: #F0F7FF; border-bottom: 1px solid #E5E7EB; }
+    .ext-rec-summary {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 0 12px 14px;
+      transition: background .15s ease;
+    }
+    .ext-rec-clinic {
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 3px;
+    }
+    .ext-rec-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #111827;
+      line-height: 1.35;
+      margin-bottom: 4px;
+    }
+    .ext-rec-date { font-size: 12px; color: #6B7280; font-weight: 500; }
+    .ext-rec-chevron-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      padding: 0 12px;
+      flex-shrink: 0;
+      color: #94A3B8;
+    }
+    .ext-rec-toggle-lbl {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      white-space: nowrap;
+    }
+    .ext-rec-chevron { transition: transform .25s ease; }
+    .ext-rec-header.is-open .ext-rec-chevron { transform: rotate(180deg); color: var(--soft-teal); }
+    .ext-rec-panel {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows .25s ease;
+    }
+    .ext-rec-panel.is-open { grid-template-rows: 1fr; }
+    .ext-rec-panel-inner {
+      overflow: hidden;
+      min-height: 0;
+      padding: 0 14px;
+    }
+    .ext-rec-panel.is-open .ext-rec-panel-inner {
+      padding: 12px 14px 14px;
+      background: #FAFBFC;
+    }
+    .ext-rec-kv-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 18px;
+    }
+    @media (max-width: 640px) {
+      .ext-rec-kv-grid { grid-template-columns: 1fr; gap: 8px; }
+    }
+    .ext-kv { min-width: 0; }
+    .ext-kv-k { font-size: 11px; color: #94A3B8; font-weight: 500; margin-bottom: 2px; }
+    .ext-kv-v { color: #111827; font-weight: 500; font-size: 13px; word-break: break-word; }
+    .ext-kv-v.notes { font-weight: 400; white-space: pre-wrap; }
+    .ext-rec-attach { margin-top: 12px; padding-top: 12px; border-top: 1px solid #EEF2F6; }
+    .ext-rec-attach-lbl { font-size: 11px; color: #94A3B8; font-weight: 500; margin-bottom: 4px; }
+    .ext-rec-attach-link {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--soft-teal);
+      text-decoration: none;
+    }
+    .ext-rec-attach-link:hover { text-decoration: underline; }
+    .ext-rec-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid #EEF2F6;
+    }
+    .ext-rec-action {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #E5E7EB;
+      background: #fff;
+      cursor: pointer;
+    }
+    .ext-rec-action--edit { border-color: var(--soft-teal); color: var(--soft-teal); }
+    .ext-rec-action--edit:hover { background: #F0F7FF; }
+    .ext-rec-action--delete { border-color: transparent; color: #B42318; }
+    .ext-rec-action--delete:hover { background: #FEF2F2; }
   </style>
 </head>
-<body class="bg-[#eceff4] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
   <header id="bpAppHeader"></header>
-  <div id="bpPetContext" class="hidden"></div>
 
-  <div class="flex flex-1">
-    <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-      <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Pet Profile</h2>
-      <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+  <div class="flex flex-1 min-h-0">
+    <aside class="w-64 lg:w-72 bg-white border-r border-gray-200 p-5 shrink-0 hidden md:block">
+      <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
     </aside>
 
-    <main class="flex-1 p-6 lg:p-8 pb-16 bg-[#eceff4]">
-      <div id="profileCard" class="max-w-[1400px] mx-auto space-y-6"></div>
+    <main class="flex-1 p-5 lg:p-8 pb-16 min-w-0 overflow-y-auto">
+      <div id="profileCard" class="max-w-[1400px] mx-auto space-y-5"></div>
     </main>
   </div>
 
@@ -35,7 +407,6 @@
   <script src="assets/api.js"></script>
   <script src="assets/app.js"></script>
   <script src="assets/app-header.js"></script>
-  <script src="assets/pet-context.js"></script>
   <script src="assets/medical-history.js"></script>
   <script>
     guard('pet-records');
@@ -113,9 +484,6 @@
       const speciesOpts = ['', 'Canine', 'Feline']
         .map((o) => `<option value="${o}" ${(p.species || '') === o ? 'selected' : ''}>${o || '—'}</option>`)
         .join('');
-      const fedOpts = ['FCCI', 'FCPI', 'N/A']
-        .map((o) => `<option value="${o}" ${(p.federation || 'N/A') === o ? 'selected' : ''}>${o}</option>`)
-        .join('');
       modalRoot.innerHTML = `
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
           <div class="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
@@ -131,7 +499,6 @@
               <label class="text-sm text-gray-600">Color<input id="ep_color" class="w-full border border-gray-300 rounded-lg p-3 mt-1" value="${escapeHtmlAttr(p.color || '')}"></label>
               <label class="text-sm text-gray-600">Weight<input id="ep_weight" class="w-full border border-gray-300 rounded-lg p-3 mt-1" value="${escapeHtmlAttr(p.weight || '')}"></label>
               <label class="text-sm text-gray-600">Date of birth<input id="ep_dob" type="date" class="w-full border border-gray-300 rounded-lg p-3 mt-1" value="${escapeHtmlAttr(petDobInputValue(p))}"></label>
-              <label class="text-sm text-gray-600">Federation<select id="ep_federation" class="w-full border border-gray-300 rounded-lg p-3 mt-1">${fedOpts}</select></label>
               <label class="text-sm text-gray-600">Home address<textarea id="ep_address" rows="3" class="w-full border border-gray-300 rounded-lg p-3 mt-1">${escapeHtmlAttr(p.address)}</textarea></label>
               <div class="border border-sky-100 rounded-lg p-4 bg-sky-50/40 space-y-3">
                 <p class="text-sm font-semibold text-[var(--soft-teal)]">Health profile &amp; last vaccination</p>
@@ -155,7 +522,8 @@
       const gSel = document.getElementById('ep_gender');
       if (gSel && p.gender) gSel.value = p.gender;
       document.getElementById('ep_save_btn').onclick = async () => {
-        const name = document.getElementById('ep_name').value.trim();
+        const cap = (v) => (typeof window.bayportCapWords === 'function' ? window.bayportCapWords(String(v || '').trim()) : String(v || '').trim());
+        const name = cap(document.getElementById('ep_name').value);
         if (!name) {
           alert('Pet name is required');
           return;
@@ -163,18 +531,17 @@
         const base = {
           name,
           species: document.getElementById('ep_species').value,
-          breed: document.getElementById('ep_breed').value.trim(),
+          breed: cap(document.getElementById('ep_breed').value),
           gender: document.getElementById('ep_gender').value,
           age: Number(document.getElementById('ep_age').value || 0),
-          color: (document.getElementById('ep_color').value || '').trim(),
+          color: cap(document.getElementById('ep_color').value),
           weight: (document.getElementById('ep_weight').value || '').trim(),
           dateOfBirth: (document.getElementById('ep_dob').value || '').trim() || null,
           microchip: p.microchip,
-          federation: document.getElementById('ep_federation').value,
-          address: document.getElementById('ep_address').value.trim(),
+          address: cap(document.getElementById('ep_address').value),
           lastVaccinationDate: (document.getElementById('ep_lastVaccDate')?.value || '').trim() || null,
-          lastVaccinationPlace: (document.getElementById('ep_lastVaccPlace')?.value || '').trim(),
-          lastVaccinationVet: (document.getElementById('ep_lastVaccVet')?.value || '').trim(),
+          lastVaccinationPlace: cap(document.getElementById('ep_lastVaccPlace')?.value || ''),
+          lastVaccinationVet: cap(document.getElementById('ep_lastVaccVet')?.value || ''),
           allergies: (document.getElementById('ep_allergies').value || '').trim(),
           chronicConditions: (document.getElementById('ep_chronic').value || '').trim(),
           knownMedications: (document.getElementById('ep_meds').value || '').trim(),
@@ -196,9 +563,6 @@
     async function renderProfile() {
       const p = await repoGetPet(id);
       currentPet = p;
-      if (typeof initBayportPetContextBar === 'function') {
-        initBayportPetContextBar(document.getElementById('bpPetContext'), p);
-      }
       const nm = (p?.name || 'Unknown Pet').replace(/&/g, '&amp;').replace(/</g, '&lt;');
       const species = (p?.species || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
       const heroPhoto =
@@ -208,6 +572,7 @@
       const iconPaw = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>';
       const iconUser = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>';
       const iconHeart = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>';
+      const iconExternal = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>';
       const iconBell = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>';
       const iconSyringe = '<svg class="h-5 w-5 text-[var(--soft-teal)] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>';
       const vacc = typeof resolvePetLastVaccination === 'function' ? resolvePetLastVaccination(p) : { date: '', place: '', vet: '', summary: '' };
@@ -228,7 +593,6 @@
               <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Print / Export PDF
             </button>
-            <button type="button" onclick="openExternalRecordModal()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-800 bg-white hover:bg-gray-50 shadow-sm">+ External record</button>
             <button type="button" onclick="openEditPetProfile()" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-800 bg-white hover:bg-gray-50 shadow-sm">Edit profile</button>
             ${consultBtn}
           </div>
@@ -247,12 +611,8 @@
                     <div><div class="text-gray-500">Breed</div><div class="font-semibold text-gray-900">${ppShowCell(p?.breed)}</div></div>
                     <div><div class="text-gray-500">Gender</div><div class="font-semibold text-gray-900">${ppShowCell(p?.gender)}</div></div>
                     <div><div class="text-gray-500">Age</div><div class="font-semibold text-gray-900">${ppShowCell(p?.age)}</div></div>
-                    <div><div class="text-gray-500">Microchip ID</div><div class="font-semibold text-gray-900">${ppShowCell(p?.microchipId ?? p?.microchip)}</div></div>
                     <div><div class="text-gray-500">Color</div><div class="font-semibold text-gray-900">${ppShowCell(p?.color)}</div></div>
                     <div><div class="text-gray-500">Weight</div><div class="font-semibold text-gray-900">${ppShowCell(p?.weight)}</div></div>
-                    <div><div class="text-gray-500">Last vaccination</div><div class="font-semibold text-gray-900">${ppShowCell(vacc.date)}</div></div>
-                    <div class="sm:col-span-2"><div class="text-gray-500">Place last vaccinated</div><div class="font-semibold text-gray-900">${ppShowCell(vacc.place)}</div></div>
-                    <div><div class="text-gray-500">Vaccinating veterinarian</div><div class="font-semibold text-gray-900">${ppShowCell(vacc.vet)}</div></div>
                   </div>
                 </div>
             </div>
@@ -284,7 +644,6 @@
             ${ppRow('Last vaccination date', vacc.date)}
             ${ppRow('Place last vaccinated', vacc.place)}
             ${ppRow('Vaccinating veterinarian', vacc.vet)}
-            ${ppRow('Federation', p?.federation || 'N/A')}
           </div>
         </div>`;
 
@@ -297,23 +656,16 @@
       const medBlock = `
         <div class="pp-card" id="medSection">
           <div class="pp-card-h flex-wrap gap-2">
-            ${iconHeart}<span class="font-semibold text-gray-800 flex-1">In-clinic visit history</span>
+            ${iconPaw}<span class="font-semibold text-gray-800 flex-1">In-Clinic Visit History</span>
             <button type="button" class="text-xs font-semibold rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] px-2.5 py-1 hover:bg-[var(--soft-teal)] hover:text-white bg-white" onclick="openProc()">+ Add visit</button>
           </div>
           <div class="pp-card-b">
-            <div class="overflow-x-auto -mx-1">
-              <table class="w-full border-collapse text-sm min-w-[480px]">
-                <thead><tr class="text-left text-gray-500 border-b border-gray-200">
-                  <th class="py-2 pr-3 font-medium">Date</th>
-                  <th class="py-2 pr-3 font-medium">Visit reason / Diagnosis</th>
-                  <th class="py-2 font-medium">Provider</th>
-                </tr></thead>
-                <tbody id="procRows"></tbody>
-                <tbody id="procRowsExtra" class="hidden"></tbody>
-              </table>
+            <div id="visitHistoryHead" class="visit-history-head">
+              <span>Date</span><span>Visit</span><span>Diagnosis</span><span aria-hidden="true"></span>
             </div>
+            <div id="visitHistoryList" class="space-y-0"></div>
             <div class="mt-3">
-              <button type="button" id="medHistoryViewAll" class="hidden text-sm font-semibold text-[var(--soft-teal)] hover:underline">View all history</button>
+              <button type="button" id="medHistoryViewAll" class="hidden text-sm font-semibold text-[var(--soft-teal)] hover:underline">Show all visits</button>
             </div>
           </div>
         </div>`;
@@ -337,16 +689,12 @@
       const structuredHistoryBlock = `
         <div class="pp-card" id="structuredHistorySection">
           <div class="pp-card-h flex-wrap gap-2">
-            ${iconHeart}<span class="font-semibold text-gray-800 flex-1">Medical history records</span>
-            <button type="button" class="text-xs font-semibold rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] px-2.5 py-1 hover:bg-[var(--soft-teal)] hover:text-white bg-white" onclick="openExternalRecordModal()">+ Add record</button>
+            ${iconExternal}<span class="font-semibold text-gray-800 flex-1">External Medical Records</span>
+            <button type="button" id="extRecHeaderAddBtn" class="hidden text-xs font-semibold rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] px-2.5 py-1 hover:bg-[var(--soft-teal)] hover:text-white bg-white" onclick="openExternalRecordModal()">+ Add External Record</button>
           </div>
-          <div class="pp-card-b space-y-6">
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">Vaccination history (including external)</h4><div id="histVaccination"></div></div>
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">Clinical notes</h4><div id="histClinical"></div></div>
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">Diagnostic &amp; test results</h4><div id="histDiagnostic"></div></div>
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">Medications &amp; preventatives</h4><div id="histMedication"></div></div>
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">Surgical history</h4><div id="histSurgery"></div></div>
-            <div><h4 class="text-sm font-semibold text-gray-700 mb-2">External clinic documents</h4><div id="histExternal"></div></div>
+          <div class="pp-card-b">
+            <p class="text-xs text-gray-500 mb-3 leading-relaxed">Import or record treatments from other veterinary clinics.</p>
+            <div id="externalRecordsList"><div class="text-sm text-gray-500">Loading records…</div></div>
           </div>
         </div>`;
 
@@ -357,10 +705,10 @@
             <button type="button" class="text-xs font-semibold rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] px-2.5 py-1 hover:bg-[var(--soft-teal)] hover:text-white bg-white" onclick="openPetReminderModal();">+ Add</button>
           </div>
           <div class="pp-card-b">
-            <div id="petReminderList" class="overflow-x-auto -mx-1">
-              <div class="text-sm text-gray-500 px-1">Loading reminders...</div>
+            <div id="petReminderList">
+              <div class="text-sm text-gray-500">Loading reminders...</div>
             </div>
-            <div class="mt-3"><a href="#remSection" class="text-[var(--soft-teal)] text-sm font-semibold hover:underline">View all reminders</a></div>
+            <div class="mt-3"><a href="reminders.html" class="text-[var(--soft-teal)] text-sm font-semibold hover:underline">View all reminders</a></div>
           </div>
         </div>`;
 
@@ -407,12 +755,9 @@
           MedicalHistory.loadSchedule(id),
         ]);
         MedicalHistory.renderVaccinationSchedule(document.getElementById('vaccScheduleList'), schedule);
-        MedicalHistory.renderRecordsByType(document.getElementById('histVaccination'), records, 'VACCINATION');
-        MedicalHistory.renderRecordsByType(document.getElementById('histClinical'), records, 'CLINICAL_NOTE');
-        MedicalHistory.renderRecordsByType(document.getElementById('histDiagnostic'), records, 'DIAGNOSTIC');
-        MedicalHistory.renderRecordsByType(document.getElementById('histMedication'), records, 'MEDICATION');
-        MedicalHistory.renderRecordsByType(document.getElementById('histSurgery'), records, 'SURGERY');
-        MedicalHistory.renderRecordsByType(document.getElementById('histExternal'), records, 'EXTERNAL_DOCUMENT');
+        MedicalHistory.renderExternalRecords(document.getElementById('externalRecordsList'), records, id);
+        visitMedicalRecordsCache = Array.isArray(records) ? records : [];
+        if (visitHistoryCache.length) paintVisitHistoryList();
       } catch (err) {
         console.error('Medical history load failed', err);
       }
@@ -433,63 +778,355 @@
     };
 
     function procCellEsc(s) {
-      if (s == null || String(s).trim() === '') return '—';
-      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      if (s == null || String(s).trim() === '') return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     }
     function procFmtDate(d) {
       if (!d) return '—';
       try {
-        const x = new Date(d);
+        const x = new Date(String(d).slice(0, 10) + 'T12:00:00');
         if (Number.isNaN(x.getTime())) return procCellEsc(String(d));
         return x.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
       } catch (_) {
         return procCellEsc(String(d));
       }
     }
-    function procVisitLine(pr) {
-      const bits = [pr.name, pr.category, pr.notes].filter((x) => x && String(x).trim());
-      return procCellEsc(bits.join(' · ') || '');
+    function extractDiagnosis(notes) {
+      const text = String(notes || '');
+      const m = text.match(/Diagnosis:\s*([^\n]+)/i);
+      const val = m ? m[1].trim() : '';
+      if (!val || val.toUpperCase() === 'N/A') return '';
+      return val;
+    }
+    function extractClinicalNotes(notes) {
+      const text = String(notes || '');
+      const m = text.match(/Clinical Notes:\s*([\s\S]*)/i);
+      if (m) {
+        const body = m[1].trim();
+        if (body && body.toUpperCase() !== 'N/A') return body;
+        return '';
+      }
+      const stripped = text.replace(/^Diagnosis:[^\n]*\n?/i, '').trim();
+      return stripped && stripped.toUpperCase() !== 'N/A' ? stripped : '';
+    }
+    function visitTypeLabel(pr) {
+      const cat = String(pr?.category || '').trim();
+      if (cat) return cat;
+      const name = String(pr?.name || '').trim();
+      return name || 'Visit';
+    }
+    function visitDiagnosisLabel(visit) {
+      const d = visit.diagnosis || extractDiagnosis(visit.procedures?.[0]?.notes);
+      if (!d) return '<span class="text-gray-400">—</span>';
+      return `<span class="dx-lbl">Diagnosis: </span>${procCellEsc(d)}`;
+    }
+    function pesoVisit(n) {
+      const num = Number(n || 0);
+      return num.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function hasVal(v) {
+      if (v == null) return false;
+      const s = String(v).trim();
+      return s !== '' && s.toUpperCase() !== 'N/A' && s !== '—';
+    }
+    function visitStatusLabel(visit, billingRows) {
+      if ((billingRows || []).some((b) => String(b.status || '').toUpperCase() === 'PAID')) return 'Paid';
+      if ((billingRows || []).some((b) => String(b.status || '').toUpperCase() === 'PENDING')) return 'Pending payment';
+      return 'Completed';
+    }
+    function kvField(label, value, opts = {}) {
+      if (!hasVal(value) && !opts.allowZero) return '';
+      const cls = opts.multiline ? 'v notes' : 'v';
+      return `<div class="visit-kv"><div class="k">${procCellEsc(label)}</div><div class="${cls}">${procCellEsc(String(value))}</div></div>`;
+    }
+    function expandSection(title, inner) {
+      const body = (inner || '').trim();
+      if (!body) return '';
+      return `<div class="visit-expand-block"><div class="visit-expand-title">${procCellEsc(title)}</div>${body}</div>`;
+    }
+    function compactList(items) {
+      if (!items.length) return '';
+      return `<ul class="visit-compact-list">${items.map((line) => `<li><span>${line.left}${line.sub ? `<div class="sub">${line.sub}</div>` : ''}</span>${line.right ? `<span class="shrink-0 tabular-nums text-gray-700">${line.right}</span>` : ''}</li>`).join('')}</ul>`;
+    }
+    function extractVisitTime(visit) {
+      for (const b of visit.billing || []) {
+        const raw = b.issuedAt || b.createdAt || b.paidAt;
+        if (!raw || String(raw).length <= 10) continue;
+        try {
+          const d = new Date(raw);
+          if (!Number.isNaN(d.getTime())) {
+            return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+          }
+        } catch (_) {}
+      }
+      return '';
+    }
+    function visitAttachmentsForDate(visitDate) {
+      const day = String(visitDate || '').slice(0, 10);
+      if (!day) return [];
+      return (visitMedicalRecordsCache || []).filter((r) => {
+        if (!r?.attachmentUrl) return false;
+        return String(r.recordDate || '').slice(0, 10) === day;
+      });
     }
 
-    async function renderProcedures(){
+    let visitHistoryCache = [];
+    let visitMedicalRecordsCache = [];
+    let visitHistoryExpandedKey = null;
+    let visitHistoryShowAll = false;
+    const VISIT_PREVIEW_COUNT = 6;
+
+    function groupPetVisits(taggedProcedures, prescriptions, billingRows) {
+      const byProcedureId = new Map();
+      const byPetDate = new Map();
+      (prescriptions || []).forEach((rx) => {
+        if (rx?.consultationProcedureId != null) {
+          const k = Number(rx.consultationProcedureId);
+          if (!byProcedureId.has(k)) byProcedureId.set(k, []);
+          byProcedureId.get(k).push(rx);
+        }
+        const dateKey = String(rx?.date || '').slice(0, 10);
+        if (!byPetDate.has(dateKey)) byPetDate.set(dateKey, []);
+        byPetDate.get(dateKey).push(rx);
+      });
+
+      const grouped = new Map();
+      (taggedProcedures || []).forEach(({ pr, index }) => {
+        const diagnosis = extractDiagnosis(pr.notes || '');
+        const key = `${pr.performedAt || ''}_${diagnosis}_${pr.vet || ''}_${pr.category || pr.name || ''}`;
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            key,
+            date: pr.performedAt || '',
+            diagnosis,
+            clinicalNotes: extractClinicalNotes(pr.notes || ''),
+            vet: pr.vet || '',
+            procedures: [],
+            procedureIndexes: [],
+            prescriptions: [],
+          });
+        }
+        const row = grouped.get(key);
+        row.procedures.push(pr);
+        row.procedureIndexes.push(index);
+        const rxs = pr.id != null ? (byProcedureId.get(Number(pr.id)) || []) : [];
+        row.prescriptions.push(...rxs);
+      });
+
+      grouped.forEach((row) => {
+        if (!row.prescriptions.length) {
+          const fallbackKey = String(row.date || '').slice(0, 10);
+          row.prescriptions = (byPetDate.get(fallbackKey) || []).slice();
+        }
+        const unique = new Map();
+        (row.prescriptions || []).forEach((rx) => {
+          if (rx && rx.id != null) unique.set(rx.id, rx);
+        });
+        row.prescriptions = Array.from(unique.values());
+        row.billing = (billingRows || []).filter((b) => {
+          if (Number(b.petId) !== Number(id)) return false;
+          const billDate = String(b.issuedAt || b.createdAt || b.paidAt || '').slice(0, 10);
+          return billDate === String(row.date || '').slice(0, 10);
+        });
+        row.totalCost = row.procedures.reduce((sum, p) => sum + Number(p.cost || 0), 0);
+      });
+
+      return Array.from(grouped.values()).sort((a, b) => {
+        const byDate = String(b.date || '').localeCompare(String(a.date || ''));
+        if (byDate !== 0) return byDate;
+        const aId = Math.max(...(a.procedures || []).map((p) => Number(p.id || 0)), 0);
+        const bId = Math.max(...(b.procedures || []).map((p) => Number(p.id || 0)), 0);
+        return bId - aId;
+      });
+    }
+
+    function buildVisitExpandedHtml(visit) {
+      const status = visitStatusLabel(visit, visit.billing || []);
+      const visitTime = extractVisitTime(visit);
+      const chiefComplaint = visit.chiefComplaint || '';
+
+      const visitDetailsInner = [
+        kvField('Date', procFmtDate(visit.date)),
+        kvField('Time', visitTime),
+        kvField('Veterinarian', visit.vet),
+        kvField('Visit status', status),
+      ].filter(Boolean).join('');
+      const visitDetails = expandSection('Visit details', `<div class="visit-kv-grid">${visitDetailsInner}</div>`);
+
+      const medicalFields = [];
+      if (hasVal(chiefComplaint) && chiefComplaint !== visit.diagnosis) {
+        medicalFields.push(kvField('Chief complaint', chiefComplaint));
+      }
+      if (hasVal(visit.diagnosis)) medicalFields.push(kvField('Diagnosis', visit.diagnosis));
+      if (hasVal(visit.clinicalNotes)) medicalFields.push(kvField('Clinical notes', visit.clinicalNotes, { multiline: true }));
+      if (hasVal(visit.vitalSigns)) medicalFields.push(kvField('Vital signs', visit.vitalSigns, { multiline: true }));
+      const medicalRecord = medicalFields.length
+        ? expandSection('Medical record', `<div class="visit-kv-grid">${medicalFields.join('')}</div>`)
+        : '';
+
+      const serviceLines = (visit.procedures || [])
+        .filter((p) => hasVal(p.name || p.labType))
+        .map((p) => ({
+          left: procCellEsc(p.name || p.labType),
+          right: Number(p.cost) > 0 ? `₱${pesoVisit(p.cost)}` : '',
+        }));
+
+      const medLines = [];
+      (visit.procedures || []).forEach((p) => {
+        if (hasVal(p.medications)) {
+          medLines.push({ left: procCellEsc(p.medications), right: '' });
+        }
+      });
+      (visit.prescriptions || []).forEach((rx) => {
+        const drug = [rx.drug, rx.dosage].filter(Boolean).join(' — ');
+        if (!hasVal(drug)) return;
+        const dirs = [rx.directions, rx.dispenseQty ? `Qty ${rx.dispenseQty}` : ''].filter(Boolean).join(' · ');
+        medLines.push({
+          left: procCellEsc(drug),
+          sub: dirs ? procCellEsc(dirs) : '',
+          right: '',
+        });
+      });
+
+      const totalAmount = visit.totalCost > 0
+        ? visit.totalCost
+        : (visit.billing || []).reduce((s, b) => s + Number(b.amount || 0), 0);
+      let paymentStatus = '';
+      if ((visit.billing || []).length) {
+        const statuses = [...new Set((visit.billing || []).map((b) => {
+          const u = String(b.status || 'PENDING').toUpperCase();
+          return u === 'PAID' ? 'Paid' : u === 'PENDING' ? 'Pending' : u.charAt(0) + u.slice(1).toLowerCase();
+        }))];
+        paymentStatus = statuses.join(', ');
+      } else if (totalAmount > 0) {
+        paymentStatus = 'Not invoiced';
+      }
+
+      const treatmentParts = [];
+      if (serviceLines.length) {
+        treatmentParts.push(`<div class="visit-sub-lbl">Services rendered</div>${compactList(serviceLines)}`);
+      }
+      if (medLines.length) {
+        treatmentParts.push(`<div class="visit-sub-lbl">Prescribed medications</div>${compactList(medLines)}`);
+      }
+      const billingSummary = [];
+      if (totalAmount > 0) billingSummary.push(kvField('Total amount', `₱${pesoVisit(totalAmount)}`));
+      if (hasVal(paymentStatus)) billingSummary.push(kvField('Payment status', paymentStatus));
+      if (billingSummary.length) {
+        treatmentParts.push(`<div class="visit-kv-grid mt-2">${billingSummary.join('')}</div>`);
+      }
+      const treatmentBilling = treatmentParts.length
+        ? expandSection('Treatment & billing', treatmentParts.join(''))
+        : '';
+
+      const attachments = visitAttachmentsForDate(visit.date);
+      const attachmentsHtml = attachments.length
+        ? expandSection('Attachments', `<ul class="visit-attach-list">${attachments.map((r) => {
+            const label = procCellEsc(r.title || r.attachmentName || 'View file');
+            const url = procCellEsc(r.attachmentUrl);
+            return `<li><a href="${url}" target="_blank" rel="noopener">${label}</a></li>`;
+          }).join('')}</ul>`)
+        : '';
+
+      const firstIdx = visit.procedureIndexes?.[0];
+      const editBtn = firstIdx != null
+        ? `<div class="visit-actions"><button type="button" class="text-xs font-semibold text-[var(--soft-teal)] hover:underline" onclick="event.stopPropagation(); openProc(${firstIdx})">Edit visit</button></div>`
+        : '';
+
+      return [visitDetails, medicalRecord, treatmentBilling, attachmentsHtml, editBtn].filter(Boolean).join('');
+    }
+
+    function renderVisitAccordionRow(visit) {
+      const isOpen = visitHistoryExpandedKey === visit.key;
+      const visitType = procCellEsc(visitTypeLabel(visit.procedures[0]));
+      const diagnosis = visitDiagnosisLabel(visit);
+      return `
+        <article class="visit-accordion" data-visit-key="${procCellEsc(visit.key)}">
+          <button type="button" class="visit-accordion-header${isOpen ? ' is-open' : ''}" aria-expanded="${isOpen}" onclick="toggleVisitHistory('${encodeURIComponent(visit.key)}')">
+            <div class="visit-accordion-summary">
+              <span class="visit-col-date">${procFmtDate(visit.date)}</span>
+              <span class="visit-col-type">${visitType}</span>
+              <span class="visit-col-diagnosis">${diagnosis}</span>
+            </div>
+            <span class="visit-chevron-wrap" aria-hidden="true">
+              <svg class="visit-chevron w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            </span>
+          </button>
+          <div class="visit-accordion-panel${isOpen ? ' is-open' : ''}">
+            <div class="visit-accordion-panel-inner">
+              <div class="visit-accordion-body">${buildVisitExpandedHtml(visit)}</div>
+            </div>
+          </div>
+        </article>`;
+    }
+
+    window.toggleVisitHistory = function toggleVisitHistory(encodedKey) {
+      const key = decodeURIComponent(String(encodedKey || ''));
+      visitHistoryExpandedKey = visitHistoryExpandedKey === key ? null : key;
+      paintVisitHistoryList();
+    };
+
+    function paintVisitHistoryList() {
+      const listEl = document.getElementById('visitHistoryList');
+      const headEl = document.getElementById('visitHistoryHead');
+      const btn = document.getElementById('medHistoryViewAll');
+      if (!listEl) return;
+
+      const visible = visitHistoryShowAll
+        ? visitHistoryCache
+        : visitHistoryCache.slice(0, VISIT_PREVIEW_COUNT);
+      const hiddenCount = Math.max(0, visitHistoryCache.length - VISIT_PREVIEW_COUNT);
+
+      if (!visitHistoryCache.length) {
+        listEl.innerHTML = `<div class="text-center text-gray-500 text-sm py-8 border border-dashed border-gray-200 rounded-lg">No visit history recorded.</div>`;
+        headEl?.classList.remove('has-rows');
+        if (btn) btn.classList.add('hidden');
+        return;
+      }
+
+      headEl?.classList.add('has-rows');
+      listEl.innerHTML = visible.map(renderVisitAccordionRow).join('');
+
+      if (btn) {
+        if (!visitHistoryShowAll && hiddenCount > 0) {
+          btn.classList.remove('hidden');
+          btn.textContent = `Show all visits (${visitHistoryCache.length})`;
+          btn.onclick = () => {
+            visitHistoryShowAll = true;
+            paintVisitHistoryList();
+          };
+        } else if (visitHistoryShowAll && visitHistoryCache.length > VISIT_PREVIEW_COUNT) {
+          btn.classList.remove('hidden');
+          btn.textContent = 'Show fewer visits';
+          btn.onclick = () => {
+            visitHistoryShowAll = false;
+            visitHistoryExpandedKey = null;
+            paintVisitHistoryList();
+          };
+        } else {
+          btn.classList.add('hidden');
+        }
+      }
+    }
+
+    async function renderProcedures() {
       try {
-        const p = await repoGetPet(id);
-        const list = (p?.procedures||[]);
-        const tbody = document.getElementById('procRows');
-        const extraTb = document.getElementById('procRowsExtra');
-        const btn = document.getElementById('medHistoryViewAll');
-        if(!tbody) return;
-        const sorted = [...list].sort((a, b) => String(b.performedAt || "").localeCompare(String(a.performedAt || "")));
-        const first = sorted.slice(0, 4);
-        const rest = sorted.slice(4);
-        const rowHtml = (pr) => `
-          <tr class="border-b border-gray-100">
-            <td class="py-3 pr-3 align-top text-gray-900 whitespace-nowrap">${procFmtDate(pr.performedAt)}</td>
-            <td class="py-3 pr-3 align-top text-gray-800">${procVisitLine(pr)}</td>
-            <td class="py-3 align-top text-gray-700">${procCellEsc(pr.vet || '')}</td>
-          </tr>`;
-        tbody.innerHTML =
-          first.map(rowHtml).join('') ||
-          `<tr><td class="py-6 text-center text-gray-500" colspan="3">No medical history recorded.</td></tr>`;
-        if (extraTb) {
-          extraTb.innerHTML = rest.map(rowHtml).join('');
-          extraTb.classList.add('hidden');
-        }
-        if (btn) {
-          if (rest.length > 0) {
-            btn.classList.remove('hidden');
-            btn.textContent = `View all history (${rest.length} more)`;
-            btn.onclick = () => {
-              extraTb?.classList.remove('hidden');
-              btn.classList.add('hidden');
-            };
-          } else {
-            btn.classList.add('hidden');
-            btn.onclick = null;
-          }
-        }
+        const [p, rxList, billingList, medRecords] = await Promise.all([
+          repoGetPet(id),
+          Api.rx.list().catch(() => []),
+          Api.billing.list().catch(() => []),
+          typeof MedicalHistory !== 'undefined' ? MedicalHistory.loadRecords(id).catch(() => []) : Promise.resolve([]),
+        ]);
+        visitMedicalRecordsCache = Array.isArray(medRecords) ? medRecords : [];
+        const procedures = p?.procedures || [];
+        const tagged = procedures.map((pr, index) => ({ pr, index }));
+        const petRx = (rxList || []).filter((rx) => Number(rx.petId) === Number(id));
+        visitHistoryCache = groupPetVisits(tagged, petRx, billingList || []);
+        paintVisitHistoryList();
       } catch (err) {
         console.error(err);
+        const listEl = document.getElementById('visitHistoryList');
+        if (listEl) listEl.innerHTML = `<div class="text-sm text-red-600">Unable to load visit history.</div>`;
       }
     }
 
@@ -678,14 +1315,82 @@ loadPetForReminder();
 
 renderProfile();
 
+const PP_SENT_LOCAL_KEY = 'bayport_reminders_sent_local';
+
+function isDemoEmailMode() {
+  return localStorage.getItem('bayport_reminders_demo') !== '0';
+}
+
+function getLocallySentReminderIds() {
+  try {
+    const raw = localStorage.getItem(PP_SENT_LOCAL_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function markReminderSentLocally(reminderId) {
+  const r = petRemindersCache.find((x) => x.id === reminderId);
+  if (r) {
+    r.sent = true;
+    r.sentAt = new Date().toISOString();
+  }
+  const ids = new Set(getLocallySentReminderIds().map(String));
+  ids.add(String(reminderId));
+  localStorage.setItem(PP_SENT_LOCAL_KEY, JSON.stringify([...ids]));
+}
+
+function applyLocalSentFlags(list) {
+  const sentIds = new Set(getLocallySentReminderIds().map(String));
+  return (list || []).map((r) => {
+    if (r.sent || sentIds.has(String(r.id))) {
+      return { ...r, sent: true, sentAt: r.sentAt || new Date().toISOString() };
+    }
+    return r;
+  });
+}
+
+function showEmailSentConfirmation(opts) {
+  const { recipientLabel, subject, preview, demo = false } = opts || {};
+  const esc = (s) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  modalRoot.innerHTML = `
+    <div class="fixed inset-0 bg-black/45 flex items-center justify-center p-4 z-[200]">
+      <div class="bg-white rounded-lg w-full max-w-md border border-[#E5E7EB] shadow-lg overflow-hidden">
+        <div class="px-5 py-4 border-b border-[#E5E7EB] flex items-start gap-3">
+          <div class="w-10 h-10 rounded-lg bg-[#ECFDF5] text-[#047857] flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <div class="min-w-0">
+            <h3 class="text-base font-semibold text-[#111827]">Email sent</h3>
+            <p class="text-sm text-[#6B7280] mt-0.5">Your reminder was sent successfully.</p>
+          </div>
+        </div>
+        <div class="px-5 py-4 space-y-3 text-sm">
+          ${recipientLabel ? `<div><span class="text-[#6B7280]">To</span><div class="font-medium text-[#111827] mt-0.5">${esc(recipientLabel)}</div></div>` : ''}
+          ${subject ? `<div><span class="text-[#6B7280]">Subject</span><div class="font-medium text-[#111827] mt-0.5">${esc(subject)}</div></div>` : ''}
+          ${preview ? `<div class="rounded-lg border border-[#E5E7EB] bg-[#F5F7FA] p-3 text-[#374151] whitespace-pre-line max-h-36 overflow-y-auto text-xs leading-relaxed">${esc(preview)}</div>` : ''}
+          ${demo ? `<p class="text-xs text-[#6B7280] border-t border-[#E5E7EB] pt-3">Preview mode — email delivery will activate once clinic mail is configured on the server.</p>` : ''}
+        </div>
+        <div class="px-5 py-4 border-t border-[#E5E7EB] flex justify-end">
+          <button type="button" class="bp-btn-primary !h-9 !px-4" onclick="closeModal()">Done</button>
+        </div>
+      </div>
+    </div>`;
+}
+
 async function renderPetReminders(){
   const container = document.getElementById('petReminderList');
   if(!container) return;
   try{
     const list = await Api.reminders.listByPet(id);
-    petRemindersCache = Array.isArray(list) ? list : [];
+    petRemindersCache = applyLocalSentFlags(Array.isArray(list) ? list : []);
     if (!petRemindersCache.length) {
-      container.innerHTML = `<div class="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-4 mx-1">No reminders yet for this pet.</div>`;
+      container.innerHTML = `<div class="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-4">No reminders yet for this pet.</div>`;
       return;
     }
     function remEsc(s) {
@@ -693,47 +1398,45 @@ async function renderPetReminders(){
       return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     }
     function remTypeLabel(r) {
-      const t = cleanDisplayText(extractSubject(r.message || ''));
-      return remEsc(t.length > 48 ? t.slice(0, 45) + '…' : t);
-    }
-    function remDetailsPreview(r) {
-      const body = (r.message || '').replace(/^Subject:.*$/im, '').trim() || r.message || '';
-      const line = body.split('\n').find((l) => l.trim()) || '';
-      const short = line.length > 80 ? line.slice(0, 77) + '…' : line;
-      return remEsc(short);
+      const subject = extractSubject(r.message || '');
+      const title = getTemplateTitle(cleanDisplayText(subject));
+      return remEsc(title);
     }
     function remDue(r) {
       return r.date ? remEsc(new Date(r.date).toLocaleDateString()) : '—';
     }
+    function remSentSub(r) {
+      if (!r.sent) return '';
+      const when = r.sentAt ? new Date(r.sentAt).toLocaleString() : 'Recently';
+      return `<div class="sub">Emailed ${remEsc(when)}</div>`;
+    }
     function remStatusBadge(r) {
       return r.sent
-        ? `<span class="inline-flex text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5">Sent</span>`
-        : `<span class="inline-flex text-xs font-semibold rounded-full bg-sky-100 text-sky-800 px-2.5 py-0.5">Pending</span>`;
+        ? `<span class="pet-rem-badge pet-rem-badge--sent">Sent</span>`
+        : `<span class="pet-rem-badge pet-rem-badge--pending">Pending</span>`;
     }
     const rows = petRemindersCache
-      .map(
-        (r) => `<tr class="border-b border-gray-100">
-      <td class="py-3 pr-3 align-top font-medium text-gray-900">${remTypeLabel(r)}</td>
-      <td class="py-3 pr-3 align-top text-gray-600 text-sm">${remDetailsPreview(r)}</td>
-      <td class="py-3 pr-3 align-top text-gray-800 whitespace-nowrap">${remDue(r)}</td>
-      <td class="py-3 pr-3 align-top">${remStatusBadge(r)}</td>
-      <td class="py-3 align-top text-right whitespace-nowrap">
-        <button type="button" class="text-xs font-semibold text-[var(--soft-teal)] hover:underline mr-2" onclick="openSendReminderEmailModal(${r.id})">Send</button>
-        <button type="button" class="text-xs font-semibold text-red-600 hover:underline" onclick="deleteReminder(${r.id})">Delete</button>
-      </td>
-    </tr>`
-      )
+      .map((r) => {
+        const sendBtn = r.sent
+          ? `<button type="button" class="pet-rem-btn pet-rem-btn--send" disabled title="Already sent">Sent</button>`
+          : `<button type="button" class="pet-rem-btn pet-rem-btn--send" onclick="openSendReminderEmailModal(${r.id})">Send</button>`;
+        return `<div class="pet-reminder-row">
+          <div class="pet-rem-col-type">${remTypeLabel(r)}${remSentSub(r)}</div>
+          <div class="pet-rem-col-due">${remDue(r)}</div>
+          <div class="pet-rem-col-status">${remStatusBadge(r)}</div>
+          <div class="pet-rem-col-actions">${sendBtn}<button type="button" class="pet-rem-btn pet-rem-btn--delete" onclick="deleteReminder(${r.id})">Delete</button></div>
+        </div>`;
+      })
       .join('');
-    container.innerHTML = `<table class="w-full border-collapse text-sm min-w-[560px]">
-      <thead><tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="py-2 pr-3 font-medium">Type</th>
-        <th class="py-2 pr-3 font-medium">Details</th>
-        <th class="py-2 pr-3 font-medium">Due date</th>
-        <th class="py-2 pr-3 font-medium">Status</th>
-        <th class="py-2 font-medium text-right">Actions</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    container.innerHTML = `<div class="pet-reminders-wrap">
+      <div class="pet-reminders-head has-rows">
+        <span>Reminder</span>
+        <span>Due</span>
+        <span>Status</span>
+        <span></span>
+      </div>
+      <div class="pet-reminder-list">${rows}</div>
+    </div>`;
   }catch(err){
     console.error(err);
     container.innerHTML = `<div class="text-sm text-red-600">Unable to load reminders: ${err.message}</div>`;
@@ -743,6 +1446,25 @@ async function renderPetReminders(){
 function cleanDisplayText(text) {
   if (!text) return text;
   return text.replace(/\{\{[^}]+\}\}/g, '').trim();
+}
+
+function getTemplateTitle(subject) {
+  if (!subject) return 'REMINDER';
+  let cleaned = cleanDisplayText(subject).toUpperCase();
+  if (cleaned.includes('VACCINATION') || cleaned.includes('VACCINE')) return 'VACCINATION';
+  if (cleaned.includes('FOLLOW-UP') || cleaned.includes('FOLLOW UP')) return 'FOLLOW UP';
+  if (cleaned.includes('MISSED APPOINTMENT')) return 'MISSED APPOINTMENT';
+  if (cleaned.includes('ANNUAL')) return 'ANNUAL CHECKUP';
+  if (cleaned.includes('DEWORMING')) return 'DEWORMING';
+  if (cleaned.includes('POST-SURGERY') || cleaned.includes('SURGERY')) return 'POST-SURGERY CARE';
+  if (cleaned.includes('LAB TEST') || cleaned.includes('TEST RESULTS')) return 'LAB RESULTS';
+  if (cleaned.includes('DENTAL')) return 'DENTAL CLEANING';
+  if (cleaned.includes('GROOMING')) return 'GROOMING';
+  if (cleaned.includes('BOARDING')) return 'BOARDING';
+  if (cleaned.includes('PRESCRIPTION')) return 'PRESCRIPTION PICKUP';
+  if (cleaned.includes('APPOINTMENT')) return 'APPOINTMENT';
+  const words = cleaned.split(/\s+/).filter(Boolean).slice(0, 3);
+  return words.join(' ') || 'REMINDER';
 }
 
 function extractSubject(message) {
@@ -755,21 +1477,19 @@ function extractSubject(message) {
       return cleanDisplayText(subject) || 'REMINDER';
     }
   }
-  const firstLine = lines[0].trim();
-  if (firstLine.length > 0 && firstLine.length < 60) {
-    return cleanDisplayText(firstLine).toUpperCase() || 'REMINDER';
-  }
-  if (message.includes('Vaccination') || message.includes('vaccination')) return 'VACCINATION REMINDER';
-  if (message.includes('Follow-up') || message.includes('Follow-Up') || message.includes('follow-up')) return 'FOLLOW UP REMINDER';
-  if (message.includes('Deworming') || message.includes('deworming')) return 'DEWORMING REMINDER';
-  if (message.includes('Annual') || message.includes('annual')) return 'ANNUAL CHECKUP REMINDER';
-  if (message.includes('Appointment') || message.includes('appointment')) return 'APPOINTMENT REMINDER';
-  if (message.includes('Surgery') || message.includes('surgery')) return 'POST-SURGERY REMINDER';
-  if (message.includes('Dental') || message.includes('dental')) return 'DENTAL CLEANING REMINDER';
-  if (message.includes('Grooming') || message.includes('grooming')) return 'GROOMING REMINDER';
-  if (message.includes('Boarding') || message.includes('boarding')) return 'BOARDING REMINDER';
-  if (message.includes('Prescription') || message.includes('prescription')) return 'PRESCRIPTION REMINDER';
-  if (message.includes('Lab') || message.includes('Test Results')) return 'LAB TEST RESULTS';
+  const msgUpper = message.toUpperCase();
+  if (msgUpper.includes('VACCINATION') || msgUpper.includes('VACCINE')) return 'VACCINATION';
+  if (msgUpper.includes('FOLLOW-UP') || msgUpper.includes('FOLLOW UP')) return 'FOLLOW UP';
+  if (msgUpper.includes('MISSED APPOINTMENT')) return 'MISSED APPOINTMENT';
+  if (msgUpper.includes('ANNUAL') || msgUpper.includes('WELLNESS')) return 'ANNUAL CHECKUP';
+  if (msgUpper.includes('DEWORMING')) return 'DEWORMING';
+  if (msgUpper.includes('POST-SURGERY') || msgUpper.includes('SURGERY')) return 'POST-SURGERY CARE';
+  if (msgUpper.includes('LAB TEST') || msgUpper.includes('TEST RESULTS')) return 'LAB RESULTS';
+  if (msgUpper.includes('DENTAL')) return 'DENTAL CLEANING';
+  if (msgUpper.includes('GROOMING')) return 'GROOMING';
+  if (msgUpper.includes('BOARDING')) return 'BOARDING';
+  if (msgUpper.includes('PRESCRIPTION')) return 'PRESCRIPTION PICKUP';
+  if (msgUpper.includes('APPOINTMENT')) return 'APPOINTMENT';
   return 'REMINDER';
 }
 
@@ -915,28 +1635,50 @@ async function sendReminderEmail(reminderId){
     alert('Reminder not found.');
     return;
   }
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    alert('No Internet Connection.');
-    return;
-  }
+  const subject = subjectInput?.value || 'Bayport Reminder';
   const templateBody = (() => {
     const selectedId = templateSelect?.value;
-    if(!selectedId) return previewInput.value;
+    if(!selectedId) return previewInput?.value || '';
     const templates = templateCache[(reminder.type||'PET').toUpperCase()] || [];
     const selected = templates.find(t=>String(t.id)===selectedId);
-    return selected?.body || previewInput.value;
+    return selected?.body || previewInput?.value || '';
   })();
-  try{
+  const recipientLabel = reminder.ownerEmail || currentPet?.owner || 'Pet owner';
+
+  const sendBtn = document.querySelector('[onclick*="sendReminderEmail"]');
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending…';
+  }
+
+  let demo = false;
+  try {
     await Api.reminders.sendEmail(reminderId, {
       template: templateBody,
-      subject: subjectInput.value || 'Bayport Reminder'
+      subject,
     });
-    alert('Email sent!');
-    closeModal();
-    renderPetReminders();
-  }catch(err){
-    alert('Failed to send email: '+err.message);
+    markReminderSentLocally(reminderId);
+  } catch (err) {
+    if (!isDemoEmailMode()) {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send Email';
+      }
+      alert('Failed to send email: ' + (err.message || 'Unknown error'));
+      return;
+    }
+    demo = true;
+    markReminderSentLocally(reminderId);
   }
+
+  closeModal();
+  renderPetReminders();
+  showEmailSentConfirmation({
+    recipientLabel,
+    subject,
+    preview: templateBody,
+    demo,
+  });
 }
 
 async function deleteReminder(reminderId){

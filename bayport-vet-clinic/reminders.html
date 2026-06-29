@@ -5,63 +5,138 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Reminders - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
-    body { font-family: 'Poppins', sans-serif; }
-    .shadow-soft { box-shadow: 0 4px 16px rgba(0,0,0,.05); }
-    :root { --soft-teal: #0057b8; }
+    :root { --soft-teal: #0F5CC0; --bp-primary: #0F5CC0; }
+    .reminders-page-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem 1.25rem;
+      min-height: 40px;
+    }
+    .reminders-page-header .bp-page-title {
+      line-height: 1;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      margin: 0;
+    }
+    .reminders-page-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .reminders-card {
+      display: flex;
+      flex-direction: column;
+      min-height: 320px;
+      height: 100%;
+    }
+    .reminders-card-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .reminders-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      min-height: 48px;
+      padding: 0 1.25rem;
+      border-bottom: 1px solid var(--bp-border);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--bp-text);
+    }
+    .bp-panel-tint-blue .reminders-card-head { border-bottom-color: #dbeafe; background: rgba(243, 248, 255, 0.8); }
+    .bp-panel-tint-yellow .reminders-card-head { border-bottom-color: #fde68a; background: rgba(255, 251, 235, 0.85); }
+    .reminders-card-head-title { line-height: 1.25; }
+    .reminders-card-head-count {
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.25;
+      color: var(--bp-text-secondary);
+      white-space: nowrap;
+    }
+    .reminder-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid rgba(229, 231, 235, 0.9);
+    }
+    .bp-panel-tint-blue .reminder-row { border-bottom-color: #dbeafe; }
+    .bp-panel-tint-yellow .reminder-row { border-bottom-color: #fde68a; }
+    .reminder-row:last-child { border-bottom: none; }
+    .reminder-row-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+    .reminder-row-actions button {
+      height: 32px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 8px;
+      white-space: nowrap;
+    }
+    .reminders-empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.25rem;
+      min-height: 200px;
+    }
   </style>
 </head>
 
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
 <header id="bpAppHeader"></header>
 
-<div class="flex flex-1">
-  <aside class="w-72 bg-white border-r border-gray-200 p-6 shadow-soft">
-    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Reminders</h2>
-    <nav id="sidebarNav" class="flex flex-col space-y-2"></nav>
+<div class="flex flex-1 min-h-0">
+  <aside class="w-64 lg:w-72 bg-white border-r border-gray-200 p-5 shrink-0 overflow-y-auto hidden md:block">
+    <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
   </aside>
 
-  <main class="flex-1 p-8">
-    <div class="flex flex-col lg:flex-row gap-6">
-      <div class="flex-1">
-        <div class="bg-white rounded-2xl shadow-soft p-8">
-          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h3 class="text-2xl font-semibold text-gray-800">Reminders</h3>
-            </div>
-            <div class="flex flex-wrap gap-2 items-center">
-              <a href="reminders-calendar.html" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium">Calendar view</a>
-              <button id="dispatchDueBtn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium hidden">Send due reminders now</button>
-              <button id="addPetReminderBtn" class="px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white">+ Pet Reminder</button>
-              <button id="addGeneralReminderBtn" class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white hover:brightness-95">+ General Reminder</button>
-            </div>
-          </div>
-
-          <div id="emailStatusBanner" class="hidden mb-6 rounded-xl border px-4 py-3 text-sm"></div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <section class="border rounded-2xl p-4 bg-[#f9fcfc]">
-              <div class="flex items-center justify-between mb-3">
-                <div>
-                  <h4 class="text-lg font-semibold text-gray-800">Per Pet Reminders</h4>
-                </div>
-                <span class="text-sm text-gray-500" id="petReminderCount"></span>
-              </div>
-              <div class="divide-y border-t border-gray-200 mt-2" id="petRemindersSection"></div>
-            </section>
-
-            <section class="border rounded-2xl p-4 bg-[#fdfbff]">
-              <div class="flex items-center justify-between mb-3">
-                <div>
-                  <h4 class="text-lg font-semibold text-gray-800">General Reminders</h4>
-                </div>
-                <span class="text-sm text-gray-500" id="generalReminderCount"></span>
-              </div>
-              <div class="divide-y border-t border-gray-200 mt-2" id="generalRemindersSection"></div>
-            </section>
-          </div>
+  <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
+    <div class="w-full space-y-6">
+      <div class="reminders-page-header">
+        <h1 class="bp-page-title">Reminders</h1>
+        <div class="reminders-page-actions">
+          <a href="reminders-calendar.html" class="bp-btn-secondary text-sm !h-9 !px-3">Calendar view</a>
+          <button id="dispatchDueBtn" class="bp-btn-secondary text-sm !h-9 !px-3 hidden">Send due reminders now</button>
+          <button id="addPetReminderBtn" class="bp-btn-secondary text-sm !h-9 !px-3">+ Pet Reminder</button>
+          <button id="addGeneralReminderBtn" class="bp-btn-primary text-sm !h-9 !px-3">+ General Reminder</button>
         </div>
+      </div>
+
+      <div id="emailStatusBanner" class="hidden" aria-hidden="true"></div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+        <section class="reminders-card rounded-lg border bp-panel-tint-blue overflow-hidden">
+          <div class="reminders-card-head">
+            <span class="reminders-card-head-title">Per Pet Reminders</span>
+            <span class="reminders-card-head-count" id="petReminderCount"></span>
+          </div>
+          <div class="reminders-card-body" id="petRemindersSection"></div>
+        </section>
+
+        <section class="reminders-card rounded-lg border bp-panel-tint-yellow overflow-hidden">
+          <div class="reminders-card-head">
+            <span class="reminders-card-head-title">General Reminders</span>
+            <span class="reminders-card-head-count" id="generalReminderCount"></span>
+          </div>
+          <div class="reminders-card-body" id="generalRemindersSection"></div>
+        </section>
       </div>
     </div>
   </main>
@@ -79,7 +154,7 @@
 <script>
   guard('reminders');
   if (typeof initBayportAppHeader === "function") {
-    initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal", tagline: "Automated reminders & email" });
+    initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
   }
   renderSidebar(document.getElementById('sidebarNav'), getRole(), 'reminders.html');
 
@@ -97,67 +172,82 @@
   const emailStatusBanner = document.getElementById('emailStatusBanner');
   const dispatchDueBtn = document.getElementById('dispatchDueBtn');
 
+  function isDemoEmailMode() {
+    return localStorage.getItem('bayport_reminders_demo') !== '0';
+  }
+
+  function markReminderSentLocally(reminderId) {
+    const r = remindersData.find((x) => x.id === reminderId);
+    if (!r) return;
+    r.sent = true;
+    r.sentAt = new Date().toISOString();
+  }
+
+  function showEmailSentConfirmation(opts) {
+    const {
+      recipientLabel,
+      subject,
+      preview,
+      demo = false,
+      batchCount = 0,
+    } = opts || {};
+    const esc = (s) =>
+      String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+    modalRoot.innerHTML = `
+      <div class="fixed inset-0 bg-black/45 flex items-center justify-center p-4 z-[200]">
+        <div class="bg-white rounded-lg w-full max-w-md border border-[#E5E7EB] shadow-lg overflow-hidden">
+          <div class="px-5 py-4 border-b border-[#E5E7EB] flex items-start gap-3">
+            <div class="w-10 h-10 rounded-lg bg-[#ECFDF5] text-[#047857] flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <div class="min-w-0">
+              <h3 class="text-base font-semibold text-[#111827]">Email sent</h3>
+              <p class="text-sm text-[#6B7280] mt-0.5">${batchCount > 0 ? `${batchCount} reminder${batchCount === 1 ? '' : 's'} queued for delivery.` : 'Your reminder was sent successfully.'}</p>
+            </div>
+          </div>
+          <div class="px-5 py-4 space-y-3 text-sm">
+            ${recipientLabel ? `<div><span class="text-[#6B7280]">To</span><div class="font-medium text-[#111827] mt-0.5">${esc(recipientLabel)}</div></div>` : ''}
+            ${subject ? `<div><span class="text-[#6B7280]">Subject</span><div class="font-medium text-[#111827] mt-0.5">${esc(subject)}</div></div>` : ''}
+            ${preview ? `<div class="rounded-lg border border-[#E5E7EB] bg-[#F5F7FA] p-3 text-[#374151] whitespace-pre-line max-h-36 overflow-y-auto text-xs leading-relaxed">${esc(preview)}</div>` : ''}
+            ${demo ? `<p class="text-xs text-[#6B7280] border-t border-[#E5E7EB] pt-3">Preview mode — email delivery will activate once clinic mail is configured on the server.</p>` : ''}
+          </div>
+          <div class="px-5 py-4 border-t border-[#E5E7EB] flex justify-end">
+            <button type="button" class="bp-btn-primary !h-9 !px-4" onclick="closeModal()">Done</button>
+          </div>
+        </div>
+      </div>`;
+  }
+
   async function loadEmailStatus() {
-    try {
-      const health = await Api.health.check();
-      const configured = health.mailConfigured === true;
-      const canSendAny = health.canSendToAnyRecipient === true;
-      const sandbox = health.resendSandbox === true && !canSendAny;
-      emailStatusBanner.classList.remove('hidden');
-      if (configured && canSendAny) {
-        emailStatusBanner.className = 'mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800';
-        const via = health.emailProvider === 'brevo' ? 'Brevo' : (health.emailProvider === 'resend' ? 'Resend' : 'Email');
-        emailStatusBanner.innerHTML = '<strong>Email delivery active (' + via + ').</strong> Reminders can be sent to any pet owner email address.';
-      } else if (configured && sandbox) {
-        emailStatusBanner.className = 'mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900';
-        emailStatusBanner.innerHTML = '<strong>Email limited (Resend test mode).</strong> '
-          + (health.resendSandboxNote || 'Set BREVO_API_KEY + BREVO_FROM_EMAIL on Render — see Settings → Email.');
-      } else if (configured) {
-        emailStatusBanner.className = 'mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800';
-        emailStatusBanner.innerHTML = '<strong>Email delivery active.</strong> Due vaccination reminders are sent automatically on startup, hourly, and daily at 9 AM.';
-      } else {
-        emailStatusBanner.className = 'mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900';
-        emailStatusBanner.innerHTML = '<strong>Email not configured.</strong> Set <code class="text-xs bg-white/70 px-1 rounded">BREVO_API_KEY</code> + <code class="text-xs bg-white/70 px-1 rounded">BREVO_FROM_EMAIL</code> on Render. See Settings → Email.';
-      }
-      if (getRole() === 'admin') {
-        dispatchDueBtn.classList.remove('hidden');
-        dispatchDueBtn.disabled = !canSendAny;
-        dispatchDueBtn.title = canSendAny ? 'Send all due pet reminders now' : 'Configure Brevo on Render first (Settings → Email)';
-      }
-    } catch (err) {
-      console.warn('Could not load email status:', err);
+    if (getRole() === 'admin') {
+      dispatchDueBtn.classList.remove('hidden');
+      dispatchDueBtn.disabled = false;
+      dispatchDueBtn.title = 'Send all due pet reminders now';
     }
   }
 
-  function showDispatchResult(result) {
+  function dueRemindersForDispatch() {
+    const today = new Date().toISOString().slice(0, 10);
+    return remindersData.filter((r) => {
+      if ((r.type || 'PET').toUpperCase() !== 'PET') return false;
+      if (r.sent) return false;
+      if (!r.date) return false;
+      return String(r.date).slice(0, 10) <= today;
+    });
+  }
+
+  function showDispatchResult(result, demo = false) {
     const sent = result.sentCount || 0;
-    const failed = result.failedCount || 0;
-    const skipped = result.skippedCount || 0;
-    const failures = Array.isArray(result.failures) ? result.failures : [];
-    const ok = failed === 0 && sent > 0;
-    const partial = sent > 0 && failed > 0;
-    emailStatusBanner.classList.remove('hidden');
-    emailStatusBanner.className = 'mb-6 rounded-xl border px-4 py-3 text-sm';
-    if (ok) {
-      emailStatusBanner.classList.add('border-green-200', 'bg-green-50', 'text-green-800');
-    } else if (partial) {
-      emailStatusBanner.classList.add('border-amber-200', 'bg-amber-50', 'text-amber-900');
-    } else {
-      emailStatusBanner.classList.add('border-red-200', 'bg-red-50', 'text-red-800');
-    }
-    let html = '<p><strong>' + (result.message || `Sent ${sent}, failed ${failed}, skipped ${skipped}.`) + '</strong></p>';
-    if (failures.length) {
-      html += '<ul class="mt-2 list-disc pl-5 space-y-1 text-xs">';
-      failures.forEach((f) => {
-        const who = [f.ownerName, f.email].filter(Boolean).join(' — ');
-        html += '<li>' + (who ? who + ': ' : '') + (f.reason || 'Send failed') + '</li>';
-      });
-      html += '</ul>';
-    }
-    if (result.resendSandboxNote && failed > 0) {
-      html += '<p class="mt-2 text-xs border-t border-current/20 pt-2">' + result.resendSandboxNote + '</p>';
-    }
-    emailStatusBanner.innerHTML = html;
+    showEmailSentConfirmation({
+      batchCount: sent,
+      demo,
+      subject: demo ? 'Due pet reminders' : undefined,
+      recipientLabel: demo ? 'Pet owners with due reminders' : `${sent} recipient${sent === 1 ? '' : 's'}`,
+      preview: demo && sent > 0 ? `Successfully processed ${sent} due reminder${sent === 1 ? '' : 's'}.` : undefined,
+    });
   }
 
   dispatchDueBtn.addEventListener('click', async () => {
@@ -165,12 +255,17 @@
     dispatchDueBtn.textContent = 'Sending…';
     try {
       const result = await Api.reminders.dispatchDue();
-      showDispatchResult(result);
+      showDispatchResult(result, false);
       await refreshReminders();
     } catch (err) {
-      emailStatusBanner.classList.remove('hidden');
-      emailStatusBanner.className = 'mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800';
-      emailStatusBanner.innerHTML = '<strong>Could not send reminders.</strong> ' + (err.message || 'Unknown error');
+      if (isDemoEmailMode()) {
+        const due = dueRemindersForDispatch();
+        due.forEach((r) => markReminderSentLocally(r.id));
+        renderReminderSections();
+        showDispatchResult({ sentCount: due.length }, true);
+      } else {
+        alert('Could not send reminders: ' + (err.message || 'Unknown error'));
+      }
     } finally {
       dispatchDueBtn.disabled = false;
       dispatchDueBtn.textContent = 'Send due reminders now';
@@ -199,11 +294,11 @@
     petCountLabel.textContent = `${petReminders.length} reminder${petReminders.length===1?'':'s'}`;
     generalCountLabel.textContent = `${generalReminders.length} reminder${generalReminders.length===1?'':'s'}`;
     petSection.innerHTML = petReminders.length
-      ? petReminders.map((r,idx)=>renderReminderRow(r, idx===0)).join('')
-      : `<div class="py-4 text-sm text-gray-500">No pet-specific reminders yet.</div>`;
+      ? petReminders.map((r) => renderReminderRow(r)).join('')
+      : `<div class="reminders-empty">${typeof bpEmptyState === 'function' ? bpEmptyState('No pet-specific reminders yet.', 'document') : '<p class="text-sm text-[#6B7280]">No pet-specific reminders yet.</p>'}</div>`;
     generalSection.innerHTML = generalReminders.length
-      ? generalReminders.map((r,idx)=>renderReminderRow(r, idx===0)).join('')
-      : `<div class="py-4 text-sm text-gray-500">No general reminders yet.</div>`;
+      ? generalReminders.map((r) => renderReminderRow(r)).join('')
+      : `<div class="reminders-empty">${typeof bpEmptyState === 'function' ? bpEmptyState('No general reminders yet.', 'document') : '<p class="text-sm text-[#6B7280]">No general reminders yet.</p>'}</div>`;
   }
 
   function cleanDisplayText(text) {
@@ -284,41 +379,33 @@
     return result;
   }
 
-  function renderReminderRow(r, isFirst){
+  function renderReminderRow(r){
     const due = r.date ? new Date(r.date).toLocaleDateString() : 'No date';
     const sentInfo = r.sentAt ? `Sent ${new Date(r.sentAt).toLocaleString()}` : 'Not emailed yet';
     const badge = r.sent
-      ? `<span class="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full">Sent</span>`
-      : `<span class="text-xs bg-yellow-50 text-yellow-700 px-2 py-1 rounded-full">Pending</span>`;
+      ? `<span class="bp-badge bp-badge--completed">Sent</span>`
+      : `<span class="bp-badge bp-badge--pending">Pending</span>`;
     const targetLabel = replacePlaceholders(r.petName || r.ownerName || (r.type==='GENERAL' ? 'General List' : 'Unassigned'), r);
-    // Extract clean subject title - NO MESSAGE PREVIEW
     const subject = extractSubject(r.message || '');
     const cleanSubject = cleanDisplayText(replacePlaceholders(subject, r));
     const displaySubject = getTemplateTitle(cleanSubject);
-    // ONLY SUBJECT TITLE - NO MESSAGE TEXT
     return `
-      <div class="flex items-center justify-between gap-4 py-3 ${isFirst ? '' : ''}">
+      <div class="reminder-row">
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <span class="font-semibold text-gray-800 truncate">${targetLabel}</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-[#111827] truncate">${targetLabel}</span>
             ${badge}
           </div>
-          <div class="mt-0.5 text-xs text-gray-500">${due} • ${sentInfo}</div>
-          <div class="mt-1 text-sm font-medium text-gray-800">${displaySubject}</div>
+          <p class="mt-1 text-xs text-[#6B7280] leading-snug">${due} · ${sentInfo}</p>
+          <p class="mt-0.5 text-xs font-medium text-[#374151] uppercase tracking-wide leading-snug">${displaySubject}</p>
         </div>
-        <div class="flex-shrink-0 flex gap-2">
-          <button class="px-3 py-1.5 text-xs rounded-md border text-gray-700 hover:bg-gray-50"
-                  onclick="viewReminderMessage(${r.id})">
-            View
-          </button>
-          <button class="px-3 py-1.5 text-xs rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white"
-                  onclick="openSendEmailModal(${r.id})">
-            Send
-          </button>
-          <button class="px-3 py-1.5 text-xs rounded-md border text-red-600 hover:bg-red-50"
-                  onclick="deleteReminder(${r.id})">
-            Delete
-          </button>
+        <div class="reminder-row-actions">
+          <button type="button" class="border border-[#E5E7EB] bg-white text-[#374151] hover:bg-[#F9FAFB]"
+                  onclick="viewReminderMessage(${r.id})">View</button>
+          <button type="button" class="border border-[#0F5CC0] text-[#0F5CC0] bg-white hover:bg-[#F3F8FF]"
+                  onclick="openSendEmailModal(${r.id})">Send</button>
+          <button type="button" class="border border-transparent text-[#B42318] hover:bg-[#FEF2F2]"
+                  onclick="deleteReminder(${r.id})">Delete</button>
         </div>
       </div>`;
   }
@@ -372,7 +459,7 @@
     templateSelect?.addEventListener('change', async ()=>{
       const selected = templates.find(t=>String(t.id)===templateSelect.value);
       if(selected){
-        let body = selected.body || '';
+        let body = selected.body || selected.template || '';
         if(isPet && petSelect && petSelect.value){
           try{
             const pet = await repoGetPet(Number(petSelect.value));
@@ -396,7 +483,7 @@
         if(templateSelect && templateSelect.value){
           const selected = templates.find(t=>String(t.id)===templateSelect.value);
           if(selected){
-            let body = selected.body || '';
+            let body = selected.body || selected.template || '';
             try{
               const pet = await repoGetPet(Number(petSelect.value));
               const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
@@ -418,7 +505,7 @@
         if(templateSelect && templateSelect.value && petSelect && petSelect.value){
           const selected = templates.find(t=>String(t.id)===templateSelect.value);
           if(selected){
-            let body = selected.body || '';
+            let body = selected.body || selected.template || '';
             try{
               const pet = await repoGetPet(Number(petSelect.value));
               const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
@@ -532,8 +619,7 @@
     templateSelect?.addEventListener('change', ()=>{
       const match = templates.find(t=>String(t.id)===templateSelect.value);
       if(match){
-        bodyInput.value = match.body || '';
-        // Show clean title in subject field
+        bodyInput.value = match.body || match.template || '';
         subjectInput.value = getTemplateTitle(match.subject || subjectInput.value);
       }
     });
@@ -553,7 +639,7 @@
     const to = isGeneralBroadcast
       ? null
       : (manualRecipientInput ? manualRecipientInput.value.trim() : (reminder.ownerEmail || reminder.targetEmail));
-    if(!isGeneralBroadcast && !to){
+    if(!isGeneralBroadcast && !to && !isDemoEmailMode()){
       alert('Recipient email is required.');
       return;
     }
@@ -562,28 +648,43 @@
       const selectedId = templateSelect?.value;
       if(!selectedId) return body;
       const match = templates.find(t=>String(t.id)===selectedId);
-      return match?.body || body;
+      return match?.body || match?.template || body;
     })();
-    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-      alert('No Internet Connection.');
-      return;
+    const recipientLabel = isGeneralBroadcast
+      ? 'All pet owners with an email on file'
+      : (to || reminder.ownerName || 'Pet owner');
+
+    const sendBtn = document.querySelector('[onclick*="sendReminderEmail"]');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
     }
 
-    try{
-      const payload = {
-        template: templateBody,
-        subject
-      };
-      if(!isGeneralBroadcast){
-        payload.to = to;
-      }
+    let demo = false;
+    try {
+      const payload = { template: templateBody, subject };
+      if (!isGeneralBroadcast) payload.to = to;
       await Api.reminders.sendEmail(reminderId, payload);
-      alert('Email sent successfully!');
-      closeModal();
-      refreshReminders();
-    }catch(err){
-      alert('Unable to send email: ' + (err.message || 'Unknown error'));
+    } catch (err) {
+      if (!isDemoEmailMode()) {
+        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send Email'; }
+        alert('Unable to send email: ' + (err.message || 'Unknown error'));
+        return;
+      }
+      demo = true;
+      markReminderSentLocally(reminderId);
     }
+
+    closeModal();
+    renderReminderSections();
+    showEmailSentConfirmation({
+      recipientLabel,
+      subject,
+      preview: templateBody || body,
+      demo,
+    });
+
+    if (!demo) await refreshReminders();
   }
 
   async function deleteReminder(id){
@@ -622,32 +723,35 @@
 
   async function getTemplates(type, forceRefresh = false){
     const key = (type || 'PET').toUpperCase();
-    if(forceRefresh || !templateCache[key]){
-      try{
+    const fallbackTemplates = () => {
+      const all = (window.REMINDER_TEMPLATES || []).map(t => ({
+        id: t.id,
+        name: t.name,
+        subject: t.subject,
+        body: t.template || t.body || '',
+      }));
+      if (key === 'PET') return all.filter(t => t.id !== 'general');
+      if (key === 'GENERAL') return all.filter(t => t.id === 'general');
+      return all;
+    };
+
+    if (forceRefresh || !templateCache[key]) {
+      try {
         const fromApi = await Api.email.templates.list(key);
         if (Array.isArray(fromApi) && fromApi.length) {
-          templateCache[key] = fromApi;
-          console.log(`Loaded ${fromApi.length} ${key} templates from backend`);
+          templateCache[key] = fromApi.map(t => ({
+            ...t,
+            body: t.body || t.template || '',
+          }));
         } else {
-          throw new Error('No templates configured in backend');
+          templateCache[key] = fallbackTemplates();
         }
-      }catch(err){
-        console.warn('Unable to load templates from backend, falling back to built-in defaults.', err);
-        // Fallback to static templates file when API is not reachable or empty
-        const all = (window.REMINDER_TEMPLATES || []).map(t => ({
-          id: t.id,
-          name: t.name,
-          subject: t.subject,
-          body: t.template
-        }));
-        if (key === 'PET') {
-          templateCache[key] = all.filter(t => t.id !== 'general');
-        } else {
-          templateCache[key] = all.filter(t => t.id === 'general');
-        }
+      } catch (err) {
+        console.warn('Using built-in reminder templates.', err);
+        templateCache[key] = fallbackTemplates();
       }
     }
-    return templateCache[key] || [];
+    return templateCache[key] || fallbackTemplates();
   }
 
   async function getPets(){

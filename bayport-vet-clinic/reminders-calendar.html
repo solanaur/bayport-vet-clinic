@@ -9,24 +9,24 @@
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.js'></script>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/bayport-design.css">
 
 <style>
-  body { font-family: 'Poppins', sans-serif; }
-  :root { --soft-teal:#0057b8; }
+  :root { --soft-teal:#0F5CC0; --bp-primary:#0F5CC0; }
 </style>
 </head>
 
-<body class="bg-[#f6f9f9] min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
 <header id="bpAppHeader"></header>
 
-<div class="flex flex-1">
-  <aside class="w-72 bg-white border-r p-6 shadow-soft">
-    <h2 class="text-xl font-semibold text-[var(--soft-teal)] uppercase mb-4">Calendar</h2>
-    <nav id="sidebarNav" class="flex flex-col gap-2"></nav>
+<div class="flex flex-1 min-h-0">
+  <aside class="w-64 lg:w-72 bg-white border-r border-[#E5E7EB] p-5 shrink-0 hidden md:block">
+    <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
   </aside>
 
-  <main class="flex-1 p-8">
+  <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
+    <h1 class="bp-page-title mb-5">Reminders Calendar</h1>
     <div id='calendar'></div>
   </main>
 </div>
@@ -53,9 +53,9 @@ document.addEventListener('DOMContentLoaded', async function() {
       const events = sent.map(r => ({
         title: (r.petName || r.ownerName || 'General').toString().substring(0, 22),
         start: r.date,
-        backgroundColor: "#0057b8",
+        backgroundColor: "#0F5CC0",
         textColor: "white",
-        borderColor: "#0057b8",
+        borderColor: "#0F5CC0",
         extendedProps: r
       }));
 

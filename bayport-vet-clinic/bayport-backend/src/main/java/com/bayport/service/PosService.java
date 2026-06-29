@@ -174,6 +174,8 @@ public class PosService {
         String petName = null;
         if (request.getPetId() != null) {
             petName = petRepository.findById(request.getPetId()).map(Pet::getName).orElse("Pet #" + request.getPetId());
+        } else {
+            petName = "Walk-in";
         }
 
         String note = "Payment: " + payment;
@@ -237,8 +239,10 @@ public class PosService {
                     invoice.setOwnerId(p.getOwnerId());
                     invoice.setOwnerName(p.getOwner());
                 });
+            } else {
+                invoice.setOwnerName("Walk-in customer");
             }
-            invoice.setDescription("POS checkout");
+            invoice.setDescription(summarizeLineItems(lineEntities));
             invoice.setSubtotalAmount(subtotalBeforeDiscount);
             invoice.setDiscountAmount(discount);
             invoice.setAmount(total);
@@ -290,7 +294,7 @@ public class PosService {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("saleId", s.getId() != null ? s.getId() : 0L);
             row.put("occurredAt", s.getOccurredAt() != null ? s.getOccurredAt().toString() : "");
-            row.put("petName", s.getPetName() != null && !s.getPetName().isBlank() ? s.getPetName() : "—");
+            row.put("petName", s.getPetName() != null && !s.getPetName().isBlank() ? s.getPetName() : "Walk-in");
             row.put("total", s.getAmount());
             row.put("note", s.getNote() != null ? s.getNote() : "");
             List<Map<String, Object>> lines = new ArrayList<>();
@@ -320,7 +324,7 @@ public class PosService {
         dto.petName = sale.getPetName() != null && !sale.getPetName().isBlank() ? sale.getPetName() : "Walk-in";
         dto.ownerName = sale.getPetId() != null
                 ? petRepository.findById(sale.getPetId()).map(Pet::getOwner).orElse("—")
-                : "—";
+                : "Walk-in customer";
         dto.total = sale.getAmount();
         dto.note = sale.getNote();
         dto.paymentMethod = extractPaymentMethod(sale.getNote());
@@ -346,6 +350,29 @@ public class PosService {
         String value = end > from ? note.substring(from, end) : note.substring(from);
         String trimmed = value.trim();
         return trimmed.isEmpty() ? "Cash" : trimmed;
+    }
+
+    /** Human-readable invoice description from checkout line items (not a generic POS label). */
+    private static String summarizeLineItems(List<SaleLine> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "Sale";
+        }
+        List<String> names = new ArrayList<>();
+        for (SaleLine sl : lines) {
+            String name = sl.getItemName();
+            if (name != null && !name.isBlank()) {
+                names.add(name.trim());
+            }
+        }
+        if (names.isEmpty()) {
+            return "Sale";
+        }
+        String joined = String.join(", ", names);
+        final int maxLen = 500;
+        if (joined.length() > maxLen) {
+            return joined.substring(0, maxLen - 3) + "...";
+        }
+        return joined;
     }
 
     private InventoryItem resolveLineItem(PosLineRequest line) {

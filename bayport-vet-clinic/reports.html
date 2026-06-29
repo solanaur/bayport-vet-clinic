@@ -7,9 +7,12 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
     :root {
-      --soft-teal: #0057b8;
+      --soft-teal: #0F5CC0;
+      --bp-blue: #0F5CC0;
+      --bp-primary: #0F5CC0;
       --bill-green: #059669;
       --bill-amber: #d97706;
       --bill-red: #dc2626;
@@ -28,24 +31,21 @@
     }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800">
+<body class="min-h-screen flex flex-col text-slate-800">
   <div id="repToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-[300] hidden text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
   <header id="bpAppHeader"></header>
 
   <div class="flex flex-1 min-h-0">
-    <aside id="repAside" class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 transition-[width,padding] duration-200 overflow-hidden">
+    <aside class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 overflow-hidden">
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Menu</h2>
       <nav id="sidebarNav" class="flex flex-col gap-1 text-sm"></nav>
-      <button type="button" id="btnCollapseNav" class="mt-6 w-full text-left text-xs text-slate-500 hover:text-slate-700 py-2 border-t border-slate-100">
-        Hide menu
-      </button>
     </aside>
 
     <main class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
       <div class="max-w-7xl mx-auto space-y-6">
         <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Reports</h1>
+            <h1 class="bp-page-title tracking-tight">Reports</h1>
           </div>
           <div class="flex flex-wrap items-end gap-2 shrink-0">
             <div>
@@ -67,9 +67,9 @@
                 <input id="to" type="date" class="mt-1 block border border-slate-200 rounded-lg px-3 py-2 text-sm" />
               </label>
             </div>
-            <button type="button" id="runBtn" class="mt-5 lg:mt-6 px-5 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white text-sm font-semibold hover:brightness-110 shadow-sm">Run</button>
-            <button type="button" id="printBtn" class="mt-5 lg:mt-6 px-4 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] text-sm font-semibold hover:bg-blue-50">Print PDF</button>
-            <button type="button" id="excelBtn" class="mt-5 lg:mt-6 px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50">Export Excel (CSV)</button>
+            <button type="button" id="runBtn" class="bp-btn-primary mt-5 lg:mt-6 px-5 py-2.5 text-sm font-semibold">Run</button>
+            <button type="button" id="printBtn" class="bp-btn-secondary mt-5 lg:mt-6 px-4 py-2.5 text-sm font-semibold">Print PDF</button>
+            <button type="button" id="excelBtn" class="bp-btn-secondary mt-5 lg:mt-6 px-4 py-2.5 text-sm font-semibold">Export Excel (CSV)</button>
           </div>
         </div>
 
@@ -194,19 +194,6 @@
     if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     const role = getRole();
     renderSidebar(document.getElementById("sidebarNav"), role, "reports.html");
-
-    let navCollapsed = false;
-    document.getElementById("btnCollapseNav").onclick = () => {
-      navCollapsed = !navCollapsed;
-      const a = document.getElementById("repAside");
-      if (navCollapsed) {
-        a.classList.add("w-0", "!p-0", "border-0");
-        a.classList.remove("w-72", "p-5");
-      } else {
-        a.classList.remove("w-0", "!p-0", "border-0");
-        a.classList.add("w-72", "p-5");
-      }
-    };
 
     const periodSel = document.getElementById("period");
     const customDates = document.getElementById("customDates");
@@ -429,8 +416,8 @@
               {
                 label: "POS sales",
                 data: posValues,
-                borderColor: "#0057b8",
-                backgroundColor: "rgba(0,87,184,0.12)",
+                borderColor: "#0F5CC0",
+                backgroundColor: "rgba(15,92,192,0.12)",
                 tension: 0.35,
                 fill: true,
                 pointRadius: 3,
@@ -449,6 +436,7 @@
             ],
           },
           options: {
+            animation: false,
             responsive: true,
             maintainAspectRatio: false,
             scales: {
@@ -473,7 +461,7 @@
         salesChart.data.labels = labels;
         salesChart.data.datasets[0].data = posValues;
         salesChart.data.datasets[1].data = pendingValues;
-        salesChart.update("active");
+        salesChart.update("none");
       }
     }
 
@@ -489,7 +477,7 @@
       document.getElementById("donutTotal").textContent = "₱" + formatPrice(total);
 
       const parts = [
-        { key: "Cash", color: "#0057b8", amt: buckets.Cash },
+        { key: "Cash", color: "#0F5CC0", amt: buckets.Cash },
         { key: "Card", color: "#059669", amt: buckets.Card },
         { key: "Other", color: "#94a3b8", amt: buckets.Other },
       ];
@@ -518,6 +506,7 @@
             ],
           },
           options: {
+            animation: false,
             responsive: true,
             maintainAspectRatio: false,
             cutout: "68%",
@@ -537,7 +526,7 @@
         });
       } else {
         payChart.data.datasets[0].data = parts.map((p) => p.amt);
-        payChart.update("active");
+        payChart.update("none");
       }
     }
 
@@ -929,41 +918,7 @@
       }
       try {
         const username = localStorage.getItem("username") || "Admin";
-        const params = new URLSearchParams({
-          period: r.period || "month",
-          preparedBy: username,
-        });
-        if (r.from) params.append("from", r.from);
-        if (r.to) params.append("to", r.to);
-        const response = await fetch(buildApiUrl(`/reports/summary/pdf?${params.toString()}`), {
-          headers: {
-            Accept: "application/pdf",
-            Authorization: `Bearer ${Api.token() || ""}`,
-          },
-        });
-        if (!response.ok) {
-          let detail = `Request failed (${response.status})`;
-          try {
-            const j = await response.json();
-            if (j.message) {
-              detail = String(j.message);
-            } else if (j.error) {
-              detail = String(j.error);
-            }
-          } catch {
-            /* non-JSON error body */
-          }
-          throw new Error(detail);
-        }
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `Bayport_Summary_${r.from || ""}_${r.to || ""}.pdf`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        await Api.reports.downloadPdf(r.period || "day", r.from, r.to, username);
       } catch (err) {
         toast("Unable to generate PDF: " + (err.message || "error"), true);
       }
@@ -1027,6 +982,31 @@
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") loadReport();
     });
+    window.addEventListener("bayport:sale-recorded", () => {
+      if (document.visibilityState === "visible") loadReport();
+    });
+    let salesStream = null;
+    function connectSalesStream() {
+      if (salesStream || typeof Api === "undefined" || !Api.sales?.stream) return;
+      try {
+        salesStream = Api.sales.stream();
+        salesStream.addEventListener("sale", () => {
+          if (document.visibilityState === "visible") loadReport();
+        });
+        salesStream.onerror = () => {
+          try {
+            salesStream.close();
+          } catch (_) {
+            /* ignore */
+          }
+          salesStream = null;
+          setTimeout(connectSalesStream, 15000);
+        };
+      } catch (_) {
+        salesStream = null;
+      }
+    }
+    connectSalesStream();
   </script>
 </body>
 </html>

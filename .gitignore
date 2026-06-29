@@ -27,3 +27,11 @@ target/
 data/
 *.mv.db
 *.db
+*.trace.db
+*.lock.db
+
+# Runtime logs and user uploads (not source)
+bayport-vet-clinic/logs/
+bayport-vet-clinic/bayport-backend/logs/
+bayport-vet-clinic/bayport-backend/uploads/
+bayport-vet-clinic/data/

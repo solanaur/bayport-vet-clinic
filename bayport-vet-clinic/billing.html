@@ -3,121 +3,80 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Billing &amp; payments - Bayport</title>
+  <title>Billing - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
-    :root { --soft-teal: #0057b8; --bill-green: #059669; --bill-amber: #d97706; --bill-red: #dc2626; }
+    :root { --soft-teal: #0F5CC0; --bill-green: #059669; --bill-amber: #d97706; --bill-red: #dc2626; --bp-primary: #0F5CC0; }
     body { font-family: Inter, system-ui, sans-serif; }
-    .bill-drawer { transform: translateX(100%); transition: transform 0.25s ease; }
+    .bill-drawer { transform: translateX(100%); }
     .bill-drawer.open { transform: translateX(0); }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col text-slate-800">
+<body class="min-h-screen flex flex-col text-slate-800">
   <header id="bpAppHeader"></header>
 
   <div id="billToast" class="fixed bottom-5 left-1/2 -translate-x-1/2 hidden z-[300] text-white text-sm font-semibold px-4 py-2 rounded-lg shadow-lg"></div>
 
   <div class="flex flex-1 min-h-0">
-    <aside id="billAside" class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 transition-[width,padding] duration-200 overflow-hidden">
+    <aside class="w-72 shrink-0 bg-white border-r border-slate-200 p-5 overflow-hidden">
       <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Menu</h2>
       <nav id="sidebarNav" class="flex flex-col gap-1 text-sm"></nav>
-      <button type="button" id="btnCollapseNav" class="mt-6 w-full text-left text-xs text-slate-500 hover:text-slate-700 py-2 border-t border-slate-100">
-        Hide menu
-      </button>
     </aside>
 
     <main class="flex-1 min-w-0 flex flex-col">
       <div class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
         <div class="max-w-6xl mx-auto space-y-6">
-          <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Billing &amp; payments</h1>
+              <h1 class="bp-page-title tracking-tight">Billing</h1>
             </div>
-            <div class="flex flex-wrap items-center gap-2 shrink-0">
-              <button type="button" id="btnReceivePayment" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-[var(--soft-teal)] text-[var(--soft-teal)] font-semibold text-sm hover:bg-blue-50 transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg>
-                Receive payment
-              </button>
-              <button type="button" id="btnNewInvoice" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white font-semibold text-sm hover:brightness-110 shadow-sm">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                New invoice
-              </button>
+            <div class="flex items-center gap-2 shrink-0">
+              <button type="button" id="btnNewInvoice" class="bp-btn-secondary px-4 py-2 text-sm">New invoice</button>
+              <button type="button" id="btnReceivePayment" class="bp-btn-primary px-4 py-2 text-sm font-semibold">Receive payment</button>
             </div>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpiRow"></div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4" id="kpiRow"></div>
 
-          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5 space-y-4">
-            <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
-              <div class="flex-1 min-w-0">
-                <label class="text-xs font-medium text-slate-500">Search</label>
-                <input id="searchInp" type="search" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none" placeholder="Invoice #, pet, owner, description…" />
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1">
-                <div>
-                  <label class="text-xs font-medium text-slate-500">From</label>
-                  <input id="dateFrom" type="date" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+          <div class="bp-table-panel overflow-hidden">
+            <div class="p-4 lg:p-5 border-b border-slate-100 space-y-4">
+              <div class="flex flex-wrap gap-2" id="tabRow"></div>
+              <div class="flex flex-col sm:flex-row gap-3">
+                <input id="searchInp" type="search" class="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none" placeholder="Search invoice, pet, or owner…" />
+                <div class="flex items-center gap-2 shrink-0">
+                  <input id="dateFrom" type="date" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" title="From date" />
+                  <span class="text-slate-400 text-sm">to</span>
+                  <input id="dateTo" type="date" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" title="To date" />
+                  <button type="button" id="refreshBtn" class="p-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title="Refresh">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                  </button>
                 </div>
-                <div>
-                  <label class="text-xs font-medium text-slate-500">To</label>
-                  <input id="dateTo" type="date" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
-                <div>
-                  <label class="text-xs font-medium text-slate-500">Status</label>
-                  <select id="statusSel" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-                    <option value="">All status</option>
-                    <option value="PAID">Paid</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="VOIDED">Voided</option>
-                  </select>
-                </div>
-              </div>
-              <div class="flex gap-2 shrink-0">
-                <button type="button" id="btnFilters" class="px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-                  Filters
-                </button>
-                <button type="button" id="refreshBtn" class="px-3 py-2 rounded-lg bg-slate-100 text-sm font-semibold text-slate-800 hover:bg-slate-200">Refresh</button>
               </div>
             </div>
 
-            <div id="filterExtra" class="hidden pt-2 border-t border-slate-100 text-xs text-slate-500">
-              Tip: data refreshes when you return from the POS. Use <strong>Refresh</strong> to pull the latest payments.
-            </div>
-
-            <div class="flex flex-wrap gap-2 border-b border-slate-100 pb-3" id="tabRow"></div>
-
-            <div class="overflow-x-auto rounded-lg border border-slate-100">
+            <div class="overflow-x-auto">
               <table class="w-full text-sm text-left">
                 <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
                   <tr>
-                    <th class="px-3 py-3 w-10"><input type="checkbox" id="chkAll" class="rounded border-slate-300" /></th>
-                    <th class="px-3 py-3">Invoice #</th>
-                    <th class="px-3 py-3">Pet / owner</th>
-                    <th class="px-3 py-3 hidden md:table-cell">Date &amp; time</th>
-                    <th class="px-3 py-3 text-right">Amount</th>
-                    <th class="px-3 py-3">Status</th>
+                    <th class="px-4 py-3">Invoice</th>
+                    <th class="px-4 py-3">Pet / owner</th>
+                    <th class="px-4 py-3 hidden md:table-cell">Date</th>
+                    <th class="px-4 py-3 text-right">Amount</th>
+                    <th class="px-4 py-3">Status</th>
                   </tr>
                 </thead>
                 <tbody id="billingRows" class="divide-y divide-slate-100 bg-white"></tbody>
               </table>
             </div>
 
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-slate-600">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 border-t border-slate-100 text-sm text-slate-600">
               <span id="pageSummary">Showing 0 invoices</span>
               <div class="flex items-center gap-2">
                 <button type="button" id="pagePrev" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled>Previous</button>
                 <span id="pageNum" class="tabular-nums font-medium px-2">1</span>
                 <button type="button" id="pageNext" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40" disabled>Next</button>
-                <label class="ml-2 flex items-center gap-2 text-xs">
-                  Rows
-                  <select id="pageSize" class="border border-slate-200 rounded-md px-2 py-1 text-sm bg-white">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                  </select>
-                </label>
               </div>
             </div>
           </div>
@@ -152,7 +111,7 @@
   <div id="newInvModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-[200]">
     <div class="bg-white rounded-xl w-full max-w-lg shadow-xl p-6 space-y-4">
       <h3 class="text-lg font-bold text-slate-900">New invoice</h3>
-      <p class="text-xs text-slate-500">Creates a pending charge. Collect payment in the POS to sync with sales.</p>
+      <p class="text-xs text-slate-500">Creates a pending charge. Collect payment with <strong>Receive payment</strong> when ready.</p>
       <label class="block text-xs font-medium text-slate-600">Pet name <span class="text-red-500">*</span></label>
       <select id="niPetSelect" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
         <option value="">— Select a pet —</option>
@@ -170,7 +129,7 @@
       <input id="niAmount" type="number" step="0.01" min="0" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="0.00" />
       <label class="block text-xs font-medium text-slate-600">Discount (₱) <span class="text-slate-400 font-normal">optional</span></label>
       <input id="niDiscount" type="number" step="0.01" min="0" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="0.00" value="0" />
-      <p class="text-xs text-slate-400">Discount carries over to POS payment — total due = amount minus discount.</p>
+      <p class="text-xs text-slate-400">Discount applies when you receive payment — total due = amount minus discount.</p>
       <p id="niAutoHint" class="hidden text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2"></p>
       <div class="flex justify-end gap-2 pt-2">
         <button type="button" id="niCancel" class="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50">Cancel</button>
@@ -179,6 +138,8 @@
     </div>
   </div>
 
+  <script src="assets/thermal-receipt.js"></script>
+  <script src="assets/billing-checkout.js"></script>
   <script src="assets/deploy-env.js"></script>
   <script>window.USE_API = true;</script>
   <script src="assets/api.js"></script>
@@ -197,8 +158,7 @@
     let selectedId = null;
     let tab = "all";
     let page = 1;
-    let pageSize = 10;
-    let navCollapsed = false;
+    const pageSize = 15;
 
     function toast(msg, isError) {
       const el = document.getElementById("billToast");
@@ -284,7 +244,7 @@
         });
       });
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = localDateInputValue(new Date());
       const skipAppt = new Set(["done", "cancelled", "canceled", "completed"]);
       (allAppts || [])
         .filter(
@@ -449,6 +409,28 @@
       return `RCPT-${y}-${String(sale.id).padStart(4, "0")}`;
     }
 
+    function localDateInputValue(d) {
+      const x = d instanceof Date ? d : new Date(d);
+      const y = x.getFullYear();
+      const m = String(x.getMonth() + 1).padStart(2, "0");
+      const day = String(x.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function ensureDateRangeIncludesToday() {
+      const today = localDateInputValue(new Date());
+      const toEl = document.getElementById("dateTo");
+      if (toEl && (!toEl.value || toEl.value < today)) {
+        toEl.value = today;
+      }
+    }
+
+    function recordTimestamp(r) {
+      const st = String(r.status || "").toUpperCase();
+      const raw = st === "PAID" && r.paidAt ? r.paidAt : r.issuedAt || r.paidAt;
+      return raw ? new Date(raw).getTime() : 0;
+    }
+
     function startOfDay(d) {
       const x = new Date(d);
       x.setHours(0, 0, 0, 0);
@@ -465,15 +447,16 @@
       const to = new Date();
       const from = new Date();
       from.setDate(from.getDate() - 29);
-      document.getElementById("dateTo").value = to.toISOString().slice(0, 10);
-      document.getElementById("dateFrom").value = from.toISOString().slice(0, 10);
+      document.getElementById("dateTo").value = localDateInputValue(to);
+      document.getElementById("dateFrom").value = localDateInputValue(from);
     }
 
     function inDateRange(r) {
       const from = document.getElementById("dateFrom").value;
       const to = document.getElementById("dateTo").value;
       if (!from && !to) return true;
-      const t = r.issuedAt ? new Date(r.issuedAt).getTime() : 0;
+      const t = recordTimestamp(r);
+      if (!t) return true;
       if (from && t < startOfDay(from)) return false;
       if (to && t > endOfDay(to)) return false;
       return true;
@@ -481,12 +464,8 @@
 
     function filteredRows() {
       const q = (document.getElementById("searchInp").value || "").trim().toLowerCase();
-      const s = document.getElementById("statusSel").value;
       return billing.filter((r) => {
         if (!inDateRange(r)) return false;
-        const st = String(r.status || "").toUpperCase();
-        if (s === "VOIDED") return false;
-        if (s && st !== s) return false;
         if (!q) return true;
         const inv = invoiceNo(r).toLowerCase();
         const str = `${inv} ${r.petName || ""} ${r.ownerName || ""} ${r.description || ""}`.toLowerCase();
@@ -498,7 +477,7 @@
       const rows = billing.filter(inDateRange);
       const paid = rows.filter((r) => String(r.status).toUpperCase() === "PAID");
       const pend = rows.filter((r) => String(r.status).toUpperCase() === "PENDING");
-      return { all: rows.length, paid: paid.length, pending: pend.length, voided: 0 };
+      return { all: rows.length, paid: paid.length, pending: pend.length };
     }
 
     function sumAmount(arr) {
@@ -521,35 +500,48 @@
       const totalPend = sumAmount(pendRows);
 
       document.getElementById("kpiRow").innerHTML = `
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total sales (today)</div>
-          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalToday)}</div>
+        <div class="bp-dash-stat">
+          <div class="bp-dash-stat-inner">
+            <div>
+              <div class="text-xs font-medium text-[#667085]">Collected today</div>
+              <div class="bp-dash-stat-value mt-1">₱${fmtMoney(totalToday)}</div>
+            </div>
+            <div class="bp-stat-icon bp-stat-icon--green" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          </div>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Paid</div>
-          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalPaid)}</div>
+        <div class="bp-dash-stat">
+          <div class="bp-dash-stat-inner">
+            <div>
+              <div class="text-xs font-medium text-[#667085]">Pending</div>
+              <div class="bp-dash-stat-value mt-1">₱${fmtMoney(totalPend)}</div>
+              <div class="bp-dash-stat-label mt-1">${pendRows.length} invoice${pendRows.length === 1 ? "" : "s"}</div>
+            </div>
+            <div class="bp-stat-icon bp-stat-icon--amber" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          </div>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending</div>
-          <div class="text-2xl font-bold text-slate-900 mt-1">₱${fmtMoney(totalPend)}</div>
-        </div>
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Voided</div>
-          <div class="text-2xl font-bold text-slate-400 mt-1">₱0.00</div>
+        <div class="bp-dash-stat">
+          <div class="bp-dash-stat-inner">
+            <div>
+              <div class="text-xs font-medium text-[#667085]">Paid in period</div>
+              <div class="bp-dash-stat-value mt-1">₱${fmtMoney(totalPaid)}</div>
+            </div>
+            <div class="bp-stat-icon bp-stat-icon--blue" aria-hidden="true"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
+          </div>
         </div>`;
 
-      const base = "px-3 py-2 rounded-full text-sm font-medium border transition-colors";
+      const base = "px-3 py-1.5 rounded-lg text-sm font-medium border";
       const cts = counts();
       document.getElementById("tabRow").innerHTML = [
         ["all", `All (${cts.all})`],
-        ["PAID", `Paid (${cts.paid})`],
         ["PENDING", `Pending (${cts.pending})`],
-        ["VOIDED", `Voided (${cts.voided})`],
+        ["PAID", `Paid (${cts.paid})`],
       ]
         .map(
           ([key, label]) =>
             `<button type="button" data-tab="${key}" class="${base} ${
-              tab === key ? "bg-[var(--soft-teal)] text-white border-[var(--soft-teal)]" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              tab === key
+                ? "bg-[var(--soft-teal)] text-white border-[var(--soft-teal)]"
+                : "bg-white text-[#667085] border-[#D0D5DD] hover:text-[var(--soft-teal)] hover:border-[rgba(0,87,184,0.35)]"
             }">${esc(label)}</button>`,
         )
         .join("");
@@ -557,15 +549,11 @@
 
     function tabFilter(rows) {
       if (tab === "all") return rows;
-      if (tab === "VOIDED") return [];
       return rows.filter((r) => String(r.status || "").toUpperCase() === tab);
     }
 
     function statusPill(st) {
-      const u = String(st || "").toUpperCase();
-      if (u === "PAID") return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">PAID</span>`;
-      if (u === "PENDING") return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">PENDING</span>`;
-      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">${esc(u)}</span>`;
+      return typeof bpStatusBadge === "function" ? bpStatusBadge(st) : `<span>${esc(st)}</span>`;
     }
 
     function renderTable() {
@@ -584,28 +572,22 @@
       document.getElementById("pageNext").disabled = page >= pages;
 
       const body = document.getElementById("billingRows");
-      const chkAll = document.getElementById("chkAll");
-      if (chkAll) {
-        chkAll.checked = false;
-        chkAll.indeterminate = false;
-      }
       if (!slice.length) {
-        body.innerHTML = `<tr><td colspan="6" class="px-4 py-12 text-center text-slate-400">No billing records match your filters.</td></tr>`;
+        body.innerHTML = `<tr><td colspan="5">${typeof bpEmptyState === "function" ? bpEmptyState("No invoices match your search.", "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-400">No invoices match your search.</div>`}</td></tr>`;
         return;
       }
       body.innerHTML = slice
         .map((r) => {
           const inv = invoiceNo(r);
-          return `<tr class="hover:bg-slate-50/80 cursor-pointer bill-row" data-id="${r.id}">
-            <td class="px-3 py-3" onclick="event.stopPropagation()"><input type="checkbox" class="rounded border-slate-300 bill-chk" data-id="${r.id}" /></td>
-            <td class="px-3 py-3 font-semibold text-[var(--soft-teal)]">${esc(inv)}</td>
-            <td class="px-3 py-3">
-              <div class="font-semibold text-slate-900">${esc(r.petName || "—")}</div>
+          return `<tr class="cursor-pointer bill-row" data-id="${r.id}">
+            <td class="px-4 py-3 font-medium text-[#101828]">${esc(inv)}</td>
+            <td class="px-4 py-3">
+              <div class="font-medium text-slate-900">${esc(r.petName || "—")}</div>
               <div class="text-xs text-slate-500">${esc(r.ownerName || "—")}</div>
             </td>
-            <td class="px-3 py-3 text-slate-600 hidden md:table-cell whitespace-nowrap">${esc(fmtDateTime(r.issuedAt))}</td>
-            <td class="px-3 py-3 text-right font-semibold tabular-nums">₱${fmtMoney(r.amount)}</td>
-            <td class="px-3 py-3">${statusPill(r.status)}</td>
+            <td class="px-4 py-3 text-slate-600 hidden md:table-cell whitespace-nowrap">${esc(fmtDateTime(r.issuedAt))}</td>
+            <td class="px-4 py-3 text-right font-semibold tabular-nums">₱${fmtMoney(r.amount)}</td>
+            <td class="px-4 py-3">${statusPill(r.status)}</td>
           </tr>`;
         })
         .join("");
@@ -622,6 +604,8 @@
       const discount = Number(r.discountAmount || 0) || 0;
       const netTotal = Number(r.amount) || Math.max(0, subtotal - discount);
       const paidAmt = isPaid ? netTotal : 0;
+      const descPreview = (r.description || "Service").trim();
+      const genericDesc = /^pos (checkout|sale)$/i.test(descPreview);
 
       document.getElementById("drawerBody").innerHTML = `
         <div class="mb-4">${statusPill(r.status)}</div>
@@ -633,9 +617,9 @@
             <span id="billDrawerPetInitial" class="text-slate-600 font-bold text-lg relative z-0">${esc((r.petName || "?").slice(0, 1))}</span>
             <img id="billDrawerPetImg" class="absolute inset-0 z-10 w-full h-full object-cover hidden" alt="" decoding="async" />
           </div>
-          <div>
+          <div class="min-w-0 flex-1">
             <div class="font-semibold text-slate-900">${esc(r.petName || "—")}</div>
-            <div class="text-xs text-slate-500">${esc(r.description || "Service")}</div>
+            <div id="billDrawerLines" class="text-xs text-slate-500 mt-1">${genericDesc ? "Loading items…" : esc(descPreview)}</div>
           </div>
         </div>
         <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
@@ -654,20 +638,19 @@
           <div><span class="text-slate-500">Payment method</span><div class="font-medium text-slate-800">${esc(pay)}</div></div>
           <div><span class="text-slate-500">Paid at</span><div class="font-medium text-slate-800">${esc(isPaid ? fmtDateTime(r.paidAt || r.issuedAt) : "—")}</div></div>
           <div><span class="text-slate-500">Receipt no.</span><div class="font-medium text-slate-800">${esc(receiptNo(sale))}</div></div>
-          <div><span class="text-slate-500">Linked sale</span><div class="font-medium text-slate-800">${sale && sale.id ? "#" + sale.id + " (POS)" : isPaid ? "Manual / other" : "—"}</div></div>
+          <div><span class="text-slate-500">Linked sale</span><div class="font-medium text-slate-800">${sale && sale.id ? "#" + sale.id : isPaid ? "Manual / other" : "—"}</div></div>
         </div>`;
 
       document.getElementById("drawerFooter").innerHTML = `
-        <div class="grid grid-cols-2 gap-2">
-          <button type="button" class="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white bill-preview" data-id="${r.id}">View invoice</button>
-          <button type="button" class="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-semibold text-slate-800 hover:bg-white bill-print" data-id="${r.id}" ${isPaid ? "" : "disabled"}>Print invoice</button>
-        </div>
         ${
           isPaid
-            ? ""
-            : `<button type="button" class="w-full py-2.5 rounded-lg border border-emerald-600 text-emerald-800 text-sm font-semibold hover:bg-emerald-50 bill-open-pos-drawer" data-id="${r.id}">Receive in POS</button>`
-        }
-        <button type="button" disabled title="Refunds are not available in this build" class="w-full py-2.5 rounded-lg border-2 border-rose-200 text-rose-600 text-sm font-semibold opacity-50 cursor-not-allowed">Refund</button>`;
+            ? `<div class="flex gap-2">
+                <button type="button" class="flex-1 py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-800 hover:bg-white bill-preview" data-id="${r.id}">View</button>
+                <button type="button" class="flex-1 py-2.5 rounded-lg bg-[var(--soft-teal)] text-white text-sm font-semibold hover:brightness-105 bill-print" data-id="${r.id}">Print</button>
+              </div>`
+            : `<button type="button" class="w-full py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 bill-receive-payment" data-id="${r.id}">Receive payment</button>
+               <button type="button" class="w-full py-2 text-sm text-slate-500 hover:text-slate-800 bill-preview" data-id="${r.id}">View invoice</button>`
+        }`;
 
       const d = document.getElementById("detailDrawer");
       const bd = document.getElementById("backdrop");
@@ -676,6 +659,23 @@
       document.body.classList.add("overflow-hidden");
 
       hydrateDrawerPetPhoto(r.petId);
+      void hydrateDrawerLineItems(r);
+    }
+
+    async function hydrateDrawerLineItems(r) {
+      const el = document.getElementById("billDrawerLines");
+      if (!el) return;
+      try {
+        const lines = await resolveReceiptLines(r);
+        if (!lines.length) return;
+        if (lines.length === 1) {
+          el.textContent = lines[0].description;
+          return;
+        }
+        el.innerHTML = lines
+          .map((l) => `<div>${esc(l.description)} ×${l.qty || 1}</div>`)
+          .join("");
+      } catch (_) {}
     }
 
     function hydrateDrawerPetPhoto(petId) {
@@ -718,23 +718,78 @@
       selectedId = null;
     }
 
-    function billReceiptHtml(r) {
+    function parseSaleNoteLines(note) {
+      if (!note) return [];
+      const out = [];
+      const chunk = note.includes(". ") ? note.split(". ").slice(1).join(". ") : note;
+      for (const part of chunk.split(" | ")) {
+        const m = part.match(/^(.+?) ×(\d+) @ ₱([\d,]+(?:\.\d{2})?)/);
+        if (!m) continue;
+        const qty = Number(m[2]) || 1;
+        const unit = Number(String(m[3]).replace(/,/g, "")) || 0;
+        out.push({ description: m[1].trim(), qty, amount: unit * qty });
+      }
+      return out;
+    }
+
+    async function resolveReceiptLines(r) {
+      const sale = findSaleForBilling(r);
+      if (sale && sale.id) {
+        try {
+          const receipt = await Api.sales.receipt(sale.id);
+          if (receipt && Array.isArray(receipt.lines) && receipt.lines.length) {
+            return receipt.lines.map((l) => ({
+              description: l.itemName || "Item",
+              qty: l.quantity || 1,
+              amount: Number(l.lineTotal) || 0,
+            }));
+          }
+        } catch (_) {}
+        const parsed = parseSaleNoteLines(sale.note);
+        if (parsed.length) return parsed;
+      }
+      const desc = String(r.description || "").trim();
+      const generic = !desc || /^pos (checkout|sale)$/i.test(desc);
+      if (!generic) {
+        return [{ description: desc, qty: 1, amount: Number(r.amount) || 0 }];
+      }
+      return [{ description: "Service", qty: 1, amount: Number(r.amount) || 0 }];
+    }
+
+    function billReceiptHtml(r, lines) {
       const clinic = typeof getClinicSettings === "function" ? getClinicSettings() : {};
       const clinicName = esc(clinic.name || "Bayport Veterinary Clinic");
       const clinicAddress = esc(clinic.address || "");
       const logoSrc = new URL("assets/logo.png", window.location.href).href;
       const logo = `<img src="${logoSrc}" alt="" style="max-height:58px;max-width:180px;display:block;margin-bottom:8px;" />`;
       const inv = invoiceNo(r);
+      const rowLines =
+        Array.isArray(lines) && lines.length
+          ? lines
+          : [{ description: r.description || "Service", qty: 1, amount: Number(r.amount) || 0 }];
+      const subtotal = rowLines.reduce((s, l) => s + (Number(l.amount) || 0), 0);
+      const discount = Number(r.discountAmount || 0) || 0;
+      const total = Number(r.amount) || Math.max(0, subtotal - discount);
+      const lineRows = rowLines
+        .map(
+          (l) =>
+            `<tr><td>${esc(l.description)}</td><td class="right">${l.qty || 1}</td><td class="right">₱${fmtMoney(l.amount)}</td></tr>`,
+        )
+        .join("");
+      const discountRow =
+        discount > 0.009
+          ? `<tr><td colspan="2" class="right">Discount</td><td class="right">−₱${fmtMoney(discount)}</td></tr>`
+          : "";
       return `<!doctype html><html><head><meta charset="utf-8"/><style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:22px;color:#1f2937}
-        .head{display:flex;justify-content:space-between;gap:20px;border-top:3px solid #1f4fa4;padding-top:10px}
-        .invoice{font-size:28px;font-weight:800;color:#1f4fa4;margin:0 0 10px 0}
-        .muted{color:#4b5563;font-size:11px}
+        body{font-family:Arial,sans-serif;font-size:12px;padding:22px;color:#101828}
+        .head{display:flex;justify-content:space-between;gap:20px;border-top:1px solid #EAECF0;padding-top:12px}
+        .invoice{font-size:22px;font-weight:700;color:#101828;margin:0 0 10px 0}
+        .muted{color:#667085;font-size:11px}
         table{width:100%;border-collapse:collapse;margin-top:16px}
-        th{font-size:11px;text-transform:uppercase;color:#1f4fa4;border-bottom:2px solid #1f4fa4;padding:6px 4px;text-align:left}
-        td{padding:8px 4px;border-bottom:1px solid #e5e7eb}
+        th{font-size:11px;text-transform:uppercase;color:#667085;border-bottom:1px solid #EAECF0;padding:8px 4px;text-align:left;font-weight:600}
+        td{padding:8px 4px;border-bottom:1px solid #EAECF0}
         .right{text-align:right}
-        .totalRow td{font-weight:700;border-top:2px solid #1f4fa4}
+        .totalRow td{font-weight:600;border-top:1px solid #101828}
       </style></head><body>
       <div class="head">
         <div>
@@ -753,8 +808,9 @@
       <table>
         <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Amount</th></tr></thead>
         <tbody>
-          <tr><td>${esc(r.description || "Service")}</td><td class="right">1</td><td class="right">₱${fmtMoney(r.amount)}</td></tr>
-          <tr class="totalRow"><td colspan="2" class="right">Total</td><td class="right">₱${fmtMoney(r.amount)}</td></tr>
+          ${lineRows}
+          ${discountRow}
+          <tr class="totalRow"><td colspan="2" class="right">Total</td><td class="right">₱${fmtMoney(total)}</td></tr>
         </tbody>
       </table>
       </body></html>`;
@@ -763,7 +819,8 @@
     async function printBilling(id) {
       const row = billing.find((x) => String(x.id) === String(id));
       if (!row) return;
-      const html = billReceiptHtml(row);
+      const lines = await resolveReceiptLines(row);
+      const html = billReceiptHtml(row, lines);
       const preferredPrinter = typeof getPreferredReceiptPrinter === "function" ? getPreferredReceiptPrinter() : "";
       if (window.desktopBridge?.printReceipt) {
         const res = await window.desktopBridge.printReceipt({ html, silent: false, deviceName: preferredPrinter || undefined });
@@ -778,26 +835,25 @@
       }
     }
 
-    function previewBilling(id) {
+    async function previewBilling(id) {
       const row = billing.find((x) => String(x.id) === String(id));
       if (!row) return;
       const modal = document.getElementById("previewModal");
       const frame = document.getElementById("previewFrame");
-      frame.srcdoc = billReceiptHtml(row);
+      frame.srcdoc = "<p style='padding:24px;font-family:sans-serif;color:#667085'>Loading receipt…</p>";
       modal.classList.remove("hidden");
       modal.classList.add("flex");
+      const lines = await resolveReceiptLines(row);
+      frame.srcdoc = billReceiptHtml(row, lines);
     }
 
-    function openBillingInPos(id) {
+    function openBillingPayment(id) {
       const row = billing.find((x) => String(x.id) === String(id));
       if (!row) return;
-      if (row.petId != null) sessionStorage.setItem("posPrefillPetId", String(row.petId));
-      sessionStorage.setItem("posPrefillBillingId", String(row.id));
-      if (Number(row.discountAmount || 0) > 0) {
-        sessionStorage.setItem("posPrefillDiscount", String(row.discountAmount));
-      }
-      sessionStorage.setItem("posFocusPendingBilling", "1");
-      location.href = "pos.html";
+      openBayportPaymentModal({
+        billingRow: row,
+        petId: row.petId,
+      });
     }
 
     async function loadAll() {
@@ -830,11 +886,6 @@
       renderKpis();
       renderTable();
     });
-    document.getElementById("statusSel").addEventListener("change", () => {
-      page = 1;
-      renderKpis();
-      renderTable();
-    });
     document.getElementById("dateFrom").addEventListener("change", () => {
       page = 1;
       renderKpis();
@@ -856,11 +907,6 @@
       page++;
       renderTable();
     };
-    document.getElementById("pageSize").addEventListener("change", (e) => {
-      pageSize = Number(e.target.value) || 10;
-      page = 1;
-      renderTable();
-    });
 
     document.getElementById("tabRow").addEventListener("click", (e) => {
       const btn = e.target.closest("[data-tab]");
@@ -873,12 +919,12 @@
 
     document.getElementById("billingRows").addEventListener("click", (e) => {
       const row = e.target.closest(".bill-row");
-      if (row && !e.target.closest("input")) openDrawer(row.getAttribute("data-id"));
+      if (row) openDrawer(row.getAttribute("data-id"));
     });
 
     document.getElementById("drawerFooter").addEventListener("click", (e) => {
-      const posBtn = e.target.closest(".bill-open-pos-drawer");
-      if (posBtn) openBillingInPos(posBtn.getAttribute("data-id"));
+      const payBtn = e.target.closest(".bill-receive-payment");
+      if (payBtn) openBillingPayment(payBtn.getAttribute("data-id"));
       const previewBtn = e.target.closest(".bill-preview");
       const printBtn = e.target.closest(".bill-print");
       if (previewBtn) previewBilling(previewBtn.getAttribute("data-id"));
@@ -892,42 +938,7 @@
     document.getElementById("closeDrawer").onclick = closeDrawer;
     document.getElementById("backdrop").onclick = closeDrawer;
 
-    document.getElementById("btnReceivePayment").onclick = () => {
-      location.href = "pos.html";
-    };
-
-    document.getElementById("chkAll").addEventListener("change", (e) => {
-      const on = e.target.checked;
-      document.querySelectorAll("#billingRows .bill-chk").forEach((c) => {
-        c.checked = on;
-      });
-    });
-
-    document.getElementById("billingRows").addEventListener("change", (e) => {
-      if (!e.target.classList.contains("bill-chk")) return;
-      const boxes = [...document.querySelectorAll("#billingRows .bill-chk")];
-      const ca = document.getElementById("chkAll");
-      if (!boxes.length || !ca) return;
-      const n = boxes.filter((b) => b.checked).length;
-      ca.checked = n === boxes.length;
-      ca.indeterminate = n > 0 && n < boxes.length;
-    });
-
-    document.getElementById("btnFilters").onclick = () => {
-      document.getElementById("filterExtra").classList.toggle("hidden");
-    };
-
-    document.getElementById("btnCollapseNav").onclick = () => {
-      navCollapsed = !navCollapsed;
-      const a = document.getElementById("billAside");
-      if (navCollapsed) {
-        a.classList.add("w-0", "!p-0", "border-0");
-        a.classList.remove("w-72", "p-5");
-      } else {
-        a.classList.remove("w-0", "!p-0", "border-0");
-        a.classList.add("w-72", "p-5");
-      }
-    };
+    document.getElementById("btnReceivePayment").onclick = () => openBayportPaymentModal();
 
     document.getElementById("btnNewInvoice").onclick = async () => {
       resetInvoiceModal();
@@ -987,7 +998,7 @@
           referenceId: null,
         });
         document.getElementById("niCancel").click();
-        toast("Invoice created. Collect payment in POS.", false);
+        toast("Invoice created. Use Receive payment when ready to collect.", false);
         await loadAll();
       } catch (err) {
         toast((err.message || "Create failed").slice(0, 160), true);
@@ -998,12 +1009,70 @@
       if (e.target.id === "newInvModal") document.getElementById("niCancel").click();
     });
 
+    initBayportBillingCheckout({
+      toast,
+      onComplete: async () => {
+        ensureDateRangeIncludesToday();
+        await loadAll();
+      },
+    });
+
     initDateRange();
-    loadAll();
+    loadAll().then(() => {
+      const q = new URLSearchParams(location.search);
+      if (q.get("checkout") === "1") {
+        openBayportPaymentModal();
+        q.delete("checkout");
+        const next = q.toString();
+        history.replaceState(null, "", location.pathname + (next ? "?" + next : ""));
+      }
+      const legacyBillId = sessionStorage.getItem("posPrefillBillingId");
+      if (!legacyBillId) return;
+      const row = billing.find((x) => String(x.id) === legacyBillId);
+      sessionStorage.removeItem("posPrefillBillingId");
+      sessionStorage.removeItem("posPrefillPetId");
+      sessionStorage.removeItem("posPrefillDiscount");
+      sessionStorage.removeItem("posFocusPendingBilling");
+      if (row) {
+        openBayportPaymentModal({
+          billingRow: row,
+          petId: row.petId,
+        });
+      }
+    });
     setInterval(loadAll, 60000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") loadAll();
     });
+    window.addEventListener("bayport:sale-recorded", () => {
+      ensureDateRangeIncludesToday();
+      loadAll();
+    });
+    let billingSalesStream = null;
+    function connectBillingSalesStream() {
+      if (billingSalesStream || typeof Api === "undefined" || !Api.sales?.stream) return;
+      try {
+        billingSalesStream = Api.sales.stream();
+        billingSalesStream.addEventListener("sale", () => {
+          if (document.visibilityState === "visible") {
+            ensureDateRangeIncludesToday();
+            loadAll();
+          }
+        });
+        billingSalesStream.onerror = () => {
+          try {
+            billingSalesStream.close();
+          } catch (_) {
+            /* ignore */
+          }
+          billingSalesStream = null;
+          setTimeout(connectBillingSalesStream, 15000);
+        };
+      } catch (_) {
+        billingSalesStream = null;
+      }
+    }
+    connectBillingSalesStream();
   </script>
 </body>
 </html>

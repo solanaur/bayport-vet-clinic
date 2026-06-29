@@ -20,4 +20,17 @@
     } catch (_) {}
   }
   window.BAYPORT_API_BASE = window.BAYPORT_API_BASE || "";
+
+  try {
+    if (localStorage.getItem("bayport_sidebar_collapsed") === "1") {
+      document.documentElement.classList.add("bp-sidebar-collapsed-pending");
+      if (!document.getElementById("bp-sidebar-boot-styles")) {
+        const style = document.createElement("style");
+        style.id = "bp-sidebar-boot-styles";
+        style.textContent =
+          "html.bp-sidebar-collapsed-pending aside:has(#sidebarNav){width:0!important;min-width:0!important;padding-left:0!important;padding-right:0!important;overflow:hidden!important;border-right-color:transparent!important}";
+        (document.head || document.documentElement).appendChild(style);
+      }
+    }
+  } catch (_) {}
 })();

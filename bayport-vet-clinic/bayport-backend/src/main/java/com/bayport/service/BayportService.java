@@ -113,14 +113,8 @@ public class BayportService {
                 pet.setOwner(ownerNames.get(pet.getOwnerId()));
             }
             if (includeProcedures) {
-                if (pet.getProcedures() != null) {
-                    pet.getProcedures().size();
-                } else {
-                    pet.setProcedures(new ArrayList<>());
-                }
+                initializeProcedures(pet);
                 backfillLastVaccinationFromProcedures(pet);
-            } else {
-                pet.setProcedures(new ArrayList<>());
             }
         }
         return pets;
@@ -140,11 +134,7 @@ public class BayportService {
     public Optional<Pet> getPetById(Long id) {
         // Use soft delete - only get non-deleted pets
         return petRepository.findByIdAndDeletedFalse(id).map(pet -> {
-            if (pet.getProcedures() != null) {
-                pet.getProcedures().size();
-            } else {
-                pet.setProcedures(new ArrayList<>());
-            }
+            initializeProcedures(pet);
             backfillLastVaccinationFromProcedures(pet);
             return pet;
         });
@@ -158,14 +148,13 @@ public class BayportService {
         return savedPet;
     }
 
-    public Pet updatePet(Long id, Pet pet) {
-        if (!petRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Pet not found with id: " + id);
-        }
-        pet.setId(id);
-        validatePet(pet);
-        syncOwnerName(pet);
-        Pet updatedPet = petRepository.save(pet);
+    public Pet updatePet(Long id, Pet incoming) {
+        Pet existing = petRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + id));
+        applyPetScalars(existing, incoming);
+        validatePet(existing);
+        syncOwnerName(existing);
+        Pet updatedPet = petRepository.save(existing);
         logOperation("PET_UPDATED", "Updated pet " + updatedPet.getName(), updatedPet.getId());
         return updatedPet;
     }
@@ -221,9 +210,7 @@ public class BayportService {
     public Pet addProcedureToPet(Long petId, Procedure procedure) {
         Pet pet = petRepository.findById(petId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + petId));
-        if (pet.getProcedures() == null) {
-            pet.setProcedures(new java.util.ArrayList<>());
-        }
+        initializeProcedures(pet);
 
         if (procedure.getPerformedAt() == null) {
             procedure.setPerformedAt(LocalDate.now());
@@ -754,6 +741,46 @@ public class BayportService {
     }
 
     private static final String CLINIC_VACCINATION_PLACE = "Bayport Veterinary Clinic, Para\u00f1aque City";
+
+    /** Load the lazy collection without replacing it (orphanRemoval breaks on setProcedures). */
+    private void initializeProcedures(Pet pet) {
+        if (pet == null) {
+            return;
+        }
+        List<Procedure> procs = pet.getProcedures();
+        if (procs != null) {
+            procs.size();
+        }
+    }
+
+    /** Copy editable pet fields only — never replace the managed procedures collection. */
+    private void applyPetScalars(Pet target, Pet source) {
+        if (source.getName() != null) {
+            target.setName(source.getName());
+        }
+        target.setSpecies(source.getSpecies());
+        target.setBreed(source.getBreed());
+        target.setGender(source.getGender());
+        target.setAge(source.getAge());
+        target.setAgeDisplay(source.getAgeDisplay());
+        target.setMicrochip(source.getMicrochip());
+        target.setColor(source.getColor());
+        target.setWeight(source.getWeight());
+        target.setDateOfBirth(source.getDateOfBirth());
+        target.setOwner(source.getOwner());
+        target.setOwnerId(source.getOwnerId());
+        target.setAddress(source.getAddress());
+        target.setFederation(source.getFederation());
+        if (source.getPhoto() != null) {
+            target.setPhoto(source.getPhoto());
+        }
+        target.setLastVaccinationDate(source.getLastVaccinationDate());
+        target.setLastVaccinationPlace(source.getLastVaccinationPlace());
+        target.setLastVaccinationVet(source.getLastVaccinationVet());
+        target.setAllergies(source.getAllergies());
+        target.setChronicConditions(source.getChronicConditions());
+        target.setKnownMedications(source.getKnownMedications());
+    }
 
     private void syncPetLastVaccination(Pet pet, Procedure procedure) {
         if (pet == null || procedure == null || !isVaccinationProcedure(procedure)) {

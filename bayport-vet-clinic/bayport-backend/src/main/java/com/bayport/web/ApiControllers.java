@@ -11,8 +11,12 @@ import com.bayport.service.InventoryService;
 import com.bayport.service.PosService;
 import com.bayport.service.ReportService;
 import com.bayport.storage.FileStorageService;
+import com.bayport.security.SecurityUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -64,6 +68,35 @@ public class ApiControllers {
         this.posService = posService;
         this.inventoryService = inventoryService;
         this.fileStorageService = fileStorageService;
+    }
+
+    private ResponseEntity<Map<String, Object>> adminReportsDenied(Authentication auth) {
+        if (auth == null || !auth.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access Denied", "message", "Authentication required"));
+        }
+        if (!SecurityUtils.isAdministrator(auth, userRepository)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "Access Denied", "message", "Only administrators can access reports"));
+        }
+        return null;
+    }
+
+    private LocalDate[] resolveReportRange(String period, String from, String to) {
+        LocalDate today = LocalDate.now();
+        LocalDate start;
+        LocalDate end;
+        switch (period) {
+            case "day" -> { start = today; end = today; }
+            case "week" -> { start = today.minusDays(6); end = today; }
+            case "month" -> { start = today.withDayOfMonth(1); end = today; }
+            case "custom" -> {
+                start = LocalDate.parse(Objects.requireNonNull(from, "from is required for custom period"));
+                end = LocalDate.parse(Objects.requireNonNull(to, "to is required for custom period"));
+            }
+            default -> { start = today; end = today; }
+        }
+        return new LocalDate[] { start, end };
     }
 
     /* --------- Pets --------- */
@@ -129,12 +162,7 @@ public class ApiControllers {
             return ResponseEntity.notFound().build();
         }
 
-        // Make sure procedures list is never null
-        if (pet.getProcedures() == null) {
-            pet.setProcedures(new ArrayList<>());
-        }
-
-        // Delegate to the service and return the updated pet
+        // Delegate to the service and return the updated pet (procedures are managed separately)
         return ResponseEntity.ok(bayportService.updatePet(id, pet));
     }
 
@@ -590,76 +618,15 @@ public class ApiControllers {
             @RequestParam(name = "from", required = false) String from,
             @RequestParam(name = "to", required = false) String to
     ){
-        // Check if user is admin
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Access Denied", "message", "Authentication required"));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        ResponseEntity<Map<String, Object>> denied = adminReportsDenied(auth);
+        if (denied != null) {
+            return denied;
         }
-        
-        // Check Spring Security authorities first (most reliable)
-        boolean hasAdminAuthority = auth.getAuthorities().stream()
-                .anyMatch(a -> {
-                    String authority = a.getAuthority();
-                    return "ROLE_ADMIN".equalsIgnoreCase(authority) || 
-                           "ADMIN".equalsIgnoreCase(authority) ||
-                           "ADMINISTRATOR".equalsIgnoreCase(authority);
-                });
-        if (hasAdminAuthority) {
-            // User is admin, continue
-        } else {
-            // Fallback: Check user entity
-            String username = auth.getName();
-            java.util.Optional<com.bayport.entity.User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "Access Denied", "message", "User not found"));
-            }
-            com.bayport.entity.User user = userOpt.get();
-            
-            // Check legacy role field
-            boolean isAdmin = false;
-            if (user.getRole() != null) {
-                String role = user.getRole().toLowerCase();
-                isAdmin = "admin".equals(role) || "administrator".equals(role);
-            }
-            
-            // Check roles set
-            if (!isAdmin) {
-                isAdmin = user.getRoles().stream().anyMatch(r -> {
-                    String roleName = r.getName().toUpperCase();
-                    return "ROLE_ADMIN".equals(roleName) || 
-                           "ADMIN".equals(roleName) ||
-                           "ADMINISTRATOR".equals(roleName);
-                });
-            }
-            
-            if (!isAdmin) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "Access Denied", "message", "Only administrators can access reports"));
-            }
-        }
-        
+
         try {
-            LocalDate today = LocalDate.now();
-            LocalDate start;
-            LocalDate end;
-
-            switch (period) {
-                case "day" -> { start = today; end = today; }
-                case "week" -> { start = today.minusDays(6); end = today; }
-                case "month" -> { start = today.withDayOfMonth(1); end = today; }
-                case "custom" -> {
-                    start = LocalDate.parse(Objects.requireNonNull(from, "from is required for custom period"));
-                    end   = LocalDate.parse(Objects.requireNonNull(to, "to is required for custom period"));
-                }
-                default -> {
-                    start = today;
-                    end = today;
-                }
-            }
-
-            return ResponseEntity.ok(reportService.summarize(start, end, period));
+            LocalDate[] range = resolveReportRange(period, from, to);
+            return ResponseEntity.ok(reportService.summarize(range[0], range[1], period));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                     .body(Map.of("error", "Unable to generate summary", "details", e.getMessage()));
@@ -847,76 +814,22 @@ public class ApiControllers {
             @RequestParam(name = "to", required = false) String to,
             @RequestParam(name = "preparedBy", required = false) String preparedBy
     ) {
-        // Check if user is admin
-        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!SecurityUtils.isAdministrator(auth, userRepository)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(("{\"error\":\"Access Denied\",\"message\":\"Only administrators can export reports\"}")
+                            .getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
-        
-        // Check Spring Security authorities first (most reliable)
-        boolean hasAdminAuthority = auth.getAuthorities().stream()
-                .anyMatch(a -> {
-                    String authority = a.getAuthority();
-                    return "ROLE_ADMIN".equalsIgnoreCase(authority) || 
-                           "ADMIN".equalsIgnoreCase(authority) ||
-                           "ADMINISTRATOR".equalsIgnoreCase(authority);
-                });
-        if (!hasAdminAuthority) {
-            // Fallback: Check user entity
-            String username = auth.getName();
-            java.util.Optional<com.bayport.entity.User> userOpt = userRepository.findByUsername(username);
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-            }
-            com.bayport.entity.User user = userOpt.get();
-            
-            // Check legacy role field
-            boolean isAdmin = false;
-            if (user.getRole() != null) {
-                String role = user.getRole().toLowerCase();
-                isAdmin = "admin".equals(role) || "administrator".equals(role);
-            }
-            
-            // Check roles set
-            if (!isAdmin) {
-                isAdmin = user.getRoles().stream().anyMatch(r -> {
-                    String roleName = r.getName().toUpperCase();
-                    return "ROLE_ADMIN".equals(roleName) || 
-                           "ADMIN".equals(roleName) ||
-                           "ADMINISTRATOR".equals(roleName);
-                });
-            }
-            
-            if (!isAdmin) {
-                return ResponseEntity.status(org.springframework.http.HttpStatus.FORBIDDEN).build();
-            }
-        }
-        
+
         try {
-            LocalDate today = LocalDate.now();
-            LocalDate start;
-            LocalDate end;
-
-            switch (period) {
-                case "day" -> { start = today; end = today; }
-                case "week" -> { start = today.minusDays(6); end = today; }
-                case "month" -> { start = today.withDayOfMonth(1); end = today; }
-                case "custom" -> {
-                    start = LocalDate.parse(Objects.requireNonNull(from, "from is required for custom period"));
-                    end   = LocalDate.parse(Objects.requireNonNull(to, "to is required for custom period"));
-                }
-                default -> {
-                    start = today;
-                    end = today;
-                }
-            }
-
-            ReportSummary summary = reportService.summarize(start, end, period);
+            LocalDate[] range = resolveReportRange(period, from, to);
+            ReportSummary summary = reportService.summarize(range[0], range[1], period);
             byte[] pdf = pdfService.buildSummaryPdf(summary, preparedBy);
-            
-            String filename = String.format("Bayport_Summary_%s_%s.pdf", 
-                    start.toString(), end.toString());
-            
+
+            String filename = String.format("Bayport_Summary_%s_%s.pdf",
+                    range[0].toString(), range[1].toString());
+
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
                     .body(pdf);

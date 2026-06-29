@@ -13,6 +13,19 @@
 
   const TYPE_LABEL = Object.fromEntries(RECORD_TYPES.map((t) => [t.value, t.label]));
 
+  const TYPE_SHORT = {
+    VACCINATION: 'Vaccination',
+    CLINICAL_NOTE: 'Clinical Note',
+    DIAGNOSTIC: 'Diagnostic Result',
+    MEDICATION: 'Medication',
+    SURGERY: 'Surgery',
+    EXTERNAL_DOCUMENT: 'Document',
+  };
+
+  function hasVal(s) {
+    return s != null && String(s).trim() !== '';
+  }
+
   function esc(s) {
     if (s == null || String(s).trim() === '') return '—';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
@@ -42,9 +55,12 @@
     return `<span class="inline-flex text-xs font-semibold rounded-full px-2.5 py-0.5 ${cls}">${esc(status || 'Scheduled')}</span>`;
   }
 
+  let externalExpandedId = null;
+
   window.MedicalHistory = {
     RECORD_TYPES,
     TYPE_LABEL,
+    TYPE_SHORT,
 
     async loadRecords(petId) {
       return Api.medicalRecords.list(petId);
@@ -55,16 +71,7 @@
     },
 
     async printPdf(petId, petName) {
-      const token = Api.token();
-      const url = `${window.API_BASE}/pets/${petId}/medical-history/pdf`;
-      const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-      if (!res.ok) throw new Error('Could not generate medical history PDF');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Medical_History_${(petName || 'pet').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await Api.pets.downloadMedicalHistoryPdf(petId, petName);
     },
 
     renderVaccinationSchedule(container, schedule) {
@@ -100,6 +107,138 @@
         return;
       }
       container.innerHTML = filtered.map((r) => this._recordCard(r)).join('');
+    },
+
+    renderExternalRecords(container, records, petId) {
+      if (!container) return;
+      const list = (records || [])
+        .slice()
+        .sort((a, b) => String(b.recordDate || '').localeCompare(String(a.recordDate || '')));
+
+      if (externalExpandedId && !list.some((r) => r.id === externalExpandedId)) {
+        externalExpandedId = null;
+      }
+
+      if (!list.length) {
+        const headerBtn = document.getElementById('extRecHeaderAddBtn');
+        if (headerBtn) headerBtn.classList.add('hidden');
+
+        container.innerHTML = `
+          <div class="ext-rec-empty">
+            <div class="ext-rec-empty-icon" aria-hidden="true">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <p class="ext-rec-empty-title">No external medical records have been added yet.</p>
+            <p class="ext-rec-empty-desc">Store treatments, vaccinations, surgeries, medications, laboratory results, and documents from other veterinary clinics.</p>
+            <button type="button" class="ext-rec-add-btn" data-ext-add>+ Add External Record</button>
+          </div>`;
+        container.querySelector('[data-ext-add]')?.addEventListener('click', () => {
+          if (typeof window.openExternalRecordModal === 'function') {
+            window.openExternalRecordModal();
+          } else {
+            this.openAddModal(petId, 'EXTERNAL_DOCUMENT');
+          }
+        });
+        return;
+      }
+
+      const headerBtn = document.getElementById('extRecHeaderAddBtn');
+      if (headerBtn) headerBtn.classList.remove('hidden');
+
+      container.innerHTML = `<div class="ext-rec-timeline">${list.map((r) => this._externalRecordCard(r)).join('')}</div>`;
+      this._bindExternalAccordions(container);
+    },
+
+    _externalRecordCard(r) {
+      const clinic = hasVal(r.sourceClinic) ? esc(r.sourceClinic) : 'External clinic';
+      const title = hasVal(r.title) ? esc(r.title) : 'Medical record';
+      const date = fmtDate(r.recordDate);
+      const rid = r.id;
+      const isOpen = externalExpandedId === rid;
+
+      return `<div class="ext-rec-accordion${isOpen ? ' is-open' : ''}" data-ext-rec="${rid}">
+        <button type="button" class="ext-rec-header${isOpen ? ' is-open' : ''}" data-ext-toggle="${rid}" aria-expanded="${isOpen}">
+          <div class="ext-rec-summary">
+            <div class="ext-rec-clinic">${clinic}</div>
+            <div class="ext-rec-title">${title}</div>
+            <div class="ext-rec-date">${date}</div>
+          </div>
+          <div class="ext-rec-chevron-wrap">
+            <span class="ext-rec-toggle-lbl">${isOpen ? 'Hide details' : 'View details'}</span>
+            <svg class="ext-rec-chevron" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </button>
+        <div class="ext-rec-panel${isOpen ? ' is-open' : ''}" data-ext-panel="${rid}">
+          <div class="ext-rec-panel-inner">${this._externalRecordExpanded(r)}</div>
+        </div>
+      </div>`;
+    },
+
+    _externalRecordExpanded(r) {
+      const fields = [];
+      const typeLabel = TYPE_SHORT[r.recordType] || r.recordType;
+      if (hasVal(typeLabel)) fields.push(this._extKv('Record type', typeLabel));
+      if (hasVal(r.sourceClinic)) fields.push(this._extKv('Source clinic', r.sourceClinic));
+      if (hasVal(r.veterinarian)) fields.push(this._extKv('Veterinarian', r.veterinarian));
+      if (hasVal(r.recordDate)) fields.push(this._extKv('Date', fmtDate(r.recordDate)));
+      if (hasVal(r.diagnosis)) fields.push(this._extKv('Diagnosis', r.diagnosis, { multiline: true }));
+      if (hasVal(r.treatmentPlan)) fields.push(this._extKv('Treatment', r.treatmentPlan, { multiline: true }));
+      if (hasVal(r.description)) fields.push(this._extKv('Clinical notes', r.description, { multiline: true }));
+      if (hasVal(r.medications)) fields.push(this._extKv('Medications', r.medications, { multiline: true }));
+      if (hasVal(r.testResults)) fields.push(this._extKv('Diagnostic results', r.testResults, { multiline: true }));
+
+      if (r.recordType === 'VACCINATION') {
+        const vaccParts = [r.vaccineType, r.doseNumber].filter(hasVal);
+        if (vaccParts.length) fields.push(this._extKv('Vaccine', vaccParts.join(' · ')));
+        if (hasVal(r.nextDueDate)) fields.push(this._extKv('Next due', fmtDate(r.nextDueDate)));
+      }
+
+      let attachHtml = '';
+      if (hasVal(r.attachmentUrl)) {
+        attachHtml = `<div class="ext-rec-attach">
+          <div class="ext-rec-attach-lbl">Attachments</div>
+          <a href="${esc(r.attachmentUrl)}" target="_blank" rel="noopener" class="ext-rec-attach-link">${esc(r.attachmentName || 'View document')}</a>
+        </div>`;
+      }
+
+      const body = fields.length
+        ? `<div class="ext-rec-kv-grid">${fields.join('')}</div>${attachHtml}`
+        : attachHtml;
+
+      const actions = `<div class="ext-rec-actions">
+        <button type="button" class="ext-rec-action ext-rec-action--edit" onclick="MedicalHistory.openEditModal(${r.petId}, ${r.id}, function(){ if(typeof window.refreshMedicalHistory==='function') window.refreshMedicalHistory(); })">Edit</button>
+        <button type="button" class="ext-rec-action ext-rec-action--delete" onclick="MedicalHistory.deleteRecord(${r.petId}, ${r.id})">Delete</button>
+      </div>`;
+
+      return (body || '') + actions;
+    },
+
+    _extKv(label, value, opts = {}) {
+      const v = opts.multiline
+        ? `<div class="ext-kv-v notes">${esc(value)}</div>`
+        : `<div class="ext-kv-v">${esc(value)}</div>`;
+      return `<div class="ext-kv"><div class="ext-kv-k">${label}</div>${v}</div>`;
+    },
+
+    _bindExternalAccordions(container) {
+      container.querySelectorAll('[data-ext-toggle]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const rid = Number(btn.dataset.extToggle);
+          externalExpandedId = externalExpandedId === rid ? null : rid;
+          container.querySelectorAll('.ext-rec-accordion').forEach((acc) => {
+            const id = Number(acc.dataset.extRec);
+            const open = id === externalExpandedId;
+            acc.classList.toggle('is-open', open);
+            const header = acc.querySelector('.ext-rec-header');
+            const panel = acc.querySelector('.ext-rec-panel');
+            header?.classList.toggle('is-open', open);
+            header?.setAttribute('aria-expanded', open ? 'true' : 'false');
+            panel?.classList.toggle('is-open', open);
+            const lbl = header?.querySelector('.ext-rec-toggle-lbl');
+            if (lbl) lbl.textContent = open ? 'Hide details' : 'View details';
+          });
+        });
+      });
     },
 
     _recordCard(r) {
@@ -148,8 +287,8 @@
       modalRoot.innerHTML = `
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onclick="if(event.target===this) closeModal()">
           <div class="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-2xl max-h-[92vh] overflow-y-auto" onclick="event.stopPropagation()">
-            <h3 class="text-xl font-semibold text-gray-800 mb-1">${isEdit ? 'Edit' : 'Add'} medical record</h3>
-            <p class="text-sm text-gray-500 mb-4">Import history from external clinics or add structured clinical data.</p>
+            <h3 class="text-xl font-semibold text-gray-800 mb-1">${isEdit ? 'Edit' : 'Add'} external record</h3>
+            <p class="text-sm text-gray-500 mb-4">Import treatments, vaccinations, surgeries, medications, lab results, or documents from another veterinary clinic.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <label class="text-sm text-gray-600 md:col-span-2">Record type
                 <select id="mr_type" class="w-full border border-gray-300 rounded-lg p-3 mt-1">${RECORD_TYPES.map((t) =>
@@ -228,9 +367,10 @@
     },
 
     async deleteRecord(petId, recordId) {
-      if (!confirm('Delete this medical record?')) return;
+      if (!confirm('Delete this external record?')) return;
       try {
         await Api.medicalRecords.remove(petId, recordId);
+        if (externalExpandedId === recordId) externalExpandedId = null;
         if (typeof window.refreshMedicalHistory === 'function') window.refreshMedicalHistory();
         if (typeof showToast === 'function') showToast('Record deleted');
       } catch (e) {
