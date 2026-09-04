@@ -625,6 +625,16 @@ window.Api = {
       fd.append("file", file);
       return ApiHttp(`/inventory/${id}/photo`, { method: "POST", body: fd, token: Api.token() });
     },
+    downloadPdf: (type, search, preparedBy) => {
+      const params = new URLSearchParams({ type: type || "products" });
+      if (search) params.append("search", search);
+      if (preparedBy) params.append("preparedBy", preparedBy);
+      const today = new Date().toISOString().slice(0, 10);
+      const tabLabel = type === "services" ? "Services" : "Products";
+      const suffix = search ? "_filtered" : "";
+      const name = `Bayport_Inventory_${tabLabel}_${today}${suffix}.pdf`;
+      return window.downloadBayportPdf(`/inventory/export/pdf?${params.toString()}`, name);
+    },
   },
 
   billing: {

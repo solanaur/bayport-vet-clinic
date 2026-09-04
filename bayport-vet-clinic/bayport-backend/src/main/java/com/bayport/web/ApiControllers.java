@@ -284,10 +284,12 @@ public class ApiControllers {
     }
 
     @PostMapping("/appointments/{id}/approve")
-    public ResponseEntity<Appointment> approve(@PathVariable("id") long id) {
+    public ResponseEntity<?> approve(@PathVariable("id") long id) {
         try {
             Appointment appointment = bayportService.approveAppointment(id);
             return ResponseEntity.ok(appointment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }

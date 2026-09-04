@@ -367,6 +367,10 @@
     return 'REMINDER';
   }
 
+  function ownerDisplayName(pet, owner) {
+    return (owner?.fullName || pet?.owner || "").trim() || "Owner";
+  }
+
   function replacePlaceholders(text, reminder) {
     if (!text) return text;
     let result = text;
@@ -464,8 +468,9 @@
           try{
             const pet = await repoGetPet(Number(petSelect.value));
             const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
-            body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
-            body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+            const ownerLabel = ownerDisplayName(pet, owner);
+            body = body.replace(/\{\{petName\}\}/g, pet?.name || 'Pet');
+            body = body.replace(/\{\{ownerName\}\}/g, ownerLabel);
             const dateVal = document.getElementById('reminderDate').value;
             body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
             body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
@@ -487,8 +492,9 @@
             try{
               const pet = await repoGetPet(Number(petSelect.value));
               const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
-              body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
-              body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+              const ownerLabel = ownerDisplayName(pet, owner);
+              body = body.replace(/\{\{petName\}\}/g, pet?.name || 'Pet');
+              body = body.replace(/\{\{ownerName\}\}/g, ownerLabel);
               const dateVal = document.getElementById('reminderDate').value;
               body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
               body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
@@ -509,8 +515,9 @@
             try{
               const pet = await repoGetPet(Number(petSelect.value));
               const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
-              body = body.replace(/\{\{petName\}\}/g, pet?.name || '{{petName}}');
-              body = body.replace(/\{\{ownerName\}\}/g, owner?.fullName || '{{ownerName}}');
+              const ownerLabel = ownerDisplayName(pet, owner);
+              body = body.replace(/\{\{petName\}\}/g, pet?.name || 'Pet');
+              body = body.replace(/\{\{ownerName\}\}/g, ownerLabel);
               const dateVal = document.getElementById('reminderDate').value;
               body = body.replace(/\{\{date\}\}/g, dateVal || '{{date}}');
               body = body.replace(/\{\{followUpDate\}\}/g, dateVal || '{{followUpDate}}');
@@ -541,8 +548,9 @@
       try{
         const pet = await repoGetPet(petId);
         const owner = pet?.ownerId ? await repoGetOwner(pet.ownerId) : null;
+        const ownerLabel = ownerDisplayName(pet, owner);
         message = message.replace(/\{\{petName\}\}/g, pet?.name || 'Pet');
-        message = message.replace(/\{\{ownerName\}\}/g, owner?.fullName || 'Owner');
+        message = message.replace(/\{\{ownerName\}\}/g, ownerLabel);
         message = message.replace(/\{\{date\}\}/g, date || 'Date TBD');
         message = message.replace(/\{\{followUpDate\}\}/g, date || 'Date TBD');
         message = message.replace(/\{\{dateStart\}\}/g, date || 'Date TBD');
@@ -556,9 +564,15 @@
     }
     
     try{
+      let ownerId = null;
+      if (isPet && petId) {
+        const pet = await repoGetPet(petId);
+        ownerId = pet?.ownerId || null;
+      }
       await Api.reminders.add({
         type,
         petId: isPet ? petId : null,
+        ownerId,
         targetEmail,
         message,
         date

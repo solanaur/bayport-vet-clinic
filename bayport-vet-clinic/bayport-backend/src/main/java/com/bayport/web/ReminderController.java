@@ -40,8 +40,19 @@ public class ReminderController {
         Pet pet = r.getPetId() != null ? pets.findById(r.getPetId()).orElse(null) : null;
         Owner owner = r.getOwnerId() != null ? owners.findById(r.getOwnerId()).orElse(null) : null;
 
-        String petName = pet != null ? pet.getName() : null;
-        String ownerName = owner != null ? owner.getFullName() : null;
+        if (owner == null && pet != null && pet.getOwnerId() != null) {
+            owner = owners.findById(pet.getOwnerId()).orElse(null);
+        }
+
+        String petName = pet != null && pet.getName() != null && !pet.getName().isBlank()
+                ? pet.getName().trim()
+                : null;
+        String ownerName = owner != null && owner.getFullName() != null && !owner.getFullName().isBlank()
+                ? owner.getFullName().trim()
+                : null;
+        if (ownerName == null && pet != null && pet.getOwner() != null && !pet.getOwner().isBlank()) {
+            ownerName = pet.getOwner().trim();
+        }
 
         String ownerEmail = owner != null ? owner.getEmail() : null;
         return ReminderDTO.from(r, petName, ownerName, ownerEmail);

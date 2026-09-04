@@ -1,14 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/bayport-design.css">
-  <style>:root{--soft-teal:#0F5CC0;--bp-blue:#0F5CC0;--bp-primary:#0F5CC0}</style>
+  <link rel="stylesheet" href="assets/admin-dashboard.css">
+  <style>:root{--soft-teal:#2563EB;--bp-blue:#2563EB;--bp-primary:#2563EB}</style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col adm-dash-body">
   <header id="bpAppHeader"></header>
 
   <div class="flex flex-1 min-h-0">
@@ -16,93 +20,321 @@
       <nav id="sidebarNav" class="flex flex-col gap-0.5 text-sm"></nav>
     </aside>
 
-    <main class="flex-1 min-w-0 p-6 lg:p-8 overflow-y-auto">
-      <div class="max-w-5xl mx-auto space-y-8">
-        <div id="backendAlert" class="hidden px-4 py-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700">
+    <main class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto adm-dash-main">
+      <div class="adm-dash-container">
+        <div id="backendAlert" class="adm-alert hidden">
           Cannot connect to the Bayport backend. Please make sure the server is running and reachable.
         </div>
 
-        <div>
-          <h1 class="bp-page-title">Dashboard</h1>
-        </div>
-
-        <div id="dashStats" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="bp-dash-stat bp-dash-stat--blue">
-            <div class="bp-dash-stat-inner">
-              <div>
-                <div class="bp-dash-stat-value" id="statTodayAppts">—</div>
-                <div class="bp-dash-stat-label">Today's appointments</div>
-              </div>
-              <div class="bp-stat-icon bp-stat-icon--blue" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              </div>
-            </div>
+        <section class="adm-banner" aria-label="Welcome">
+          <svg class="adm-banner-art" viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M48 140c0-28 18-52 42-58 8-24 32-40 58-40s50 16 58 40c24 6 42 30 42 58" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <ellipse cx="108" cy="118" rx="22" ry="18" stroke="currentColor" stroke-width="2.5"/>
+            <circle cx="98" cy="112" r="3" fill="currentColor"/>
+            <circle cx="118" cy="112" r="3" fill="currentColor"/>
+            <path d="M100 126c6 6 14 6 20 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M88 98l-12-8M128 98l12-8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <ellipse cx="212" cy="124" rx="20" ry="16" stroke="currentColor" stroke-width="2.5"/>
+            <circle cx="204" cy="120" r="2.5" fill="currentColor"/>
+            <circle cx="220" cy="120" r="2.5" fill="currentColor"/>
+            <path d="M206 130c4 4 10 4 14 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M196 108l-14-6M228 108l14-6M208 96l4-14M216 96l-4-14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M160 48v24M148 60h24" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="160" cy="60" r="18" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          <div class="adm-banner-inner">
+            <h1 class="adm-banner-greeting" id="dashGreeting">Good Evening, Admin</h1>
+            <p class="adm-banner-datetime" id="dashDateTime">—</p>
           </div>
-          <div class="bp-dash-stat bp-dash-stat--amber">
-            <div class="bp-dash-stat-inner">
-              <div>
-                <div class="bp-dash-stat-value" id="statPendingBilling">—</div>
-                <div class="bp-dash-stat-label">Pending invoices</div>
-              </div>
-              <div class="bp-stat-icon bp-stat-icon--amber" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-              </div>
-            </div>
-          </div>
-          <div class="bp-dash-stat bp-dash-stat--orange">
-            <div class="bp-dash-stat-inner">
-              <div>
-                <div class="bp-dash-stat-value" id="statLowStock">—</div>
-                <div class="bp-dash-stat-label">Low stock items</div>
-              </div>
-              <div class="bp-stat-icon bp-stat-icon--orange" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-              </div>
-            </div>
-          </div>
-          <div class="bp-dash-stat bp-dash-stat--green">
-            <div class="bp-dash-stat-inner">
-              <div>
-                <div class="bp-dash-stat-value" id="statTodayRevenue">—</div>
-                <div class="bp-dash-stat-label">Paid today</div>
-              </div>
-              <div class="bp-stat-icon bp-stat-icon--green" aria-hidden="true">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section class="bp-dash-panel bp-panel-tint-blue">
-            <div class="bp-dash-panel-head">
-              <span class="bp-section-head">
-                <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></span>
-                Today's schedule
-              </span>
-            </div>
-            <div id="dashApptList"></div>
-          </section>
-          <section class="bp-dash-panel bp-panel-tint-orange">
-            <div class="bp-dash-panel-head">
-              <span class="bp-section-head">
-                <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v2a2 2 0 002 2z"/></svg></span>
-                Pending billing
-              </span>
-            </div>
-            <div id="dashBillingList"></div>
-          </section>
-        </div>
-
-        <section id="dashLowStockSection" class="bp-dash-panel bp-panel-tint-yellow hidden">
-          <div class="bp-dash-panel-head">
-            <span class="bp-section-head">
-              <span class="bp-section-icon"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg></span>
-              Inventory alerts
-            </span>
-          </div>
-          <div id="dashLowStockList"></div>
         </section>
+
+        <!-- Admin dashboard -->
+        <div id="viewAdmin" class="dash-view">
+        <div class="adm-kpi-grid">
+          <div class="adm-kpi adm-kpi--blue">
+            <div class="adm-kpi-head">
+              <div>
+                <div class="adm-kpi-value" id="statTodayAppts">—</div>
+                <div class="adm-kpi-label">Today's Appointments</div>
+              </div>
+              <div class="adm-kpi-icon adm-kpi-icon--blue"><i data-lucide="calendar-days"></i></div>
+            </div>
+            <p class="adm-kpi-trend" id="trendAppts">—</p>
+          </div>
+          <div class="adm-kpi adm-kpi--emerald">
+            <div class="adm-kpi-head">
+              <div>
+                <div class="adm-kpi-value" id="statTodayRevenue">—</div>
+                <div class="adm-kpi-label">Revenue Today</div>
+              </div>
+              <div class="adm-kpi-icon adm-kpi-icon--emerald"><i data-lucide="circle-dollar-sign"></i></div>
+            </div>
+            <p class="adm-kpi-trend" id="trendRevenue">—</p>
+          </div>
+          <div class="adm-kpi adm-kpi--amber">
+            <div class="adm-kpi-head">
+              <div>
+                <div class="adm-kpi-value" id="statLowStock">—</div>
+                <div class="adm-kpi-label">Low Stock Items</div>
+              </div>
+              <div class="adm-kpi-icon adm-kpi-icon--amber"><i data-lucide="triangle-alert"></i></div>
+            </div>
+            <p class="adm-kpi-trend" id="trendInventory">—</p>
+          </div>
+          <div class="adm-kpi adm-kpi--violet">
+            <div class="adm-kpi-head">
+              <div>
+                <div class="adm-kpi-value" id="statPendingBilling">—</div>
+                <div class="adm-kpi-label">Pending Bills</div>
+              </div>
+              <div class="adm-kpi-icon adm-kpi-icon--violet"><i data-lucide="receipt"></i></div>
+            </div>
+            <p class="adm-kpi-trend" id="trendBilling">—</p>
+          </div>
+        </div>
+
+        <div class="adm-grid-2">
+          <section class="adm-card">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title">Weekly Appointments</h2>
+              <span class="adm-card-sub">Last 7 days</span>
+            </div>
+            <div class="adm-card-body adm-card-body--chart">
+              <div class="adm-chart-wrap"><canvas id="apptChart"></canvas></div>
+            </div>
+          </section>
+          <section class="adm-card">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title">Monthly Revenue</h2>
+              <span class="adm-card-sub" id="revenueChartSub">Last 6 months</span>
+            </div>
+            <div class="adm-card-body adm-card-body--chart">
+              <div class="adm-chart-wrap"><canvas id="revenueChart"></canvas></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="adm-grid-2">
+          <section class="adm-card">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title"><span class="adm-card-title-icon"><i data-lucide="paw-print"></i></span> Today's Schedule</h2>
+              <span class="adm-card-sub" id="scheduleSub">—</span>
+            </div>
+            <div class="adm-card-body" id="dashApptList"></div>
+          </section>
+          <section class="adm-card">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title">Pending Billing</h2>
+              <span class="adm-card-sub" id="billingSub">—</span>
+            </div>
+            <div class="adm-card-body" id="dashBillingList"></div>
+          </section>
+        </div>
+
+        <div class="adm-grid-2">
+          <section class="adm-card" id="dashLowStockSection">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title">Inventory Alerts</h2>
+              <span class="adm-card-sub">Medicines &amp; supplies</span>
+            </div>
+            <div class="adm-card-body" id="dashLowStockList"></div>
+          </section>
+          <section class="adm-card">
+            <div class="adm-card-head">
+              <h2 class="adm-card-title">Recent Activity</h2>
+              <span class="adm-card-sub">System events</span>
+            </div>
+            <div class="adm-card-body adm-timeline" id="dashActivityList"></div>
+          </section>
+        </div>
+        </div>
+
+        <!-- Veterinarian dashboard -->
+        <div id="viewVet" class="dash-view hidden">
+          <div class="adm-kpi-grid">
+            <div class="adm-kpi adm-kpi--blue">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="vetStatToday">—</div>
+                  <div class="adm-kpi-label">My Patients Today</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--blue"><i data-lucide="calendar-days"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="vetTrendToday">—</p>
+            </div>
+            <div class="adm-kpi adm-kpi--amber">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="vetStatWaiting">—</div>
+                  <div class="adm-kpi-label">Waiting</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--amber"><i data-lucide="clock"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="vetTrendWaiting">In queue</p>
+            </div>
+            <div class="adm-kpi adm-kpi--emerald">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="vetStatConsult">—</div>
+                  <div class="adm-kpi-label">In Consultation</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--emerald"><i data-lucide="stethoscope"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="vetTrendConsult">Active cases</p>
+            </div>
+            <div class="adm-kpi adm-kpi--violet">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="vetStatRx">—</div>
+                  <div class="adm-kpi-label">Rx Issued Today</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--violet"><i data-lucide="pill"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="vetTrendRx">Prescriptions</p>
+            </div>
+          </div>
+          <div class="adm-quick-links">
+            <a href="appointments.html" class="adm-quick-link"><i data-lucide="calendar"></i> Appointments</a>
+            <a href="consultations.html" class="adm-quick-link"><i data-lucide="stethoscope"></i> Consultations</a>
+            <a href="pet-records.html" class="adm-quick-link"><i data-lucide="paw-print"></i> Pet Records</a>
+          </div>
+          <div class="adm-grid-2">
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title"><span class="adm-card-title-icon"><i data-lucide="paw-print"></i></span> My Schedule Today</h2>
+                <span class="adm-card-sub" id="vetScheduleSub">—</span>
+              </div>
+              <div class="adm-card-body" id="vetApptList"></div>
+            </section>
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Consultation Queue</h2>
+                <span class="adm-card-sub" id="vetQueueSub">—</span>
+              </div>
+              <div class="adm-card-body" id="vetQueueList"></div>
+            </section>
+          </div>
+          <div class="adm-grid-2">
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Recent Prescriptions</h2>
+                <span class="adm-card-sub">Issued by you</span>
+              </div>
+              <div class="adm-card-body" id="vetRxList"></div>
+            </section>
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Clinical Activity</h2>
+                <span class="adm-card-sub">Recent events</span>
+              </div>
+              <div class="adm-card-body adm-timeline" id="vetActivityList"></div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Front office dashboard -->
+        <div id="viewFront" class="dash-view hidden">
+          <div class="adm-kpi-grid">
+            <div class="adm-kpi adm-kpi--blue">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="foStatAppts">—</div>
+                  <div class="adm-kpi-label">Today's Appointments</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--blue"><i data-lucide="calendar-days"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="foTrendAppts">—</p>
+            </div>
+            <div class="adm-kpi adm-kpi--violet">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="foStatBilling">—</div>
+                  <div class="adm-kpi-label">Pending Bills</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--violet"><i data-lucide="receipt"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="foTrendBilling">—</p>
+            </div>
+            <div class="adm-kpi adm-kpi--amber">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="foStatStock">—</div>
+                  <div class="adm-kpi-label">Low Stock Items</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--amber"><i data-lucide="triangle-alert"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="foTrendStock">—</p>
+            </div>
+            <div class="adm-kpi adm-kpi--emerald">
+              <div class="adm-kpi-head">
+                <div>
+                  <div class="adm-kpi-value" id="foStatReminders">—</div>
+                  <div class="adm-kpi-label">Reminders Due</div>
+                </div>
+                <div class="adm-kpi-icon adm-kpi-icon--emerald"><i data-lucide="bell"></i></div>
+              </div>
+              <p class="adm-kpi-trend" id="foTrendReminders">Upcoming</p>
+            </div>
+          </div>
+          <div class="adm-quick-links">
+            <a href="appointments.html" class="adm-quick-link"><i data-lucide="calendar-plus"></i> Appointments</a>
+            <a href="billing.html" class="adm-quick-link"><i data-lucide="credit-card"></i> Billing &amp; POS</a>
+            <a href="inventory.html" class="adm-quick-link"><i data-lucide="package"></i> Inventory</a>
+            <a href="reminders.html" class="adm-quick-link"><i data-lucide="bell"></i> Reminders</a>
+          </div>
+          <div class="adm-grid-2">
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Weekly Appointments</h2>
+                <span class="adm-card-sub">Last 7 days</span>
+              </div>
+              <div class="adm-card-body adm-card-body--chart">
+                <div class="adm-chart-wrap"><canvas id="foApptChart"></canvas></div>
+              </div>
+            </section>
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Daily Collections</h2>
+                <span class="adm-card-sub">Paid invoices — last 7 days</span>
+              </div>
+              <div class="adm-card-body adm-card-body--chart">
+                <div class="adm-chart-wrap"><canvas id="foCollectionsChart"></canvas></div>
+              </div>
+            </section>
+          </div>
+          <div class="adm-grid-2">
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title"><span class="adm-card-title-icon"><i data-lucide="paw-print"></i></span> Today's Schedule</h2>
+                <span class="adm-card-sub" id="foScheduleSub">—</span>
+              </div>
+              <div class="adm-card-body" id="foApptList"></div>
+            </section>
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Pending Billing</h2>
+                <span class="adm-card-sub" id="foBillingSub">—</span>
+              </div>
+              <div class="adm-card-body" id="foBillingList"></div>
+            </section>
+          </div>
+          <div class="adm-grid-2">
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Inventory Alerts</h2>
+                <span class="adm-card-sub">Medicines &amp; supplies</span>
+              </div>
+              <div class="adm-card-body" id="foLowStockList"></div>
+            </section>
+            <section class="adm-card">
+              <div class="adm-card-head">
+                <h2 class="adm-card-title">Upcoming Reminders</h2>
+                <span class="adm-card-sub" id="foRemindersSub">—</span>
+              </div>
+              <div class="adm-card-body" id="foRemindersList"></div>
+            </section>
+          </div>
+        </div>
       </div>
     </main>
   </div>
@@ -114,12 +346,25 @@
   <script>
     ensureLoggedIn();
     const role = getRole();
+    const isAdmin = role === "admin";
+    const isVet = role === "vet";
+    const isFront = typeof isFrontOffice === "function" && isFrontOffice(role);
 
     if (typeof initBayportAppHeader === "function") {
       initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     }
-
     renderSidebar(document.getElementById("sidebarNav"), role, "dashboard.html");
+
+    document.getElementById("viewAdmin").classList.toggle("hidden", !isAdmin);
+    document.getElementById("viewVet").classList.toggle("hidden", !isVet);
+    document.getElementById("viewFront").classList.toggle("hidden", !isFront);
+
+    let apptChartInst;
+    let revenueChartInst;
+    let foApptChartInst;
+    let foCollectionsChartInst;
+    const CHART_BLUE = "#2563EB";
+    const CHART_BLUE_FILL = "rgba(37, 99, 235, 0.12)";
 
     function peso(n) {
       return Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -128,6 +373,208 @@
     function todayKey() {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function daysAgoKey(days) {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function dateKeyFromDate(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function timeGreeting() {
+      const h = new Date().getHours();
+      if (h < 12) return "Good Morning";
+      if (h < 17) return "Good Afternoon";
+      return "Good Evening";
+    }
+
+    function displayName() {
+      const name = (typeof getUserName === "function" ? getUserName() : "") || "";
+      if (name) return name;
+      if (isAdmin) return "Admin";
+      if (isVet) return "Veterinarian";
+      if (isFront) return "Front Desk";
+      return "Team Member";
+    }
+
+    function normalizePersonName(n) {
+      return String(n || "").trim().toLowerCase().replace(/^dr\.?\s*/i, "");
+    }
+
+    function namesMatch(a, b) {
+      const x = normalizePersonName(a);
+      const y = normalizePersonName(b);
+      if (!x || !y) return false;
+      return x === y || x.includes(y) || y.includes(x);
+    }
+
+    function apptStatusCategory(raw) {
+      const s = String(raw || "").toLowerCase();
+      if (s === "done") return "completed";
+      if (s === "cancelled") return "cancelled";
+      if (s === "approved by vet") return "inConsultation";
+      return "waiting";
+    }
+
+    function filterVetAppts(appts, vetName) {
+      if (!vetName) return appts || [];
+      return (appts || []).filter((a) => namesMatch(a.vet, vetName));
+    }
+
+    function vetScheduleAppts(allAppts, vetName) {
+      const today = todayApptsList(allAppts);
+      const mine = filterVetAppts(today, vetName);
+      return mine.length ? mine : today;
+    }
+
+    function todayApptsList(appts) {
+      const today = todayKey();
+      return (appts || []).filter((a) => apptDateKey(a) === today);
+    }
+
+    function updateDateTime() {
+      const now = new Date();
+      document.getElementById("dashDateTime").textContent = now.toLocaleString("en-PH", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      });
+    }
+
+    function initWelcomeHeader() {
+      document.getElementById("dashGreeting").textContent = `${timeGreeting()}, ${displayName()}`;
+      updateDateTime();
+    }
+
+    function admRowLink(href, innerHtml, extraClass) {
+      const cls = ["adm-row", extraClass, href ? "adm-row--link" : ""].filter(Boolean).join(" ");
+      if (!href) return `<div class="${cls}">${innerHtml}</div>`;
+      return `<a class="${cls}" href="${href}">${innerHtml}</a>`;
+    }
+
+    function apptRowHref(a, opts) {
+      const petId = a?.petId != null ? Number(a.petId) : null;
+      if (opts?.queue && apptStatusCategory(a.status) === "inConsultation" && petId) {
+        return `consultations.html?petId=${encodeURIComponent(petId)}`;
+      }
+      if (petId) return `pet-profile.html?id=${encodeURIComponent(petId)}`;
+      return "appointments.html";
+    }
+
+    function billingRowHref(b) {
+      if (b?.id != null) {
+        return `billing.html`;
+      }
+      return "billing.html";
+    }
+
+    function billingRowClickAttr(b) {
+      if (b?.id == null) return "";
+      return ` onclick="sessionStorage.setItem('posPrefillBillingId','${String(b.id).replace(/'/g, '')}')"`;
+    }
+
+    function inventoryRowHref(i) {
+      if (i?.id != null) return `inventory.html`;
+      return "inventory.html";
+    }
+
+    function reminderRowHref() {
+      return "reminders.html";
+    }
+
+    function rxRowHref(rx) {
+      const petId = rx?.petId != null ? Number(rx.petId) : null;
+      if (petId) return `pet-profile.html?id=${encodeURIComponent(petId)}`;
+      return "consultations.html";
+    }
+
+    function activityHref(log) {
+      const type = String(log?.type || "").toUpperCase();
+      const petId = log?.petId != null ? Number(log.petId) : null;
+      if (type.includes("RX")) return petId ? `consultations.html?petId=${encodeURIComponent(petId)}` : "consultations.html";
+      if (type.includes("APPT")) return "appointments.html";
+      if (type.includes("PET")) return petId ? `pet-profile.html?id=${encodeURIComponent(petId)}` : "pet-records.html";
+      if (type.includes("BILL") || type.includes("PAY")) return "billing.html";
+      if (type.includes("INVENTORY") || type.includes("STOCK")) return "inventory.html";
+      if (type.includes("REMINDER")) return "reminders.html";
+      if (isAdmin) return "activity-logs.html";
+      return null;
+    }
+
+    function wireKpiLinks() {
+      const map = isAdmin
+        ? [
+            ["statTodayAppts", "appointments.html"],
+            ["statTodayRevenue", "billing.html"],
+            ["statLowStock", "inventory.html"],
+            ["statPendingBilling", "billing.html"],
+          ]
+        : isVet
+        ? [
+            ["vetStatToday", "appointments.html"],
+            ["vetStatWaiting", "appointments.html"],
+            ["vetStatConsult", "consultations.html"],
+            ["vetStatRx", "consultations.html"],
+          ]
+        : isFront
+        ? [
+            ["foStatAppts", "appointments.html"],
+            ["foStatBilling", "billing.html"],
+            ["foStatStock", "inventory.html"],
+            ["foStatReminders", "reminders.html"],
+          ]
+        : [];
+      map.forEach(([valueId, href]) => {
+        const valueEl = document.getElementById(valueId);
+        if (!valueEl) return;
+        const kpi = valueEl.closest(".adm-kpi");
+        if (!kpi || kpi.tagName === "A") return;
+        const link = document.createElement("a");
+        link.href = href;
+        link.className = kpi.className + " adm-kpi--link";
+        link.innerHTML = kpi.innerHTML;
+        kpi.replaceWith(link);
+      });
+    }
+
+    function refreshIcons() {
+      if (typeof lucide !== "undefined" && lucide.createIcons) lucide.createIcons();
+    }
+
+    function admEmpty(message, icon) {
+      return `<div class="adm-empty">
+        <div class="adm-empty-icon"><i data-lucide="${icon}"></i></div>
+        <span>${bpEscHtml(message)}</span>
+      </div>`;
+    }
+
+    function formatTime12(raw) {
+      if (!raw || typeof raw !== "string") return "—";
+      const m = raw.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return bpEscHtml(raw);
+      let h = parseInt(m[1], 10);
+      const min = m[2];
+      const ap = h >= 12 ? "PM" : "AM";
+      h = h % 12;
+      if (h === 0) h = 12;
+      return `${h}:${min} ${ap}`;
+    }
+
+    function formatActivityTime(raw) {
+      if (!raw) return "—";
+      const d = new Date(raw);
+      if (Number.isNaN(d.getTime())) return "—";
+      const key = dateKeyFromDate(d);
+      const time = d.toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
+      if (key === todayKey()) return time;
+      return d.toLocaleDateString("en-PH", { month: "short", day: "numeric" }) + ", " + time;
     }
 
     function apptDateKey(a) {
@@ -143,116 +590,702 @@
       return "—";
     }
 
-    function renderApptList(appts) {
-      const el = document.getElementById("dashApptList");
-      const today = todayKey();
-      const rows = (appts || [])
-        .filter((a) => apptDateKey(a) === today)
-        .sort((a, b) => String(a.time || a.startTime || "").localeCompare(String(b.time || b.startTime || "")))
-        .slice(0, 8);
-      if (!rows.length) {
-        el.innerHTML = bpEmptyState("No appointments scheduled for today.", "calendar");
-        return;
-      }
-      el.innerHTML = rows
-        .map((a) => {
-          const time = a.time || (a.startTime ? String(a.startTime).slice(11, 16) : "—");
-          const pet = bpEscHtml(apptPetLabel(a));
-          const svc = a.service || a.reason || a.type || "";
-          const st = String(a.status || "").toUpperCase();
-          const badge = st ? `<span class="bp-badge bp-badge--muted">${bpEscHtml(st)}</span>` : "";
-          return `<div class="bp-dash-list-item">
-            <div><span class="font-medium text-[#101828]">${time}</span> · ${pet}${svc ? `<span class="text-[#667085]"> — ${bpEscHtml(svc)}</span>` : ""}</div>
-            ${badge ? `<span class="shrink-0">${badge}</span>` : ""}
-          </div>`;
-        })
-        .join("");
+    function buildPetMap(pets) {
+      const map = new Map();
+      (pets || []).forEach((p) => { if (p && p.id != null) map.set(Number(p.id), p); });
+      return map;
     }
 
-    function renderBillingList(billing) {
-      const el = document.getElementById("dashBillingList");
+    function buildOwnerMap(owners) {
+      const map = new Map();
+      (owners || []).forEach((o) => { if (o && o.id != null) map.set(Number(o.id), o); });
+      return map;
+    }
+
+    function resolveReminderNames(r, petMap, ownerMap) {
+      const pet = r.petId != null ? petMap.get(Number(r.petId)) : null;
+      let ownerName = (r.ownerName || "").trim();
+      if (!ownerName && r.ownerId != null && ownerMap) {
+        ownerName = (ownerMap.get(Number(r.ownerId))?.fullName || "").trim();
+      }
+      if (!ownerName && pet?.owner) ownerName = String(pet.owner).trim();
+      let petName = (r.petName || pet?.name || "").trim();
+      if (!petName) {
+        petName = String(r.type || "").toUpperCase() === "GENERAL" ? "General announcement" : "Pet";
+      }
+      return {
+        petName,
+        ownerName: ownerName || "Owner",
+      };
+    }
+
+    function replaceReminderPlaceholders(text, r, names) {
+      if (!text) return "";
+      const dateStr = String(r.date || "").slice(0, 10) || "Date TBD";
+      return String(text)
+        .replace(/\{\{petName\}\}/g, names.petName || "Pet")
+        .replace(/\{\{ownerName\}\}/g, names.ownerName || "Owner")
+        .replace(/\{\{date\}\}/g, dateStr)
+        .replace(/\{\{followUpDate\}\}/g, dateStr)
+        .replace(/\{\{dateStart\}\}/g, dateStr)
+        .replace(/\{\{dateEnd\}\}/g, dateStr);
+    }
+
+    function resolvePetFromAppt(a, petMap) {
+      if (a.pet && typeof a.pet === "object" && a.pet.name) return a.pet;
+      const id = a.petId != null ? Number(a.petId) : null;
+      if (id != null && petMap.has(id)) return petMap.get(id);
+      return null;
+    }
+
+    function speciesLucide(species) {
+      const s = String(species || "").toLowerCase();
+      if (s.includes("dog") || s.includes("canine")) return "dog";
+      if (s.includes("cat") || s.includes("feline")) return "cat";
+      if (s.includes("bird") || s.includes("avian")) return "bird";
+      if (s.includes("rabbit") || s.includes("bunny")) return "rabbit";
+      if (s.includes("fish")) return "fish";
+      if (s.includes("reptile") || s.includes("snake") || s.includes("lizard")) return "turtle";
+      return "paw-print";
+    }
+
+    function petDetailText(pet) {
+      if (!pet) return "";
+      const parts = [];
+      if (pet.breed) parts.push(String(pet.breed).trim());
+      if (pet.species) parts.push(String(pet.species).trim());
+      if (pet.age != null && pet.age !== "") parts.push(`${pet.age} yr`);
+      return parts.join(" · ");
+    }
+
+    function apptTypeLabel(a) {
+      return (a.code || a.service || a.reason || a.type || "General visit").trim() || "General visit";
+    }
+
+    function apptStatusBadge(raw) {
+      const s = String(raw || "").toLowerCase();
+      if (s === "done") return '<span class="adm-badge adm-badge--emerald">Completed</span>';
+      if (s === "cancelled") return '<span class="adm-badge adm-badge--red">Cancelled</span>';
+      if (s === "approved by vet") return '<span class="adm-badge adm-badge--blue">In Consultation</span>';
+      const label = raw && String(raw).trim() ? String(raw) : "Waiting";
+      return `<span class="adm-badge adm-badge--amber">${bpEscHtml(label)}</span>`;
+    }
+
+    function billingStatusBadge(status) {
+      const u = String(status || "").toUpperCase();
+      if (u === "PAID") return '<span class="adm-badge adm-badge--emerald">Paid</span>';
+      if (u === "PENDING") return '<span class="adm-badge adm-badge--amber">Pending</span>';
+      return status ? `<span class="adm-badge adm-badge--slate">${bpEscHtml(String(status))}</span>` : "";
+    }
+
+    function inventoryStockStatus(qty, reorder) {
+      if (qty <= 0) return { label: "Critical", cls: "adm-badge--red" };
+      const criticalThreshold = Math.max(1, Math.ceil(reorder * 0.25));
+      if (qty <= criticalThreshold) return { label: "Critical", cls: "adm-badge--red" };
+      if (qty <= reorder) return { label: "Low Stock", cls: "adm-badge--amber" };
+      return { label: "In Stock", cls: "adm-badge--green" };
+    }
+
+    function activityMeta(log) {
+      const type = String(log.type || "").toUpperCase();
+      if (type.includes("APPT_DONE")) return { title: "Appointment completed", icon: "calendar-check", tone: "green" };
+      if (type.includes("APPT")) return { title: "Appointment updated", icon: "calendar", tone: "" };
+      if (type.includes("RX_DISPENSED")) return { title: "Prescription dispensed", icon: "pill", tone: "green" };
+      if (type.includes("RX")) return { title: "Prescription issued", icon: "pill", tone: "violet" };
+      if (type.includes("PET_CREATED")) return { title: "Pet record added", icon: "paw-print", tone: "green" };
+      if (type.includes("PET")) return { title: "Pet record updated", icon: "paw-print", tone: "" };
+      if (type.includes("BILL") || type.includes("PAY")) return { title: "Billing updated", icon: "receipt", tone: "amber" };
+      if (type.includes("INVENTORY") || type.includes("STOCK")) return { title: "Inventory updated", icon: "package", tone: "amber" };
+      return { title: log.message || "System activity", icon: "activity", tone: "" };
+    }
+
+    function buildWeeklyApptData(appts) {
+      const labels = [];
+      const values = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = dateKeyFromDate(d);
+        labels.push(d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" }));
+        values.push((appts || []).filter((a) => apptDateKey(a) === key).length);
+      }
+      return { labels, values };
+    }
+
+    function buildDailyCollectionsData(billing) {
+      const labels = [];
+      const values = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = dateKeyFromDate(d);
+        labels.push(d.toLocaleDateString("en-PH", { weekday: "short", month: "short", day: "numeric" }));
+        const total = (billing || [])
+          .filter((b) => {
+            if (String(b.status || "").toUpperCase() !== "PAID") return false;
+            return String(b.paidAt || b.issuedAt || "").slice(0, 10) === key;
+          })
+          .reduce((s, b) => s + (Number(b.amount) || 0), 0);
+        values.push(total);
+      }
+      return { labels, values };
+    }
+
+    function buildMonthlyRevenueData(billing) {
+      const labels = [];
+      const values = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        labels.push(d.toLocaleDateString("en-PH", { month: "short", year: "2-digit" }));
+        const total = (billing || [])
+          .filter((b) => {
+            if (String(b.status || "").toUpperCase() !== "PAID") return false;
+            const raw = b.paidAt || b.issuedAt || "";
+            const dt = new Date(raw);
+            return !Number.isNaN(dt.getTime()) && dt.getFullYear() === year && dt.getMonth() === month;
+          })
+          .reduce((s, b) => s + (Number(b.amount) || 0), 0);
+        values.push(total);
+      }
+      return { labels, values };
+    }
+
+    function lineChartConfig(labels, values, chartLabel) {
+      return {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label: chartLabel || "Appointments",
+            data: values,
+            borderColor: CHART_BLUE,
+            backgroundColor: CHART_BLUE_FILL,
+            borderWidth: 2,
+            fill: true,
+            tension: 0.35,
+            pointRadius: 3,
+            pointBackgroundColor: CHART_BLUE,
+            pointBorderColor: "#fff",
+            pointBorderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { backgroundColor: "#0f172a", padding: 10, cornerRadius: 8 } },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: "Inter", size: 11 }, color: "#94a3b8" }, border: { display: false } },
+            y: { beginAtZero: true, ticks: { stepSize: 1, font: { family: "Inter", size: 11 }, color: "#94a3b8" }, grid: { color: "#f1f5f9" }, border: { display: false } },
+          },
+        },
+      };
+    }
+
+    function barMoneyChartConfig(labels, values, chartLabel) {
+      return {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{ label: chartLabel || "Revenue", data: values, backgroundColor: CHART_BLUE, borderRadius: 6, barThickness: 28 }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: "#0f172a", callbacks: { label: (ctx) => " ₱" + peso(ctx.parsed.y) }, padding: 10, cornerRadius: 8 },
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { family: "Inter", size: 11 }, color: "#94a3b8" }, border: { display: false } },
+            y: { beginAtZero: true, ticks: { font: { family: "Inter", size: 11 }, color: "#94a3b8", callback: (v) => "₱" + Number(v).toLocaleString() }, grid: { color: "#f1f5f9" }, border: { display: false } },
+          },
+        },
+      };
+    }
+
+    function upsertChart(instRef, canvasId, config) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return instRef;
+      const ctx = canvas.getContext("2d");
+      if (!instRef) return new Chart(ctx, config);
+      instRef.data.labels = config.data.labels;
+      instRef.data.datasets = config.data.datasets;
+      instRef.update("none");
+      return instRef;
+    }
+
+    function updateApptChart(appts) {
+      const { labels, values } = buildWeeklyApptData(appts);
+      apptChartInst = upsertChart(apptChartInst, "apptChart", lineChartConfig(labels, values));
+    }
+
+    function updateRevenueChart(billing) {
+      const { labels, values } = buildMonthlyRevenueData(billing);
+      revenueChartInst = upsertChart(revenueChartInst, "revenueChart", barMoneyChartConfig(labels, values, "Revenue"));
+    }
+
+    function updateFoApptChart(appts) {
+      const { labels, values } = buildWeeklyApptData(appts);
+      foApptChartInst = upsertChart(foApptChartInst, "foApptChart", lineChartConfig(labels, values));
+    }
+
+    function updateFoCollectionsChart(billing) {
+      const { labels, values } = buildDailyCollectionsData(billing);
+      foCollectionsChartInst = upsertChart(foCollectionsChartInst, "foCollectionsChart", barMoneyChartConfig(labels, values, "Collections"));
+    }
+
+    function renderApptRowsHtml(rows, petMap, opts) {
+      return rows.map((a) => {
+        const time = formatTime12(a.time || (a.startTime ? String(a.startTime).slice(11, 16) : ""));
+        const pet = resolvePetFromAppt(a, petMap);
+        const name = bpEscHtml(apptPetLabel(a));
+        const svc = bpEscHtml(apptTypeLabel(a));
+        const vet = (a.vet || "").trim();
+        const icon = speciesLucide(pet?.species);
+        const detail = petDetailText(pet);
+        const owner = (a.owner || pet?.ownerName || "").trim();
+        const inner = `<div class="adm-pet-avatar"><i data-lucide="${icon}"></i></div>
+          <div class="adm-row-main">
+            <div class="adm-row-time">${time}</div>
+            <div class="adm-row-title">${name}</div>
+            ${detail ? `<div class="adm-row-pet-detail">${bpEscHtml(detail)}</div>` : ""}
+            <div class="adm-row-meta">
+              ${owner ? `<span>Owner: ${bpEscHtml(owner)}</span>` : ""}
+              ${vet ? `<span>Dr. ${bpEscHtml(vet.replace(/^Dr\.?\s*/i, ""))}</span>` : ""}
+              <span>${svc}</span>
+            </div>
+          </div>
+          ${apptStatusBadge(a.status)}`;
+        return admRowLink(apptRowHref(a, opts), inner, "adm-row--pet");
+      }).join("");
+    }
+
+    function renderApptListTo(listId, subId, appts, petMap, emptyMsg) {
+      const el = document.getElementById(listId);
+      const sub = document.getElementById(subId);
+      if (!el) return;
+      const rows = (appts || [])
+        .sort((a, b) => String(a.time || a.startTime || "").localeCompare(String(b.time || b.startTime || "")))
+        .slice(0, 8);
+      if (sub) {
+        sub.textContent = rows.length
+          ? `${rows.length} patient${rows.length === 1 ? "" : "s"} scheduled`
+          : "No patients scheduled today";
+      }
+      if (!rows.length) {
+        el.innerHTML = admEmpty(emptyMsg || "No appointments scheduled today.", "calendar");
+        refreshIcons();
+        return;
+      }
+      el.innerHTML = renderApptRowsHtml(rows, petMap);
+      refreshIcons();
+    }
+
+    function renderApptList(appts, petMap) {
+      const today = todayKey();
+      const rows = (appts || []).filter((a) => apptDateKey(a) === today);
+      renderApptListTo("dashApptList", "scheduleSub", rows, petMap);
+    }
+
+    function renderBillingListTo(listId, subId, billing) {
+      const el = document.getElementById(listId);
+      const sub = document.getElementById(subId);
+      if (!el) return;
       const pending = (billing || [])
         .filter((b) => String(b.status || "").toUpperCase() === "PENDING")
         .sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")))
         .slice(0, 8);
+      const pendingTotal = pending.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      if (sub) {
+        sub.textContent = pending.length ? `₱${peso(pendingTotal)} outstanding` : "All clear";
+      }
       if (!pending.length) {
-        el.innerHTML = bpEmptyState("No pending invoices.", "document");
+        el.innerHTML = admEmpty("No pending invoices.", "receipt");
+        refreshIcons();
         return;
       }
-      el.innerHTML = pending
-        .map(
-          (b) => `<div class="bp-dash-list-item">
-            <div><span class="font-medium text-[#101828]">${b.petName || "—"}</span><span class="text-[#667085]"> · ${b.description || "Invoice"}</span></div>
-            <span class="font-medium tabular-nums shrink-0">₱${peso(b.amount)}</span>
-          </div>`,
-        )
-        .join("");
+      el.innerHTML = pending.map((b) => {
+        const client = bpEscHtml(b.ownerName || "—");
+        const pet = b.petName ? bpEscHtml(b.petName) : "";
+        const service = bpEscHtml(b.description || "Invoice");
+        const inner = `${pet ? `<div class="adm-pet-avatar"><i data-lucide="paw-print"></i></div>` : ""}
+          <div class="adm-row-main">
+            <div class="adm-row-title">${client}</div>
+            <div class="adm-row-meta">
+              ${pet ? `<span>Pet: ${pet}</span>` : ""}
+              <span>${service}</span>
+            </div>
+          </div>
+          <div class="adm-row-side">
+            <span class="adm-row-amount">₱${peso(b.amount)}</span>
+            ${billingStatusBadge(b.status)}
+          </div>`;
+        const href = billingRowHref(b);
+        const click = billingRowClickAttr(b);
+        if (!href) return admRowLink(null, inner, "adm-row--pet");
+        return `<a class="adm-row adm-row--link adm-row--pet" href="${href}"${click}>${inner}</a>`;
+      }).join("");
+      refreshIcons();
+    }
+
+    function renderBillingList(billing) {
+      renderBillingListTo("dashBillingList", "billingSub", billing);
     }
 
     function isInventoryProduct(i) {
       return String(i?.category || "").toUpperCase() !== "SERVICE";
     }
 
-    function renderLowStock(items) {
-      const low = (items || []).filter((i) => {
+    function renderLowStockTo(listId, items, statId) {
+      const alertItems = (items || []).filter((i) => {
         if (!isInventoryProduct(i)) return false;
         const qty = Number(i.quantity ?? i.stock ?? 0);
         const reorder = Number(i.reorderLevel ?? i.reorderPoint ?? 5);
         return qty <= reorder;
       });
-      document.getElementById("statLowStock").textContent = String(low.length);
-      const section = document.getElementById("dashLowStockSection");
-      const list = document.getElementById("dashLowStockList");
-      if (!low.length) {
-        section.classList.add("hidden");
+      if (statId) {
+        const statEl = document.getElementById(statId);
+        if (statEl) statEl.textContent = String(alertItems.length);
+      }
+      const list = document.getElementById(listId);
+      if (!list) return;
+      if (!alertItems.length) {
+        list.innerHTML = admEmpty("All inventory items are sufficiently stocked.", "package-check");
+        refreshIcons();
         return;
       }
-      section.classList.remove("hidden");
-      list.innerHTML = low
-        .slice(0, 6)
-        .map((i) => {
-          const qty = Number(i.quantity ?? i.stock ?? 0);
-          const dot = qty <= 0 ? "bp-status-dot--red" : "bp-status-dot--amber";
-          return `<div class="bp-dash-list-item">
-            <div class="font-medium text-[#101828]">${i.name || "Item"}</div>
-            <span class="bp-stock-qty text-sm tabular-nums"><span class="bp-status-dot ${dot}"></span>${qty} left</span>
-          </div>`;
-        })
-        .join("");
+      list.innerHTML = alertItems.slice(0, 8).map((i) => {
+        const qty = Number(i.quantity ?? i.stock ?? 0);
+        const reorder = Number(i.reorderLevel ?? i.reorderPoint ?? 5);
+        const st = inventoryStockStatus(qty, reorder);
+        const cat = (i.category || "Supply").trim();
+        const inner = `<div class="adm-pet-avatar" style="background:#fffbeb;color:#d97706"><i data-lucide="pill"></i></div>
+          <div class="adm-row-main">
+            <div class="adm-row-title">${bpEscHtml(i.name || "Item")}</div>
+            <div class="adm-row-meta">
+              <span>${bpEscHtml(cat)}</span>
+              <span>Remaining: ${qty}</span>
+              <span>Min: ${reorder}</span>
+            </div>
+          </div>
+          <span class="adm-badge ${st.cls}">${st.label}</span>`;
+        return admRowLink(inventoryRowHref(i), inner, "adm-row--pet");
+      }).join("");
+      refreshIcons();
     }
 
-    async function loadDashboard() {
+    function renderLowStock(items) {
+      renderLowStockTo("dashLowStockList", items, "statLowStock");
+    }
+
+    function renderActivityListTo(listId, logs, filterFn) {
+      const el = document.getElementById(listId);
+      if (!el) return;
+      let rows = (logs || []).slice();
+      if (filterFn) rows = rows.filter(filterFn);
+      rows.sort((a, b) => String(b.ts || b.timestamp || "").localeCompare(String(a.ts || a.timestamp || "")));
+      rows = rows.slice(0, 8);
+      if (!rows.length) {
+        el.innerHTML = admEmpty("No recent activity.", "activity");
+        refreshIcons();
+        return;
+      }
+      el.innerHTML = rows.map((log) => {
+        const meta = activityMeta(log);
+        const desc = bpEscHtml(log.message || meta.title);
+        const when = formatActivityTime(log.ts || log.timestamp);
+        const user = (log.username || "").trim();
+        const toneClass = meta.tone === "green" ? " adm-timeline-icon--green"
+          : meta.tone === "amber" ? " adm-timeline-icon--amber"
+          : meta.tone === "violet" ? " adm-timeline-icon--violet" : "";
+        const href = activityHref(log);
+        const inner = `<div class="adm-timeline-icon${toneClass}"><i data-lucide="${meta.icon}"></i></div>
+          <div class="adm-timeline-content">
+            <p class="adm-timeline-title">${desc}</p>
+            <p class="adm-timeline-meta">${user ? bpEscHtml(user) + " · " : ""}${when}</p>
+          </div>`;
+        if (!href) return `<div class="adm-timeline-item">${inner}</div>`;
+        return `<a class="adm-timeline-item adm-timeline-item--link" href="${href}">${inner}</a>`;
+      }).join("");
+      refreshIcons();
+    }
+
+    function renderActivityList(logs) {
+      renderActivityListTo("dashActivityList", logs);
+    }
+
+    function renderVetQueue(appts, petMap) {
       const today = todayKey();
-      const [apptsRes, billingRes, invRes] = await Promise.allSettled([
+      const rows = (appts || [])
+        .filter((a) => apptDateKey(a) === today)
+        .filter((a) => {
+          const cat = apptStatusCategory(a.status);
+          return cat === "waiting" || cat === "inConsultation";
+        })
+        .sort((a, b) => String(a.time || "").localeCompare(String(b.time || "")))
+        .slice(0, 8);
+      const sub = document.getElementById("vetQueueSub");
+      if (sub) sub.textContent = rows.length ? `${rows.length} in queue` : "Queue clear";
+      const el = document.getElementById("vetQueueList");
+      if (!el) return;
+      if (!rows.length) {
+        el.innerHTML = admEmpty("No patients waiting or in consultation.", "stethoscope");
+        refreshIcons();
+        return;
+      }
+      el.innerHTML = renderApptRowsHtml(rows, petMap, { queue: true });
+      refreshIcons();
+    }
+
+    function renderVetRxList(rxs, vetName) {
+      const today = todayKey();
+      const el = document.getElementById("vetRxList");
+      if (!el) return;
+      const rows = (rxs || [])
+        .filter((rx) => namesMatch(rx.prescriber, vetName))
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+        .slice(0, 8);
+      const todayCount = rows.filter((rx) => String(rx.date || "").slice(0, 10) === today).length;
+      const trend = document.getElementById("vetTrendRx");
+      if (trend) trend.textContent = todayCount ? `${todayCount} issued today` : "No Rx today yet";
+      if (!rows.length) {
+        el.innerHTML = admEmpty("No prescriptions issued yet.", "pill");
+        refreshIcons();
+        return;
+      }
+      el.innerHTML = rows.map((rx) => {
+        const pet = bpEscHtml(rx.pet || "—");
+        const drug = bpEscHtml(rx.drug || "Medication");
+        const when = rx.date ? bpEscHtml(String(rx.date)) : "—";
+        const badge = rx.dispensed
+          ? '<span class="adm-badge adm-badge--emerald">Dispensed</span>'
+          : '<span class="adm-badge adm-badge--amber">Pending</span>';
+        const inner = `<div class="adm-pet-avatar" style="background:#f5f3ff;color:#7c3aed"><i data-lucide="pill"></i></div>
+          <div class="adm-row-main">
+            <div class="adm-row-title">${pet}</div>
+            <div class="adm-row-meta"><span>${drug}</span><span>${when}</span></div>
+          </div>
+          ${badge}`;
+        return admRowLink(rxRowHref(rx), inner, "adm-row--pet");
+      }).join("");
+      refreshIcons();
+    }
+
+    function renderRemindersList(reminders, petMap, ownerMap) {
+      const today = todayKey();
+      const el = document.getElementById("foRemindersList");
+      const sub = document.getElementById("foRemindersSub");
+      if (!el) return;
+      const rows = (reminders || [])
+        .filter((r) => !r.sent && String(r.date || "").slice(0, 10) >= today)
+        .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")))
+        .slice(0, 8);
+      if (sub) sub.textContent = rows.length ? `Next ${rows.length} upcoming` : "None scheduled";
+      if (!rows.length) {
+        el.innerHTML = admEmpty("No upcoming reminders.", "bell");
+        refreshIcons();
+        return;
+      }
+      el.innerHTML = rows.map((r) => {
+        const names = resolveReminderNames(r, petMap, ownerMap);
+        const ownerLine = String(r.type || "").toUpperCase() === "GENERAL" ? "" : names.ownerName;
+        const rawMsg = replaceReminderPlaceholders(r.message || "Reminder", r, names);
+        const msg = bpEscHtml(rawMsg.replace(/\s+/g, " ").trim().slice(0, 100));
+        const when = bpEscHtml(String(r.date || "").slice(0, 10));
+        const inner = `<div class="adm-pet-avatar" style="background:#ecfdf5;color:#059669"><i data-lucide="bell"></i></div>
+          <div class="adm-row-main">
+            <div class="adm-row-title">${bpEscHtml(names.petName)}</div>
+            <div class="adm-row-meta">
+              <span>${when}</span>
+              ${ownerLine ? `<span>${bpEscHtml(ownerLine)}</span>` : ""}
+              <span>${msg}</span>
+            </div>
+          </div>
+          <span class="adm-badge adm-badge--blue">Due</span>`;
+        return admRowLink(reminderRowHref(r), inner, "adm-row--pet");
+      }).join("");
+      refreshIcons();
+    }
+
+    function updateKpiTrends(appts, billing, inventory) {
+      const today = todayKey();
+      const yesterday = daysAgoKey(1);
+      const todayCount = appts.filter((a) => apptDateKey(a) === today).length;
+      const yesterdayCount = appts.filter((a) => apptDateKey(a) === yesterday).length;
+      const apptDiff = todayCount - yesterdayCount;
+      const apptTrend = document.getElementById("trendAppts");
+      if (apptDiff > 0) {
+        apptTrend.textContent = `+${apptDiff} vs yesterday`;
+        apptTrend.className = "adm-kpi-trend adm-kpi-trend--up";
+      } else if (apptDiff < 0) {
+        apptTrend.textContent = `${apptDiff} vs yesterday`;
+        apptTrend.className = "adm-kpi-trend adm-kpi-trend--down";
+      } else {
+        apptTrend.textContent = "Same as yesterday";
+        apptTrend.className = "adm-kpi-trend";
+      }
+      const paidToday = billing.filter((b) => String(b.status || "").toUpperCase() === "PAID" && String(b.paidAt || b.issuedAt || "").slice(0, 10) === today).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      const paidYesterday = billing.filter((b) => String(b.status || "").toUpperCase() === "PAID" && String(b.paidAt || b.issuedAt || "").slice(0, 10) === yesterday).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      const revTrend = document.getElementById("trendRevenue");
+      if (paidYesterday > 0) {
+        const pct = Math.round(((paidToday - paidYesterday) / paidYesterday) * 100);
+        revTrend.textContent = (pct >= 0 ? "+" : "") + pct + "% vs yesterday";
+        revTrend.className = "adm-kpi-trend" + (pct >= 0 ? " adm-kpi-trend--up" : " adm-kpi-trend--down");
+      } else {
+        revTrend.textContent = paidToday > 0 ? "First collections today" : "No payments recorded today";
+        revTrend.className = "adm-kpi-trend";
+      }
+      const lowCount = inventory.filter((i) => {
+        if (!isInventoryProduct(i)) return false;
+        return Number(i.quantity ?? i.stock ?? 0) <= Number(i.reorderLevel ?? i.reorderPoint ?? 5);
+      }).length;
+      const invTrend = document.getElementById("trendInventory");
+      if (lowCount === 0) invTrend.textContent = "All stock levels healthy";
+      else invTrend.textContent = `${lowCount} item${lowCount === 1 ? "" : "s"} need reorder`;
+      const pending = billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
+      const pendingAmt = pending.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      document.getElementById("trendBilling").textContent = pending.length
+        ? `₱${peso(pendingAmt)} total outstanding`
+        : "No outstanding balances";
+    }
+
+    async function loadAdminDashboard() {
+      const today = todayKey();
+      const [apptsRes, billingRes, invRes, activityRes, petsRes] = await Promise.allSettled([
         Api.appts.list(),
         Api.billing.list(),
-        role === "vet" ? Promise.resolve([]) : Api.inventory.list(),
+        Api.inventory.list(),
+        Api.reports.log(daysAgoKey(14), today),
+        Api.pets.list(),
       ]);
 
       const appts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
       const billing = billingRes.status === "fulfilled" && Array.isArray(billingRes.value) ? billingRes.value : [];
       const inventory = invRes.status === "fulfilled" && Array.isArray(invRes.value) ? invRes.value : [];
+      const activity = activityRes.status === "fulfilled" && Array.isArray(activityRes.value) ? activityRes.value : [];
+      const pets = petsRes.status === "fulfilled" && Array.isArray(petsRes.value) ? petsRes.value : [];
+      const petMap = buildPetMap(pets);
 
-      const todayAppts = appts.filter((a) => apptDateKey(a) === today);
-      document.getElementById("statTodayAppts").textContent = String(todayAppts.length);
-
-      const pending = billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
-      document.getElementById("statPendingBilling").textContent = String(pending.length);
-
+      document.getElementById("statTodayAppts").textContent = String(todayApptsList(appts).length);
+      document.getElementById("statPendingBilling").textContent = String(billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING").length);
       const paidToday = billing
-        .filter((b) => {
-          if (String(b.status || "").toUpperCase() !== "PAID") return false;
-          const raw = b.paidAt || b.issuedAt || "";
-          return String(raw).slice(0, 10) === today;
-        })
+        .filter((b) => String(b.status || "").toUpperCase() === "PAID" && String(b.paidAt || b.issuedAt || "").slice(0, 10) === today)
         .reduce((s, b) => s + (Number(b.amount) || 0), 0);
       document.getElementById("statTodayRevenue").textContent = "₱" + peso(paidToday);
 
-      renderApptList(appts);
+      updateKpiTrends(appts, billing, inventory);
+      updateApptChart(appts);
+      updateRevenueChart(billing);
+      renderApptList(appts, petMap);
       renderBillingList(billing);
-      if (role !== "vet") renderLowStock(inventory);
-      else document.getElementById("statLowStock").textContent = "—";
+      renderLowStock(inventory);
+      renderActivityList(activity);
     }
+
+    async function loadVetDashboard() {
+      const today = todayKey();
+      const vetName = displayName();
+      const [apptsRes, rxRes, activityRes, petsRes] = await Promise.allSettled([
+        Api.appts.list(),
+        Api.rx.list(),
+        Api.reports.log(daysAgoKey(14), today),
+        Api.pets.list(),
+      ]);
+
+      const allAppts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
+      const rxs = rxRes.status === "fulfilled" && Array.isArray(rxRes.value) ? rxRes.value : [];
+      const activity = activityRes.status === "fulfilled" && Array.isArray(activityRes.value) ? activityRes.value : [];
+      const pets = petsRes.status === "fulfilled" && Array.isArray(petsRes.value) ? petsRes.value : [];
+      const petMap = buildPetMap(pets);
+      const todayRows = vetScheduleAppts(allAppts, vetName);
+      const clinicToday = todayApptsList(allAppts);
+      const waiting = clinicToday.filter((a) => apptStatusCategory(a.status) === "waiting").length;
+      const inConsult = clinicToday.filter((a) => apptStatusCategory(a.status) === "inConsultation").length;
+      const rxToday = rxs.filter((rx) => namesMatch(rx.prescriber, vetName) && String(rx.date || "").slice(0, 10) === today).length;
+
+      document.getElementById("vetStatToday").textContent = String(todayRows.length);
+      document.getElementById("vetStatWaiting").textContent = String(waiting);
+      document.getElementById("vetStatConsult").textContent = String(inConsult);
+      document.getElementById("vetStatRx").textContent = String(rxToday);
+
+      document.getElementById("vetTrendToday").textContent = todayRows.length
+        ? `${todayRows.length} patient${todayRows.length === 1 ? "" : "s"} on your list`
+        : "No patients assigned today";
+      document.getElementById("vetTrendWaiting").textContent = waiting ? `${waiting} awaiting consultation` : "Queue clear";
+      document.getElementById("vetTrendConsult").textContent = inConsult ? `${inConsult} active now` : "No active consultations";
+
+      renderApptListTo("vetApptList", "vetScheduleSub", todayRows, petMap, "No appointments on your schedule today.");
+      renderVetQueue(allAppts, petMap);
+      renderVetRxList(rxs, vetName);
+      renderActivityListTo("vetActivityList", activity, (log) => {
+        const t = String(log.type || "").toUpperCase();
+        return t.includes("APPT") || t.includes("RX") || t.includes("PET");
+      });
+    }
+
+    async function loadFrontDashboard() {
+      const today = todayKey();
+      const [apptsRes, billingRes, invRes, remindersRes, petsRes, ownersRes] = await Promise.allSettled([
+        Api.appts.list(),
+        Api.billing.list(),
+        Api.inventory.list(),
+        Api.reminders.list(),
+        Api.pets.list(),
+        Api.owners.list(),
+      ]);
+
+      const appts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
+      const billing = billingRes.status === "fulfilled" && Array.isArray(billingRes.value) ? billingRes.value : [];
+      const inventory = invRes.status === "fulfilled" && Array.isArray(invRes.value) ? invRes.value : [];
+      const reminders = remindersRes.status === "fulfilled" && Array.isArray(remindersRes.value) ? remindersRes.value : [];
+      const pets = petsRes.status === "fulfilled" && Array.isArray(petsRes.value) ? petsRes.value : [];
+      const owners = ownersRes.status === "fulfilled" && Array.isArray(ownersRes.value) ? ownersRes.value : [];
+      const petMap = buildPetMap(pets);
+      const ownerMap = buildOwnerMap(owners);
+
+      const todayCount = todayApptsList(appts).length;
+      const pending = billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING");
+      const lowCount = inventory.filter((i) => {
+        if (!isInventoryProduct(i)) return false;
+        return Number(i.quantity ?? i.stock ?? 0) <= Number(i.reorderLevel ?? i.reorderPoint ?? 5);
+      }).length;
+      const dueReminders = reminders.filter((r) => !r.sent && String(r.date || "").slice(0, 10) >= today).length;
+
+      document.getElementById("foStatAppts").textContent = String(todayCount);
+      document.getElementById("foStatBilling").textContent = String(pending.length);
+      document.getElementById("foStatStock").textContent = String(lowCount);
+      document.getElementById("foStatReminders").textContent = String(dueReminders);
+
+      const yesterday = daysAgoKey(1);
+      const apptDiff = todayCount - appts.filter((a) => apptDateKey(a) === yesterday).length;
+      document.getElementById("foTrendAppts").textContent = apptDiff === 0 ? "Same as yesterday" : (apptDiff > 0 ? `+${apptDiff}` : String(apptDiff)) + " vs yesterday";
+      const pendingAmt = pending.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+      document.getElementById("foTrendBilling").textContent = pending.length ? `₱${peso(pendingAmt)} outstanding` : "All clear";
+      document.getElementById("foTrendStock").textContent = lowCount ? `${lowCount} need reorder` : "Stock levels healthy";
+      document.getElementById("foTrendReminders").textContent = dueReminders ? `${dueReminders} due soon` : "No reminders due";
+
+      updateFoApptChart(appts);
+      updateFoCollectionsChart(billing);
+      renderApptListTo("foApptList", "foScheduleSub", todayApptsList(appts), petMap);
+      renderBillingListTo("foBillingList", "foBillingSub", billing);
+      renderLowStockTo("foLowStockList", inventory, "foStatStock");
+      renderRemindersList(reminders, petMap, ownerMap);
+    }
+
+    async function loadDashboard() {
+      if (isAdmin) return loadAdminDashboard();
+      if (isVet) return loadVetDashboard();
+      if (isFront) return loadFrontDashboard();
+      return loadAdminDashboard();
+    }
+
+    initWelcomeHeader();
+    wireKpiLinks();
+    refreshIcons();
+    setInterval(updateDateTime, 60000);
 
     (async function runHealthCheck() {
       const ok = await checkBackendHealth();

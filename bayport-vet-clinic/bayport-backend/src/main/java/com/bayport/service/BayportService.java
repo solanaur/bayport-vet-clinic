@@ -291,19 +291,11 @@ public class BayportService {
      */
     public List<Appointment> getAllAppointmentsForUser(String currentUsername) {
         List<Appointment> appointments;
-        
-        // If current user is a vet, filter by vet name
-        if (currentUsername != null) {
-            User currentUser = userRepository.findByUsername(currentUsername).orElse(null);
-            if (currentUser != null && "vet".equalsIgnoreCase(currentUser.getRole())) {
-                // Vet can only see their own appointments
-                appointments = appointmentRepository.findByVet(currentUser.getName());
-            } else {
-                // Admin/receptionist see all appointments
-                appointments = appointmentRepository.findAll();
-            }
+
+        User currentUser = resolveUserFromContext(currentUsername);
+        if (currentUser != null && "vet".equalsIgnoreCase(currentUser.getRole())) {
+            appointments = findAppointmentsForVetUser(currentUser);
         } else {
-            // No user context = show all (for admin/receptionist)
             appointments = appointmentRepository.findAll();
         }
         
@@ -496,6 +488,11 @@ public class BayportService {
         Optional<Appointment> appointmentOpt = appointmentRepository.findById(id);
         if (appointmentOpt.isPresent()) {
             Appointment appointment = appointmentOpt.get();
+            User currentUser = resolveUserFromContext(getCurrentUsernameOrNull());
+            if (currentUser != null && "vet".equalsIgnoreCase(currentUser.getRole())
+                    && !isVetAssignedToAppointment(currentUser, appointment.getVet())) {
+                throw new IllegalArgumentException("Only the assigned veterinarian can approve this appointment");
+            }
             appointment.setStatus("Approved by Vet");
             appointment.setConsultationStartedAt(Instant.now());
             logOperation("APPT_APPROVED", "Appointment approved for " + appointment.getOwner(), appointment.getPetId());
@@ -877,6 +874,52 @@ public class BayportService {
             return null;
         }
         return auth.getName();
+    }
+
+    private User resolveUserFromContext(String usernameHint) {
+        if (usernameHint != null && !usernameHint.isBlank()) {
+            Optional<User> byHint = userRepository.findByUsername(usernameHint);
+            if (byHint.isPresent()) {
+                return byHint.get();
+            }
+        }
+        String authUsername = getCurrentUsernameOrNull();
+        if (authUsername != null && !authUsername.isBlank()) {
+            return userRepository.findByUsername(authUsername).orElse(null);
+        }
+        return null;
+    }
+
+    private boolean namesMatch(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        String left = a.trim();
+        String right = b.trim();
+        if (left.isEmpty() || right.isEmpty()) {
+            return false;
+        }
+        if (left.equalsIgnoreCase(right)) {
+            return true;
+        }
+        String normLeft = left.toLowerCase().replaceAll("^dr\\.?\\s*", "").replaceAll("\\s+", " ").trim();
+        String normRight = right.toLowerCase().replaceAll("^dr\\.?\\s*", "").replaceAll("\\s+", " ").trim();
+        return !normLeft.isEmpty() && normLeft.equals(normRight);
+    }
+
+    private boolean isVetAssignedToAppointment(User vetUser, String appointmentVet) {
+        if (vetUser == null || appointmentVet == null || appointmentVet.isBlank()) {
+            return false;
+        }
+        return namesMatch(appointmentVet, vetUser.getName())
+                || namesMatch(appointmentVet, vetUser.getFullName())
+                || namesMatch(appointmentVet, vetUser.getUsername());
+    }
+
+    private List<Appointment> findAppointmentsForVetUser(User vetUser) {
+        return appointmentRepository.findAll().stream()
+                .filter(a -> isVetAssignedToAppointment(vetUser, a.getVet()))
+                .toList();
     }
 
     // User operations

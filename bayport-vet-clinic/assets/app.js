@@ -105,6 +105,7 @@ window.tryLogin = async function(username, password, role, otp) {
     }
     localStorage.setItem("role", payload.role);
     localStorage.setItem("userDisplayName", payload.name);
+    localStorage.setItem("userRecordName", payload.recordName || payload.name || "");
     localStorage.setItem("username", payload.username);
     localStorage.setItem("userId", payload.id);
     if (payload.token) {
@@ -164,8 +165,19 @@ window.logout = function() {
   if (!confirmed) return;
   localStorage.removeItem("role");
   localStorage.removeItem("userDisplayName");
+  localStorage.removeItem("userRecordName");
   localStorage.removeItem("username");
   localStorage.removeItem("userId");
+  localStorage.removeItem("token");
+  localStorage.removeItem("jwt");
+  localStorage.removeItem("bayport_remember_username");
+  try {
+    sessionStorage.removeItem("posPrefillBillingId");
+    sessionStorage.removeItem("posPrefillPetId");
+    sessionStorage.removeItem("posPrefillDiscount");
+    sessionStorage.removeItem("posFocusPendingBilling");
+  } catch (_) {}
+  sessionStorage.setItem("bayport_login_reset", "1");
   location.href = "index.html";
 };
 
@@ -270,6 +282,35 @@ const ROLE_COPY = {
 
 window.getRole = function(){ return localStorage.getItem("role") || ""; };
 window.getUserName = function(){ return localStorage.getItem("userDisplayName") || ""; };
+
+/** All name variants for the logged-in user (display, legacy record, username). */
+window.getUserVetNames = function () {
+  const names = [];
+  const add = (s) => {
+    const t = String(s || "").trim();
+    if (!t) return;
+    if (!names.some((n) => n.toLowerCase() === t.toLowerCase())) names.push(t);
+  };
+  add(localStorage.getItem("userDisplayName"));
+  add(localStorage.getItem("userRecordName"));
+  add(localStorage.getItem("username"));
+  return names;
+};
+
+/** True when the appointment's vet field matches the logged-in vet (any known name variant). */
+window.isAssignedVetForAppointment = function (appointmentVet) {
+  const vet = String(appointmentVet || "").trim();
+  if (!vet) return false;
+  const norm = (s) =>
+    String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^dr\.?\s*/i, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  const target = norm(vet);
+  return window.getUserVetNames().some((n) => n === vet || norm(n) === target);
+};
 
 /** Display title under the user name in the global header (not the same as the account role key). */
 window.getBayportHeaderRoleTitle = function () {

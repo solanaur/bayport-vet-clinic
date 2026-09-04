@@ -49,15 +49,27 @@
 
         <form id="loginForm" novalidate>
           <div class="auth-field">
-            <label for="roleSelect">Role</label>
-            <div class="auth-input-wrap">
-              <svg class="auth-input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-              <select id="roleSelect" required>
-                <option value="">Select your role</option>
-                <option value="admin">Admin</option>
-                <option value="vet">Veterinarian</option>
-                <option value="front_office">Front Office</option>
-              </select>
+            <span class="auth-field-label" id="roleLabel">Role</span>
+            <input type="hidden" id="roleValue" value=""/>
+            <div class="auth-role-cards" role="group" aria-labelledby="roleLabel">
+              <button type="button" class="auth-role-card" data-role="admin" aria-pressed="false">
+                <span class="auth-role-card-icon" aria-hidden="true">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </span>
+                <span class="auth-role-card-title">Admin</span>
+              </button>
+              <button type="button" class="auth-role-card" data-role="vet" aria-pressed="false">
+                <span class="auth-role-card-icon" aria-hidden="true">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 8.5h3a2 2 0 012 2v1a2 2 0 01-2 2h-1l-2.5 4.5M19.5 8.5h-3a2 2 0 00-2 2v1a2 2 0 002 2h1l2.5 4.5"/><circle cx="12" cy="6" r="2.5" stroke-width="2"/></svg>
+                </span>
+                <span class="auth-role-card-title">Veterinarian</span>
+              </button>
+              <button type="button" class="auth-role-card" data-role="front_office" aria-pressed="false">
+                <span class="auth-role-card-icon" aria-hidden="true">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </span>
+                <span class="auth-role-card-title">Front Office</span>
+              </button>
             </div>
           </div>
 
@@ -164,7 +176,9 @@
     })();
 
     const REMEMBER_KEY = "bayport_remember_username";
-    const roleSelect = document.getElementById("roleSelect");
+    const LOGIN_RESET_KEY = "bayport_login_reset";
+    const roleCards = document.querySelectorAll(".auth-role-card");
+    const roleValueInput = document.getElementById("roleValue");
     const errorBox = document.getElementById("errorBox");
     const otpSection = document.getElementById("otpSection");
     const otpCodeInput = document.getElementById("otpCode");
@@ -172,6 +186,7 @@
     const loginForm = document.getElementById("loginForm");
     const rememberMe = document.getElementById("rememberMe");
     let mfaUsername = null;
+    let selectedRole = null;
 
     function showError(msg, type) {
       errorBox.textContent = msg;
@@ -186,16 +201,62 @@
     }
 
     function getSelectedRole() {
-      return roleSelect.value || null;
+      return selectedRole;
     }
 
-    (function loadRememberedUsername() {
-      const saved = localStorage.getItem(REMEMBER_KEY);
-      if (saved) {
-        document.getElementById("username").value = saved;
-        rememberMe.checked = true;
-      }
-    })();
+    function setSelectedRole(role) {
+      selectedRole = role || null;
+      if (roleValueInput) roleValueInput.value = selectedRole || "";
+      roleCards.forEach((card) => {
+        const active = card.dataset.role === selectedRole;
+        card.classList.toggle("is-selected", active);
+        card.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+
+    function setRoleCardsDisabled(disabled) {
+      roleCards.forEach((card) => {
+        card.disabled = !!disabled;
+        card.classList.toggle("is-disabled", !!disabled);
+      });
+    }
+
+    function resetLoginForm() {
+      setSelectedRole(null);
+      document.getElementById("username").value = "";
+      document.getElementById("password").value = "";
+      otpCodeInput.value = "";
+      document.getElementById("tosCheckbox").checked = false;
+      rememberMe.checked = false;
+      document.getElementById("username").disabled = false;
+      document.getElementById("password").disabled = false;
+      setRoleCardsDisabled(false);
+      otpSection.classList.remove("is-visible");
+      mfaUsername = null;
+      localStorage.removeItem(REMEMBER_KEY);
+      hideError();
+    }
+
+    roleCards.forEach((card) => {
+      card.addEventListener("click", () => {
+        if (card.disabled) return;
+        setSelectedRole(card.dataset.role);
+        hideError();
+      });
+    });
+
+    if (sessionStorage.getItem(LOGIN_RESET_KEY)) {
+      sessionStorage.removeItem(LOGIN_RESET_KEY);
+      resetLoginForm();
+    } else {
+      (function loadRememberedUsername() {
+        const saved = localStorage.getItem(REMEMBER_KEY);
+        if (saved) {
+          document.getElementById("username").value = saved;
+          rememberMe.checked = true;
+        }
+      })();
+    }
 
     document.getElementById("togglePw").addEventListener("click", () => {
       const p = document.getElementById("password");
@@ -205,20 +266,8 @@
     });
 
     document.getElementById("clearBtn").onclick = () => {
-      roleSelect.value = "";
-      document.getElementById("username").value = "";
-      document.getElementById("password").value = "";
-      otpCodeInput.value = "";
-      document.getElementById("tosCheckbox").checked = false;
-      document.getElementById("username").disabled = false;
-      document.getElementById("password").disabled = false;
-      roleSelect.disabled = false;
-      otpSection.classList.remove("is-visible");
-      mfaUsername = null;
-      hideError();
+      resetLoginForm();
     };
-
-    roleSelect.addEventListener("change", hideError);
 
     async function doLogin(e) {
       if (e) e.preventDefault();
@@ -296,6 +345,7 @@
         if (res.payload) {
           localStorage.setItem("role", res.payload.role);
           localStorage.setItem("userDisplayName", res.payload.name);
+          localStorage.setItem("userRecordName", res.payload.recordName || res.payload.name || "");
           localStorage.setItem("username", res.payload.username);
           localStorage.setItem("userId", res.payload.id);
           if (res.payload.token) {
@@ -317,7 +367,7 @@
         otpSection.classList.add("is-visible");
         document.getElementById("username").disabled = true;
         document.getElementById("password").disabled = true;
-        roleSelect.disabled = true;
+        setRoleCardsDisabled(true);
         otpCodeInput.focus();
         const mfaHint = res.mfaMessage || (res.emailConfigured === false
           ? "Email is not configured. Ask an administrator for the OTP code (shown in admin notifications)."
@@ -335,6 +385,9 @@
         showError(res.msg, "error");
         otpSection.classList.remove("is-visible");
         mfaUsername = null;
+        document.getElementById("username").disabled = false;
+        document.getElementById("password").disabled = false;
+        setRoleCardsDisabled(false);
       }
     }
 

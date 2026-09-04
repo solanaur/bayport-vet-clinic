@@ -8,6 +8,7 @@ import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
 import com.bayport.dto.ReportTopItemRow;
 import com.bayport.dto.VaccinationScheduleItem;
+import com.bayport.entity.InventoryItem;
 import com.bayport.entity.MedicalRecordType;
 import com.bayport.entity.Pet;
 import com.bayport.entity.PetMedicalRecord;
@@ -637,6 +638,162 @@ public class PdfService {
         } catch (Exception e) {
             throw new IllegalStateException("Unable to generate summary PDF", e);
         }
+    }
+
+    /**
+     * Printable inventory list (products or services) for export from the inventory module.
+     */
+    public byte[] buildInventoryPdf(List<InventoryItem> items, String tabType, String searchFilter, String preparedBy) {
+        String prepared = (preparedBy == null || preparedBy.isBlank()) ? "Staff" : preparedBy;
+        boolean services = "services".equalsIgnoreCase(tabType);
+        List<InventoryItem> rows = items != null ? items : List.of();
+
+        try {
+            Document document = services
+                    ? new Document(PageSize.A4, 72, 72, 72, 56)
+                    : new Document(PageSize.A4.rotate(), 48, 48, 48, 56);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            PdfWriter writer = PdfWriter.getInstance(document, baos);
+            writer.setPageEvent(new SummaryFooterEvent(prepared));
+
+            document.open();
+            document.addTitle("Inventory Export");
+
+            BaseFont base;
+            try {
+                base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+            } catch (Exception e) {
+                base = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED);
+            }
+
+            Font header = new Font(base, 17, Font.BOLD, CLINIC_BLUE);
+            Font sub = new Font(base, 10, Font.NORMAL, Color.DARK_GRAY);
+            Font label = new Font(base, 11, Font.BOLD, CLINIC_BLUE);
+            Font value = new Font(base, 10, Font.NORMAL, Color.BLACK);
+            Font section = new Font(base, 12, Font.BOLD, CLINIC_BLUE);
+
+            String banner = services ? "Inventory — services" : "Inventory — products";
+            addReportHeader(document, header, sub, banner);
+
+            Paragraph typeLine = new Paragraph("Type: " + (services ? "Services" : "Products"), label);
+            typeLine.setSpacingAfter(3);
+            document.add(typeLine);
+
+            if (searchFilter != null && !searchFilter.isBlank()) {
+                Paragraph searchLine = new Paragraph("Search filter: " + searchFilter.trim(), value);
+                searchLine.setSpacingAfter(8);
+                document.add(searchLine);
+            } else {
+                document.add(Chunk.NEWLINE);
+            }
+
+            if (!services) {
+                int low = 0;
+                int out = 0;
+                BigDecimal stockValue = BigDecimal.ZERO;
+                for (InventoryItem item : rows) {
+                    if (isInventoryService(item)) {
+                        continue;
+                    }
+                    int qty = item.getQuantity() != null ? item.getQuantity() : 0;
+                    int reorder = item.getReorderLevel() != null ? item.getReorderLevel() : 0;
+                    BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+                    stockValue = stockValue.add(price.multiply(BigDecimal.valueOf(qty)));
+                    if (qty <= 0) {
+                        out++;
+                    } else if (reorder > 0 && qty <= reorder) {
+                        low++;
+                    }
+                }
+
+                PdfPTable snapshot = new PdfPTable(2);
+                snapshot.setWidthPercentage(42);
+                snapshot.setHorizontalAlignment(Element.ALIGN_LEFT);
+                snapshot.setWidths(new float[]{1.2f, 1f});
+                snapshot.setSpacingAfter(12);
+                addRow(snapshot, "Items listed", String.valueOf(rows.size()), label, value);
+                addRow(snapshot, "Total stock value", MoneyUtils.formatPeso(stockValue), label, value);
+                addRow(snapshot, "Low stock", String.valueOf(low), label, value);
+                addRow(snapshot, "Out of stock", String.valueOf(out), label, value);
+                document.add(snapshot);
+            } else {
+                Paragraph countLine = new Paragraph("Items listed: " + rows.size(), value);
+                countLine.setSpacingAfter(12);
+                document.add(countLine);
+            }
+
+            Paragraph tableTitle = new Paragraph(services ? "Service catalog" : "Product stock", section);
+            tableTitle.setSpacingAfter(6);
+            document.add(tableTitle);
+
+            if (rows.isEmpty()) {
+                document.add(new Paragraph("No items match the current export filters.", value));
+            } else if (services) {
+                PdfPTable table = new PdfPTable(4);
+                table.setWidthPercentage(100);
+                table.setWidths(new float[]{1.1f, 2.2f, 1.2f, 0.9f});
+                table.setHeaderRows(1);
+                table.addCell(summaryTableHeaderCell("SKU", label));
+                table.addCell(summaryTableHeaderCell("Name", label));
+                table.addCell(summaryTableHeaderCell("Category", label));
+                table.addCell(summaryTableHeaderCell("Unit price", label));
+                for (InventoryItem item : rows) {
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getSku()), value));
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getName()), value));
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getCategory()), value));
+                    table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(item.getUnitPrice()), value));
+                }
+                document.add(table);
+            } else {
+                PdfPTable table = new PdfPTable(8);
+                table.setWidthPercentage(100);
+                table.setWidths(new float[]{1f, 2f, 1f, 0.55f, 0.65f, 0.75f, 0.85f, 0.9f});
+                table.setHeaderRows(1);
+                table.addCell(summaryTableHeaderCell("SKU", label));
+                table.addCell(summaryTableHeaderCell("Name", label));
+                table.addCell(summaryTableHeaderCell("Category", label));
+                table.addCell(summaryTableHeaderCell("Qty", label));
+                table.addCell(summaryTableHeaderCell("Reorder", label));
+                table.addCell(summaryTableHeaderCell("Unit price", label));
+                table.addCell(summaryTableHeaderCell("Stock value", label));
+                table.addCell(summaryTableHeaderCell("Status", label));
+                for (InventoryItem item : rows) {
+                    int qty = item.getQuantity() != null ? item.getQuantity() : 0;
+                    int reorder = item.getReorderLevel() != null ? item.getReorderLevel() : 0;
+                    BigDecimal price = item.getUnitPrice() != null ? item.getUnitPrice() : BigDecimal.ZERO;
+                    BigDecimal lineValue = price.multiply(BigDecimal.valueOf(qty));
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getSku()), value));
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getName()), value));
+                    table.addCell(paddedPhraseCell(nullToEmpty(item.getCategory()), value));
+                    table.addCell(paddedPhraseCell(String.valueOf(qty), value));
+                    table.addCell(paddedPhraseCell(reorder > 0 ? String.valueOf(reorder) : "—", value));
+                    table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(price), value));
+                    table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(lineValue), value));
+                    table.addCell(paddedPhraseCell(inventoryStockStatus(qty, reorder), value));
+                }
+                document.add(table);
+            }
+
+            document.close();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to generate inventory PDF", e);
+        }
+    }
+
+    private static boolean isInventoryService(InventoryItem item) {
+        return item != null && item.getCategory() != null
+                && "SERVICE".equalsIgnoreCase(item.getCategory().trim());
+    }
+
+    private static String inventoryStockStatus(int qty, int reorder) {
+        if (qty <= 0) {
+            return "Out of stock";
+        }
+        if (reorder > 0 && qty <= reorder) {
+            return "Low stock";
+        }
+        return "In stock";
     }
 
     private void addPaymentRow(PdfPTable table, Font value, String method, BigDecimal amt, BigDecimal denom) {

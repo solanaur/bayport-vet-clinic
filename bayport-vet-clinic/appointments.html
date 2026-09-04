@@ -625,22 +625,33 @@
       }
     }
 
+    function isAssignedVet(a) {
+      if (role !== "vet") return false;
+      if (
+        typeof window.isAssignedVetForAppointment === "function" &&
+        window.isAssignedVetForAppointment(a.vet)
+      ) {
+        return true;
+      }
+      // API queue is already scoped to this vet on the server (covers legacy name mismatches).
+      return !!window.USE_API;
+    }
+
     function showRowMenu(anchorBtn, a) {
       const rect = anchorBtn.getBoundingClientRect();
       const cat = statusCategory(a.status);
-      const user = (typeof window.getUserName === "function" ? window.getUserName() : "") || "";
-      const vetMatch = (a.vet || "") === user;
+      const assignedVet = isAssignedVet(a);
       const fo = typeof window.isFrontOffice === "function" && window.isFrontOffice(role);
       const items = [];
 
       if (cat === "inConsultation" && canManage && !fo) {
         items.push({ label: "View Consultation", action: () => openConsultationPage(a.id, a.petId) });
       }
-      if (cat === "inConsultation" && (role === "admin" || (role === "vet" && vetMatch))) {
+      if (cat === "inConsultation" && (role === "admin" || assignedVet)) {
         items.push({ label: "Mark completed", action: () => doDone(a.id) });
       }
-      if (cat === "waiting" && (role === "admin" || (role === "vet" && vetMatch))) {
-        items.push({ label: "Approve / Start consultation", action: () => doApprove(a.id) });
+      if (cat === "waiting" && (role === "admin" || assignedVet)) {
+        items.push({ label: "Accept & start consultation", action: () => doApprove(a.id) });
       }
 
       if (canManage && cat !== "completed" && cat !== "cancelled") {
@@ -678,8 +689,13 @@
     }
 
     async function doApprove(id) {
+      const a = enriched.find((x) => x.id === id);
       try {
         await repoApproveAppt(id);
+        if (a?.petId != null) {
+          openConsultationPage(id, a.petId);
+          return;
+        }
         await loadQueueData();
       } catch (e) {
         alert(e.message || "Approve failed");

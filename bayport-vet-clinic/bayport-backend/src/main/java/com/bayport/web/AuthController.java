@@ -224,6 +224,7 @@ public class AuthController {
         return Map.of(
                 "id", user.getId(),
                 "name", user.getFullName() != null ? user.getFullName() : user.getName(),
+                "recordName", user.getName() != null ? user.getName() : (user.getFullName() != null ? user.getFullName() : ""),
                 "role", role,
                 "username", user.getUsername(),
                 "email", user.getEmail() != null ? user.getEmail() : "",

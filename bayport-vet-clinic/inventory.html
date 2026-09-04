@@ -27,7 +27,11 @@
           <div>
             <h1 class="bp-page-title tracking-tight">Inventory</h1>
           </div>
-          <button type="button" id="addBtn" class="bp-btn-primary shrink-0 px-4 py-2 text-sm font-semibold">Add item</button>
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button type="button" id="exportCsvBtn" class="bp-btn-secondary px-4 py-2 text-sm font-semibold">Export CSV</button>
+            <button type="button" id="exportPdfBtn" class="bp-btn-secondary px-4 py-2 text-sm font-semibold">Export PDF</button>
+            <button type="button" id="addBtn" class="bp-btn-primary px-4 py-2 text-sm font-semibold">Add item</button>
+          </div>
         </div>
 
         <div id="lowStockPanel" class="hidden rounded-lg border bp-panel-tint-yellow overflow-hidden">
@@ -112,6 +116,103 @@
 
     function escapeHtml(s) {
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+    }
+
+    function stockStatusText(i) {
+      if (isService(i)) return "N/A";
+      const q = Number(i.quantity) || 0;
+      const r = Number(i.reorderLevel);
+      if (q <= 0) return "Out of stock";
+      if (!Number.isNaN(r) && r != null && q <= r) return "Low stock";
+      return "In stock";
+    }
+
+    function csvEscape(value) {
+      const raw = value == null ? "" : String(value);
+      return `"${raw.replace(/"/g, '""')}"`;
+    }
+
+    function downloadCsv(filename, rows) {
+      const content = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+      const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    }
+
+    function exportInventoryCsv() {
+      const items = filteredList();
+      if (!items.length) {
+        alert(allItems.length ? "No items match your current filters." : "Nothing to export yet.");
+        return;
+      }
+
+      const tabLabel = invTab === "services" ? "Services" : "Products";
+      const today = new Date().toISOString().slice(0, 10);
+      const search = (invSearch.value || "").trim();
+      const rows = [
+        ["Bayport Veterinary Clinic — inventory export"],
+        ["Type", tabLabel],
+        ["Exported", new Date().toLocaleString("en-PH")],
+        ...(search ? [["Search filter", search]] : []),
+        [],
+      ];
+
+      if (invTab === "services") {
+        rows.push(["SKU", "Name", "Category", "Unit Price (PHP)"]);
+        items.forEach((i) => {
+          rows.push([i.sku || "", i.name || "", i.category || "", money(i.unitPrice)]);
+        });
+      } else {
+        rows.push(["SKU", "Name", "Category", "Quantity", "Reorder Level", "Unit", "Unit Price (PHP)", "Stock Value (PHP)", "Status"]);
+        items.forEach((i) => {
+          const qty = Number(i.quantity) || 0;
+          const price = Number(i.unitPrice) || 0;
+          rows.push([
+            i.sku || "",
+            i.name || "",
+            i.category || "",
+            qty,
+            i.reorderLevel ?? "",
+            i.unit || "pc",
+            money(price),
+            money(qty * price),
+            stockStatusText(i),
+          ]);
+        });
+      }
+
+      const suffix = search ? "_filtered" : "";
+      downloadCsv(`Bayport_Inventory_${tabLabel}_${today}${suffix}.csv`, rows);
+    }
+
+    async function exportInventoryPdf() {
+      if (!filteredList().length) {
+        alert(allItems.length ? "No items match your current filters." : "Nothing to export yet.");
+        return;
+      }
+      const search = (invSearch.value || "").trim();
+      const preparedBy =
+        localStorage.getItem("userDisplayName") ||
+        localStorage.getItem("username") ||
+        "Staff";
+      const exportBtn = document.getElementById("exportPdfBtn");
+      const original = exportBtn.textContent;
+      exportBtn.disabled = true;
+      exportBtn.textContent = "Exporting…";
+      try {
+        await Api.inventory.downloadPdf(invTab, search, preparedBy);
+      } catch (e) {
+        alert(e.message || "Could not export PDF.");
+      } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = original;
+      }
     }
 
     function lowStockItems() {
@@ -418,6 +519,8 @@
     }
 
     document.getElementById('addBtn').onclick = () => openForm(null);
+    document.getElementById('exportCsvBtn').onclick = exportInventoryCsv;
+    document.getElementById('exportPdfBtn').onclick = exportInventoryPdf;
     document.getElementById('invTabProducts').onclick = () => setInvTab('products');
     document.getElementById('invTabServices').onclick = () => setInvTab('services');
     invSearch.addEventListener('input', () => render());
