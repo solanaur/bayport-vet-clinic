@@ -9,6 +9,9 @@ dist/
 build/
 out/
 
+# Netlify CLI local link state
+.netlify/
+
 # Bundled JRE / Electron build output (regenerate locally; do not commit)
 bayport-vet-clinic/desktop-shell/runtime/
 bayport-vet-clinic/desktop-shell/dist/

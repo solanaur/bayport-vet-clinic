@@ -332,11 +332,11 @@ public class EmailService {
         String lowerMsg = msg.toLowerCase();
         
         // Check for common error patterns
-        if (lowerMsg.contains("authentication failed") || lowerMsg.contains("535") || 
-            lowerMsg.contains("invalid login") || lowerMsg.contains("login failed")) {
-            return "Email authentication failed. Please verify your Gmail app password in application.properties. " +
-                   "Make sure you're using an app-specific password (not your regular Gmail password). " +
-                   "Generate one at: https://myaccount.google.com/apppasswords";
+        if (lowerMsg.contains("authentication failed") || lowerMsg.contains("535")
+                || lowerMsg.contains("534") || lowerMsg.contains("application-specific password")
+                || lowerMsg.contains("invalid login") || lowerMsg.contains("login failed")) {
+            return "Gmail rejected the SMTP password. Use a 16-character App Password (not the normal Gmail password) "
+                    + "in data/mail.env as SPRING_MAIL_PASSWORD, then restart. Create one at https://myaccount.google.com/apppasswords";
         }
         if (lowerMsg.contains("connection") || lowerMsg.contains("could not connect") || lowerMsg.contains("timed out")) {
             return "Cannot reach Gmail SMTP from this server. On Render FREE tier, SMTP is blocked — use Resend: "

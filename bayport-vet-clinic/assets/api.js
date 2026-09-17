@@ -33,7 +33,33 @@ window.normalizeApiBase = function normalizeApiBase(url) {
   return base;
 };
 
+function getSameOriginApiBase() {
+  try {
+    return `${window.location.origin.replace(/\/+$/, "")}/api`;
+  } catch (_) {
+    return "";
+  }
+}
+
+window.isStaticHostedSite = function isStaticHostedSite() {
+  if (window.BAYPORT_USE_SAME_ORIGIN_API) return true;
+  try {
+    const h = (window.location.hostname || "").toLowerCase();
+    if (h.includes("netlify.app") || h.includes("vercel.app")) return true;
+  } catch (_) {}
+  return false;
+};
+
 function readStoredApiBase() {
+  if (window.isStaticHostedSite && window.isStaticHostedSite()) {
+    const sameOrigin = getSameOriginApiBase();
+    if (sameOrigin) {
+      try {
+        localStorage.setItem(API_BASE_STORAGE_KEY, sameOrigin);
+      } catch (_) {}
+      return sameOrigin;
+    }
+  }
   const raw = (window.BAYPORT_API_BASE || localStorage.getItem(API_BASE_STORAGE_KEY) || "").trim();
   if (!raw) return "";
   if (!window.isValidApiBase(raw)) {
@@ -95,6 +121,10 @@ window.resolveApiBase = function resolveApiBase() {
   if (localDefault) return localDefault;
 
   if (typeof window !== "undefined") {
+    if (window.isStaticHostedSite && window.isStaticHostedSite()) {
+      const sameOrigin = getSameOriginApiBase();
+      if (sameOrigin) return sameOrigin;
+    }
     const pageHost = (window.location.hostname || "").toLowerCase();
     if (pageHost.includes("netlify.app") || pageHost.includes("vercel.app")) {
       return PRODUCTION_API_DEFAULT;
@@ -109,6 +139,7 @@ const API_TIMEOUT_CLOUD = 180000;
 const API_DISABLED_ERR = "Backend integration is required. Please keep USE_API=true so the server endpoints remain reachable.";
 
 window.isHostedProductionSite = function isHostedProductionSite() {
+  if (window.isStaticHostedSite && window.isStaticHostedSite()) return true;
   try {
     const h = (window.location.hostname || "").toLowerCase();
     if (h.includes("netlify.app") || h.includes("vercel.app") || h.includes("onrender.com")) {
@@ -120,13 +151,23 @@ window.isHostedProductionSite = function isHostedProductionSite() {
 
 window.isCloudApiHost = function isCloudApiHost(base) {
   const b = String(base || window.resolveApiBase() || "").toLowerCase();
-  return (
+  if (
     b.includes("onrender.com") ||
     b.includes("netlify.app") ||
+    b.includes("/.netlify/functions/") ||
     b.includes("koyeb.app") ||
     b.includes("railway.app") ||
     b.includes("vercel.app")
-  );
+  ) {
+    return true;
+  }
+  if (window.isStaticHostedSite && window.isStaticHostedSite()) {
+    try {
+      const sameOrigin = `${window.location.origin.replace(/\/+$/, "")}/api`.toLowerCase();
+      if (b === sameOrigin) return true;
+    } catch (_) {}
+  }
+  return false;
 };
 
 window.getApiTimeout = function getApiTimeout() {

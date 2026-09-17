@@ -211,7 +211,7 @@ const LABEL = {
 const SIDEBAR_LABEL = {
   ...LABEL,
   "pet-records": "Pet profiles",
-  "manage-users": "Users & roles",
+  "manage-users": "Users & Roles",
   "billing": "Billing"
 };
 
@@ -251,7 +251,7 @@ const NAV_TOOLTIPS = {
 };
 
 /**
- * Collapsible groups — Core workflow first; operations and admin settings below.
+ * Collapsible groups — Admin nav is management-focused; clinical modules stay in CONFIG.
  */
 const _SIDEBAR_FRONT_OFFICE = [
   { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments"] },
@@ -259,10 +259,10 @@ const _SIDEBAR_FRONT_OFFICE = [
 ];
 const SIDEBAR_GROUPS = {
   admin: [
-    { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] },
-    { label: "Operations", open: true, keys: ["billing", "inventory", "reports", "reminders"] },
-    { label: "Admin", open: false, keys: ["manage-users"] },
-    { label: "Records & audit", open: false, keys: ["activity-logs", "recycle-bin"] }
+    { label: "Overview", open: true, keys: ["dashboard"] },
+    { label: "Clinic Management", open: true, keys: ["billing", "inventory", "reports"] },
+    { label: "System Administration", open: true, keys: ["manage-users"] },
+    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin"] }
   ],
   vet: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] }

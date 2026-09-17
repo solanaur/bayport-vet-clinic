@@ -8,7 +8,7 @@
     "dev": "node scripts/start-desktop.js",
     "check": "npx electron --version",
     "build-backend": "node scripts/mvnw.js clean package -DskipTests",
-    "build-runtime": "node scripts/clean-runtime.js && jlink --no-header-files --no-man-pages --strip-debug --compress=2 --add-modules java.se,jdk.unsupported --output runtime",
+    "build-runtime": "node scripts/clean-runtime.js && jlink --no-header-files --no-man-pages --strip-debug --compress=2 --add-modules java.se,jdk.unsupported,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.management --output runtime",
     "prepackage": "npm run build-backend && npm run build-runtime",
     "package": "electron-builder",
     "dist": "npm run package",
@@ -30,7 +30,7 @@
     "electron-log": "^5.4.3"
   },
   "devDependencies": {
-    "electron": "^31.2.1",
+    "electron": "^32.3.3",
     "electron-builder": "^24.13.3"
   },
   "build": {
@@ -50,12 +50,16 @@
       {
         "from": "../assets",
         "to": "assets",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "..",
         "to": ".",
-        "filter": ["*.html"]
+        "filter": [
+          "*.html"
+        ]
       },
       {
         "from": "../bayport-backend/target/bayport-backend-0.0.1-SNAPSHOT.jar",
@@ -64,19 +68,25 @@
       {
         "from": "runtime",
         "to": "runtime",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "extraResources": [
       {
         "from": "../assets",
         "to": "assets",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "runtime",
         "to": "runtime",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "directories": {
@@ -137,5 +147,8 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     }
+  },
+  "allowScripts": {
+    "electron@32.3.3": true
   }
 }

@@ -16,7 +16,7 @@ import java.util.Properties;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "spring.mail.username")
+@ConditionalOnProperty(name = "spring.mail.username", matchIfMissing = false)
 public class MailConfig {
 
     /** Gmail SMTP host — never use the clinic email address as the host. */

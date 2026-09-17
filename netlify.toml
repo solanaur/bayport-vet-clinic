@@ -2,15 +2,25 @@
 # Netlify site env → BAYPORT_API_BASE=https://YOUR-APP.onrender.com/api
 
 [build]
-  base = "bayport-vet-clinic"
-  command = "node scripts/write-deploy-env.js"
-  publish = "."
+  command = "node bayport-vet-clinic/scripts/write-deploy-env.js"
+  publish = "bayport-vet-clinic"
 
 [build.environment]
   NODE_VERSION = "20"
 
 [functions]
-  directory = "netlify/functions"
+  directory = "bayport-vet-clinic/netlify/functions"
+  node_bundler = "esbuild"
+
+[functions."api-proxy"]
+  timeout = 26
+
+# Same-origin API — browser calls /api/* on Netlify; function forwards to Render.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api-proxy/:splat"
+  status = 200
+  force = true
 
 # Enforce HTTPS and basic security headers (site is already on TLS via Netlify).
 [[redirects]]

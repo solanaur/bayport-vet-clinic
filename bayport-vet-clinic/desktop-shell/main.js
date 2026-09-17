@@ -354,21 +354,32 @@ if (!fs.existsSync(DATA_DIR)) {
 
 function resolveJavaExecutable() {
   const javaCommand = process.platform === 'win32' ? 'java.exe' : 'java';
-  
-  // First, try embedded Java runtime
+
+  // In local/dev, prefer a full JDK (JAVA_HOME / PATH). The bundled jlink runtime
+  // historically omitted jdk.crypto.ec, which breaks Gmail SMTP TLS handshakes.
+  if (isDev) {
+    if (process.env.JAVA_HOME) {
+      const javaHomeExec = path.join(process.env.JAVA_HOME, 'bin', javaCommand);
+      if (fs.existsSync(javaHomeExec)) {
+        log.info('Using JAVA_HOME (dev):', javaHomeExec);
+        return javaHomeExec;
+      }
+    }
+    log.info('Using system Java (dev):', javaCommand);
+    return javaCommand;
+  }
+
+  // Packaged app: prefer embedded runtime (must include jdk.crypto.ec — see build-runtime)
   const embeddedJava = path.join(EMBEDDED_JAVA_DIR, 'bin', javaCommand);
   if (fs.existsSync(embeddedJava)) {
     log.info('Using embedded Java runtime:', embeddedJava);
     return embeddedJava;
   }
-  
-  // Log that embedded Java wasn't found
+
   log.warn('Embedded Java not found at:', embeddedJava);
   log.warn('EMBEDDED_JAVA_DIR:', EMBEDDED_JAVA_DIR);
-  log.warn('Checking alternative locations...');
-  
-  // On macOS, also check Contents/Resources/runtime
-  if (process.platform === 'darwin' && !isDev) {
+
+  if (process.platform === 'darwin') {
     const altPaths = [
       path.join(process.resourcesPath, 'runtime', 'bin', javaCommand),
       path.join(path.dirname(process.execPath), '..', 'Resources', 'runtime', 'bin', javaCommand),
@@ -382,7 +393,6 @@ function resolveJavaExecutable() {
     }
   }
 
-  // Fallback to JAVA_HOME
   if (process.env.JAVA_HOME) {
     const javaHomeExec = path.join(process.env.JAVA_HOME, 'bin', javaCommand);
     if (fs.existsSync(javaHomeExec)) {
@@ -391,7 +401,6 @@ function resolveJavaExecutable() {
     }
   }
 
-  // Last resort: use system Java (if in PATH)
   log.warn('Using system Java (may not be available):', javaCommand);
   return javaCommand;
 }
