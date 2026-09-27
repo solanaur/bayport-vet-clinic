@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Bayport ERD — Single Landscape</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    @page { size: 420mm 297mm; margin: 8mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 12px;
+      background: #dde4ee;
+      font-family: "Segoe UI", system-ui, sans-serif;
+    }
+    .toolbar {
+      max-width: 1400px;
+      margin: 0 auto 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .toolbar button {
+      background: #0057b8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.92rem;
+      cursor: pointer;
+    }
+    .toolbar button.secondary {
+      background: #fff;
+      color: #0057b8;
+      border: 1px solid #0057b8;
+    }
+    .toolbar span { color: #445; font-size: 0.88rem; }
+
+    /* One landscape canvas — all 6 diagrams inside */
+    #erd-canvas {
+      width: 1400px;
+      max-width: 100%;
+      margin: 0 auto;
+      background: #fff;
+      border: 1px solid #c5d3e3;
+      border-radius: 10px;
+      padding: 14px 16px 18px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.08);
+    }
+    .title-bar {
+      text-align: center;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 3px solid #0057b8;
+    }
+    .title-bar h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      color: #003d80;
+    }
+    .title-bar p {
+      margin: 4px 0 0;
+      font-size: 0.78rem;
+      color: #556;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 10px;
+    }
+    .cell {
+      border: 1px solid #d8e2ef;
+      border-radius: 8px;
+      padding: 6px 8px 4px;
+      background: #fafcff;
+      min-width: 0;
+    }
+    .cell h2 {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #0057b8;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+    .cell .diagram-wrap {
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+    .cell .mermaid { font-size: 8px; line-height: 1.1; }
+    .cell svg { max-width: 100% !important; height: auto !important; }
+
+    @media print {
+      body { background: #fff; padding: 0; }
+      .toolbar { display: none; }
+      #erd-canvas {
+        width: 100%;
+        max-width: none;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" id="btnPng">Download PNG (one image)</button>
+    <button type="button" class="secondary" onclick="window.print()">Print / PDF</button>
+    <span>Landscape · all tables on one page · use A3 or Fit to page when printing</span>
+  </div>
+
+  <div id="erd-canvas">
+    <div class="title-bar">
+      <h1>Bayport Veterinary Clinic — Database ERD</h1>
+      <p>PostgreSQL (Supabase) · schema: public · Bayport VCMS</p>
+    </div>
+
+    <div class="grid">
+      <div class="cell">
+        <h2>1 · Auth</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    users ||--o{ user_roles : has
+    roles ||--o{ user_roles : grants
+    users ||--o{ mfa_code : receives
+    users { bigint id PK varchar username boolean active }
+    roles { bigint id PK varchar name }
+    user_roles { bigint user_id FK bigint role_id FK }
+    mfa_code { bigint id PK bigint user_id FK varchar code }
+        </pre></div>
+      </div>
+
+      <div class="cell">
+        <h2>2 · Clients &amp; pets</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    owners ||--o{ pets : owns
+    pets ||--o{ pet_medical_records : history
+    pets ||--o{ reminder : has
+    owners { bigint id PK varchar full_name varchar phone }
+    pets { bigint id PK bigint owner_id FK varchar name varchar species }
+    pet_medical_records { bigint id PK bigint pet_id FK varchar record_type }
+    reminder { bigint id PK bigint pet_id FK bigint owner_id FK date date }
+        </pre></div>
+      </div>
+
+      <div class="cell">
+        <h2>3 · Clinical</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    pets ||--o{ appointments : schedules
+    pets ||--o{ procedures : receives
+    pets ||--o{ prescriptions : rx
+    procedures ||--o{ procedure_medications : uses
+    medications ||--o{ procedure_medications : in
+    pets { bigint id PK }
+    appointments { bigint id PK bigint pet_id FK date date varchar vet }
+    procedures { bigint id PK bigint pet_id FK varchar procedure_name }
+    prescriptions { bigint id PK bigint pet_id FK varchar drug boolean dispensed }
+    procedure_medications { bigint id PK bigint procedure_id FK bigint medication_id FK }
+    medications { bigint id PK varchar name }
+        </pre></div>
+      </div>
+
+      <div class="cell">
+        <h2>4 · Billing</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    pets ||--o{ billing_records : billed
+    billing_records ||--o{ sales : generates
+    sales ||--o{ sale_lines : contains
+    pets { bigint id PK }
+    billing_records { bigint id PK bigint pet_id FK decimal amount varchar status }
+    sales { bigint id PK bigint billing_id FK decimal amount }
+    sale_lines { bigint id PK bigint sale_id FK varchar item_name decimal amount }
+        </pre></div>
+      </div>
+
+      <div class="cell">
+        <h2>5 · Inventory &amp; notifications</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    inventory_items { bigint id PK varchar name varchar category int quantity decimal price }
+    notifications { bigint id PK varchar title text message boolean is_read }
+    email_templates { bigint id PK varchar name varchar subject }
+        </pre></div>
+      </div>
+
+      <div class="cell">
+        <h2>6 · Audit logs</h2>
+        <div class="diagram-wrap"><pre class="mermaid">
+erDiagram
+    audit_log { bigint id PK varchar action varchar entity_type bigint entity_id }
+    data_access_log { bigint id PK bigint user_id varchar resource }
+    operation_logs { bigint id PK bigint user_id varchar operation text details }
+    print_jobs { bigint id PK varchar job_type varchar status }
+        </pre></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      er: { useMaxWidth: true, diagramPadding: 4 },
+      securityLevel: "loose",
+    });
+
+    document.getElementById("btnPng").addEventListener("click", async () => {
+      const btn = document.getElementById("btnPng");
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+      try {
+        await new Promise((r) => setTimeout(r, 800));
+        const canvas = await html2canvas(document.getElementById("erd-canvas"), {
+          backgroundColor: "#ffffff",
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        });
+        const link = document.createElement("a");
+        link.download = "bayport-erd-landscape.png";
+        link.href = canvas.toDataURL("image/png");
+        link.click();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Download PNG (one image)";
+      }
+    });
+  </script>
+</body>
+</html>

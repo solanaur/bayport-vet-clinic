@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Bayport Database ERD — Classic Landscape</title>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <style>
+    @page { size: A3 landscape; margin: 5mm; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 10px; background: #b8bcc4; font-family: Arial, Helvetica, sans-serif; }
+    .toolbar {
+      max-width: 100%; margin: 0 auto 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .toolbar button {
+      background: #333; color: #fff; border: none; border-radius: 4px; padding: 8px 14px; cursor: pointer; font-size: 13px;
+    }
+    .toolbar button.secondary { background: #fff; color: #333; border: 1px solid #666; }
+    .toolbar span { font-size: 12px; color: #222; }
+    #canvas-wrap {
+      overflow: auto; max-width: 100%; margin: 0 auto;
+      border: 1px solid #888; background: #c8ccd2; box-shadow: 0 2px 14px rgba(0,0,0,.18);
+    }
+    #erd-canvas { position: relative; background: #c8ccd2; }
+    #lines { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+    .zone-label {
+      position: absolute;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #666;
+      background: rgba(255,255,255,.55);
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid #aaa;
+    }
+    .title-banner {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: 12px;
+      background: #3d3d3d;
+      color: #fff;
+      padding: 8px 28px;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 4px;
+      white-space: nowrap;
+      z-index: 2;
+    }
+    .tbl {
+      position: absolute;
+      width: 208px;
+      border: 1px solid #555;
+      background: #fff;
+      font-size: 10.5px;
+      box-shadow: 1px 2px 4px rgba(0,0,0,.12);
+      z-index: 1;
+    }
+    .tbl-name {
+      background: #4a4a4a; color: #fff; font-weight: 700;
+      padding: 5px 8px; font-size: 10.5px; border-bottom: 1px solid #333;
+    }
+    .tbl-pk {
+      background: #b5d4a5; border-bottom: 1px solid #777;
+      padding: 4px 8px; display: flex; align-items: center; gap: 5px; font-weight: 600;
+    }
+    .key-icon { width: 13px; height: 13px; flex-shrink: 0; }
+    .tbl-row {
+      padding: 3px 7px; border-bottom: 1px solid #e0e0e0;
+      display: flex; gap: 4px; align-items: baseline; min-height: 20px;
+    }
+    .tbl-row:last-child { border-bottom: none; }
+    .fk-tag { color: #1b5e20; font-weight: 700; font-size: 9.5px; width: 30px; flex-shrink: 0; }
+    .fk-tag.blank { visibility: hidden; }
+    .field-name { color: #111; word-break: break-word; }
+    @media print { body { padding: 0; } .toolbar { display: none; } #canvas-wrap { border: none; box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" id="btnPng">Download PNG</button>
+    <button type="button" class="secondary" onclick="window.print()">Print / PDF</button>
+    <span>Aligned classic ERD · Bayport VCMS · Supabase public schema</span>
+  </div>
+  <div id="canvas-wrap">
+    <div id="erd-canvas">
+      <svg id="lines"></svg>
+    </div>
+  </div>
+
+  <script>
+    const KEY_SVG = `<svg class="key-icon" viewBox="0 0 24 24" fill="none"><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#333" stroke-width="2"/><rect x="5" y="11" width="14" height="10" rx="2" stroke="#333" stroke-width="2"/><circle cx="12" cy="16" r="1.5" fill="#333"/></svg>`;
+
+    const TW = 208, HH = 27, PKH = 27, RH = 20;
+    const canvas = document.getElementById("erd-canvas");
+
+    function h(fields) { return HH + PKH + fields.length * RH + 2; }
+
+    // Grid columns (x) and rows (y) — aligned layout
+    const X = { c1: 40, c2: 290, c3: 540, c4: 790, c5: 1040, c6: 1290, c7: 1540, c8: 1790, c9: 2040, c10: 2290 };
+    const Y = { r1: 70, r2: 310, r3: 560, r4: 810 };
+
+    const tables = [
+      // ── AUTH (left) ──
+      { id: "roles", name: "roles", x: X.c1, y: Y.r1, pk: "id", fields: [{ n: "name" }] },
+      { id: "users", name: "users", x: X.c1, y: Y.r2, pk: "id", fields: [
+        { n: "username" }, { n: "password" }, { n: "full_name" }, { n: "email" }, { n: "role" }, { n: "active" }
+      ]},
+      { id: "mfa_code", name: "mfa_code", x: X.c1, y: Y.r3, pk: "id", fields: [
+        { n: "user_id", fk: "FK1" }, { n: "code" }, { n: "expires_at" }
+      ]},
+      { id: "user_roles", name: "user_roles", x: X.c2, y: Y.r2, pk: "user_id", fields: [
+        { n: "user_id", fk: "FK1" }, { n: "role_id", fk: "FK2" }
+      ]},
+      { id: "doctors", name: "doctors", x: X.c2, y: Y.r1, pk: "id", fields: [{ n: "name" }, { n: "license_no" }] },
+
+      // ── CLIENTS (center-left) ──
+      { id: "owners", name: "owners", x: X.c3, y: Y.r1, pk: "id", fields: [
+        { n: "full_name" }, { n: "phone" }, { n: "email" }, { n: "address" }
+      ]},
+      { id: "pets", name: "pets", x: X.c3, y: Y.r2, pk: "id", fields: [
+        { n: "owner_id", fk: "FK1" }, { n: "name" }, { n: "species" }, { n: "breed" },
+        { n: "microchip" }, { n: "date_of_birth" }, { n: "deleted" }
+      ]},
+      { id: "pet_medical_records", name: "pet_medical_records", x: X.c4, y: Y.r1, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "record_type" }, { n: "record_date" }, { n: "title" }
+      ]},
+      { id: "reminder", name: "reminder", x: X.c4, y: Y.r2, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "owner_id", fk: "FK2" }, { n: "date" }, { n: "message" }, { n: "sent" }
+      ]},
+
+      // ── CLINICAL (center) ──
+      { id: "appointments", name: "appointments", x: X.c3, y: Y.r4, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "date" }, { n: "time" }, { n: "vet" }, { n: "status" }
+      ]},
+      { id: "procedures", name: "procedures", x: X.c4, y: Y.r4, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "procedure_date" }, { n: "procedure_name" }, { n: "vet" }, { n: "cost" }
+      ]},
+      { id: "prescriptions", name: "prescriptions", x: X.c5, y: Y.r4, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "drug" }, { n: "dosage" }, { n: "prescriber" }, { n: "dispensed" }
+      ]},
+      { id: "procedure_medications", name: "procedure_medications", x: X.c5, y: Y.r3, pk: "id", fields: [
+        { n: "procedure_id", fk: "FK1" }, { n: "medication_id", fk: "FK2" }
+      ]},
+      { id: "medications", name: "medications", x: X.c6, y: Y.r3, pk: "id", fields: [
+        { n: "name" }, { n: "dosage" }, { n: "category" }
+      ]},
+
+      // ── BILLING (right, same row) ──
+      { id: "billing_records", name: "billing_records", x: X.c7, y: Y.r2, pk: "id", fields: [
+        { n: "pet_id", fk: "FK1" }, { n: "owner_id", fk: "FK2" }, { n: "amount" }, { n: "status" }
+      ]},
+      { id: "sales", name: "sales", x: X.c8, y: Y.r2, pk: "id", fields: [
+        { n: "billing_id", fk: "FK1" }, { n: "pet_id", fk: "FK2" }, { n: "amount" }, { n: "occurred_at" }
+      ]},
+      { id: "sale_lines", name: "sale_lines", x: X.c9, y: Y.r2, pk: "id", fields: [
+        { n: "sale_id", fk: "FK1" }, { n: "line_kind" }, { n: "item_name" }, { n: "amount" }
+      ]},
+
+      // ── OPS & AUDIT (right bottom, aligned row) ──
+      { id: "inventory_items", name: "inventory_items", x: X.c7, y: Y.r4, pk: "id", fields: [
+        { n: "name" }, { n: "category" }, { n: "quantity" }, { n: "price" }
+      ]},
+      { id: "notifications", name: "notifications", x: X.c8, y: Y.r4, pk: "id", fields: [
+        { n: "title" }, { n: "message" }, { n: "is_read" }
+      ]},
+      { id: "audit_log", name: "audit_log", x: X.c9, y: Y.r4, pk: "id", fields: [
+        { n: "action" }, { n: "entity_type" }, { n: "entity_id" }, { n: "created_at" }
+      ]},
+      { id: "data_access_log", name: "data_access_log", x: X.c10, y: Y.r3, pk: "id", fields: [
+        { n: "user_id", fk: "FK1" }, { n: "resource" }, { n: "accessed_at" }
+      ]},
+      { id: "operation_logs", name: "operation_logs", x: X.c10, y: Y.r4, pk: "id", fields: [
+        { n: "user_id", fk: "FK1" }, { n: "operation" }, { n: "details" }
+      ]},
+    ];
+
+    const zones = [
+      { label: "Authentication", x: X.c1 - 10, y: 42, w: 480, h: 820 },
+      { label: "Clients & Pets", x: X.c3 - 10, y: 42, w: 510, h: 460 },
+      { label: "Clinical", x: X.c3 - 10, y: 520, w: 770, h: 420 },
+      { label: "Billing & Sales", x: X.c7 - 10, y: 250, w: 780, h: 200 },
+      { label: "Inventory & Audit", x: X.c7 - 10, y: 520, w: 1030, h: 420 },
+    ];
+
+    const relations = [
+      { from: "roles", to: "user_roles", fromSide: "right", toSide: "left", fromOff: 0, toOff: -8 },
+      { from: "users", to: "user_roles", fromSide: "right", toSide: "left", fromOff: 0, toOff: 8 },
+      { from: "users", to: "mfa_code", fromSide: "bottom", toSide: "top", fromOff: 0, toOff: 0 },
+      { from: "users", to: "data_access_log", fromSide: "right", toSide: "left", fromOff: -20, toOff: 0 },
+      { from: "users", to: "operation_logs", fromSide: "right", toSide: "left", fromOff: 20, toOff: 0 },
+      { from: "owners", to: "pets", fromSide: "bottom", toSide: "top", fromOff: 0, toOff: 0 },
+      { from: "owners", to: "reminder", fromSide: "right", toSide: "left", fromOff: 10, toOff: -10 },
+      { from: "owners", to: "billing_records", fromSide: "right", toSide: "left", fromOff: -10, toOff: -10 },
+      { from: "pets", to: "pet_medical_records", fromSide: "right", toSide: "left", fromOff: -30, toOff: 0 },
+      { from: "pets", to: "reminder", fromSide: "right", toSide: "left", fromOff: 0, toOff: 10 },
+      { from: "pets", to: "appointments", fromSide: "bottom", toSide: "top", fromOff: -30, toOff: 0 },
+      { from: "pets", to: "procedures", fromSide: "right", toSide: "left", fromOff: 10, toOff: 0 },
+      { from: "pets", to: "prescriptions", fromSide: "right", toSide: "left", fromOff: 30, toOff: 0 },
+      { from: "pets", to: "billing_records", fromSide: "right", toSide: "left", fromOff: -10, toOff: 10 },
+      { from: "procedures", to: "procedure_medications", fromSide: "top", toSide: "bottom", fromOff: 0, toOff: 0 },
+      { from: "medications", to: "procedure_medications", fromSide: "left", toSide: "right", fromOff: 0, toOff: 0 },
+      { from: "billing_records", to: "sales", fromSide: "right", toSide: "left", fromOff: 0, toOff: 0 },
+      { from: "sales", to: "sale_lines", fromSide: "right", toSide: "left", fromOff: 0, toOff: 0 },
+    ];
+
+    const tmap = Object.fromEntries(tables.map((t) => [t.id, t]));
+
+    function anchor(id, side, offset = 0) {
+      const t = tmap[id];
+      const th = h(t.fields);
+      const cx = t.x + TW / 2;
+      const cy = t.y + th / 2 + offset;
+      if (side === "left") return [t.x, cy];
+      if (side === "right") return [t.x + TW, cy];
+      if (side === "top") return [cx + offset, t.y];
+      return [cx + offset, t.y + th];
+    }
+
+    function orthPath(x1, y1, x2, y2, fromSide, toSide) {
+      const pad = 18;
+      if (fromSide === "right" && toSide === "left") {
+        const mx = (x1 + x2) / 2;
+        return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+      }
+      if (fromSide === "bottom" && toSide === "top") {
+        const my = (y1 + y2) / 2;
+        return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
+      }
+      if (fromSide === "top" && toSide === "bottom") {
+        const my = (y1 + y2) / 2;
+        return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
+      }
+      if (fromSide === "left" && toSide === "right") {
+        const mx = (x1 + x2) / 2;
+        return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+      }
+      const mx = (x1 + x2) / 2;
+      return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+    }
+
+    function oneMark(x, y, side) {
+      const s = 7;
+      if (side === "right" || side === "left") return `M${x},${y - s} L${x},${y + s}`;
+      return `M${x - s},${y} L${x + s},${y}`;
+    }
+
+    function crowFoot(x, y, side) {
+      const s = 9;
+      if (side === "left") return `M${x},${y} L${x + s},${y - s} M${x},${y} L${x + s},${y + s} M${x},${y} L${x + s},${y}`;
+      if (side === "right") return `M${x},${y} L${x - s},${y - s} M${x},${y} L${x - s},${y + s} M${x},${y} L${x - s},${y}`;
+      if (side === "top") return `M${x},${y} L${x - s},${y + s} M${x},${y} L${x + s},${y + s} M${x},${y} L${x},${y + s}`;
+      return `M${x},${y} L${x - s},${y - s} M${x},${y} L${x + s},${y - s} M${x},${y} L${x},${y - s}`;
+    }
+
+    const opposite = { left: "right", right: "left", top: "bottom", bottom: "top" };
+
+    function renderZones() {
+      zones.forEach((z) => {
+        const box = document.createElement("div");
+        box.style.cssText = `position:absolute;left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;border:1px dashed #999;border-radius:6px;background:rgba(255,255,255,.12);`;
+        canvas.appendChild(box);
+        const lbl = document.createElement("div");
+        lbl.className = "zone-label";
+        lbl.style.left = z.x + 8 + "px";
+        lbl.style.top = z.y + 6 + "px";
+        lbl.textContent = z.label;
+        canvas.appendChild(lbl);
+      });
+      const title = document.createElement("div");
+      title.className = "title-banner";
+      title.textContent = "Bayport Veterinary Clinic — Database ERD (public schema)";
+      canvas.appendChild(title);
+    }
+
+    function renderTables() {
+      tables.forEach((t) => {
+        const el = document.createElement("div");
+        el.className = "tbl";
+        el.style.left = t.x + "px";
+        el.style.top = t.y + "px";
+        let html = `<div class="tbl-name">${t.name}</div>`;
+        html += `<div class="tbl-pk">${KEY_SVG}<span>PK: ${t.pk}</span></div>`;
+        t.fields.forEach((f) => {
+          html += `<div class="tbl-row"><span class="fk-tag ${f.fk ? "" : "blank"}">${f.fk || "FK"}:</span><span class="field-name">${f.n}</span></div>`;
+        });
+        el.innerHTML = html;
+        canvas.appendChild(el);
+      });
+    }
+
+    function renderLines() {
+      const svg = document.getElementById("lines");
+      let out = "";
+      relations.forEach((r) => {
+        const [x1, y1] = anchor(r.from, r.fromSide, r.fromOff || 0);
+        const [x2, y2] = anchor(r.to, r.toSide, r.toOff || 0);
+        const d = orthPath(x1, y1, x2, y2, r.fromSide, r.toSide);
+        out += `<path d="${d}" fill="none" stroke="#444" stroke-width="1.15" stroke-dasharray="5,4"/>`;
+        out += `<path d="${oneMark(x1, y1, r.fromSide)}" stroke="#444" stroke-width="1.4" fill="none"/>`;
+        out += `<path d="${crowFoot(x2, y2, opposite[r.toSide])}" stroke="#444" stroke-width="1.4" fill="none"/>`;
+      });
+      svg.innerHTML = out;
+    }
+
+    const maxX = Math.max(...tables.map((t) => t.x + TW)) + 60;
+    const maxY = Math.max(...tables.map((t) => t.y + h(t.fields))) + 50;
+    canvas.style.width = maxX + "px";
+    canvas.style.height = maxY + "px";
+    document.getElementById("lines").setAttribute("width", maxX);
+    document.getElementById("lines").setAttribute("height", maxY);
+    document.getElementById("lines").setAttribute("viewBox", `0 0 ${maxX} ${maxY}`);
+
+    renderZones();
+    renderTables();
+    renderLines();
+
+    document.getElementById("btnPng").addEventListener("click", async () => {
+      const btn = document.getElementById("btnPng");
+      btn.disabled = true;
+      btn.textContent = "Generating…";
+      try {
+        const target = document.getElementById("erd-canvas");
+        const shot = await html2canvas(target, {
+          backgroundColor: "#c8ccd2",
+          scale: 2,
+          width: target.offsetWidth,
+          height: target.offsetHeight,
+          useCORS: true,
+          logging: false,
+        });
+        const a = document.createElement("a");
+        a.download = "bayport-erd-classic-landscape.png";
+        a.href = shot.toDataURL("image/png");
+        a.click();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Download PNG";
+      }
+    });
+  </script>
+</body>
+</html>

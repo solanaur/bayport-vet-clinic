@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Bayport Veterinary Clinic — Database ERD</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    @page { size: A3 landscape; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 16px 24px 40px;
+      background: #f4f7fb;
+      color: #1a2a3a;
+      min-width: 1100px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 6px; font-size: 1.35rem; }
+    .sub { margin: 0; color: #556; font-size: 0.92rem; max-width: 720px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; flex-shrink: 0; }
+    button {
+      background: #0057b8;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    button.secondary { background: #fff; color: #0057b8; border: 1px solid #0057b8; }
+    .stack { display: flex; flex-direction: column; gap: 18px; }
+    .panel {
+      background: #fff;
+      border: 1px solid #d8e2ef;
+      border-radius: 12px;
+      padding: 12px 16px 14px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      color: #0057b8;
+      border-bottom: 2px solid #e8f0fa;
+      padding-bottom: 6px;
+    }
+    .diagram-wrap {
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: visible;
+      padding-bottom: 4px;
+    }
+    .diagram-wrap svg {
+      max-width: none !important;
+      width: auto !important;
+      height: auto !important;
+      display: block;
+      margin: 0 auto;
+    }
+    .mermaid { font-size: 12px; }
+    .hint {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: #778;
+    }
+    footer {
+      margin-top: 18px;
+      font-size: 0.85rem;
+      color: #667;
+      line-height: 1.5;
+    }
+    @media print {
+      body { background: #fff; padding: 0; min-width: 0; }
+      .actions, .hint { display: none; }
+      .panel { page-break-after: always; border: none; border-radius: 0; padding: 0 0 12px; }
+      .panel:last-child { page-break-after: auto; }
+      .diagram-wrap { overflow: visible; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Bayport Veterinary Clinic — Entity Relationship Diagram</h1>
+      <p class="sub">
+        PostgreSQL (Supabase) · schema <strong>public</strong>.
+        Each section is on its own row so nothing is cut off. Scroll sideways on screen if needed.
+      </p>
+    </div>
+    <div class="actions">
+      <button type="button" onclick="window.print()">Print / Save as PDF</button>
+      <button type="button" class="secondary" onclick="location.reload()">Refresh</button>
+    </div>
+  </header>
+
+  <div class="stack">
+    <section class="panel">
+      <h2>1 — Authentication &amp; security</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    users ||--o{ user_roles : has
+    roles ||--o{ user_roles : grants
+    users ||--o{ mfa_code : receives
+    users { bigint id PK varchar username varchar role boolean active }
+    roles { bigint id PK varchar name }
+    user_roles { bigint user_id FK bigint role_id FK }
+    mfa_code { bigint id PK bigint user_id FK varchar code }
+        </pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>2 — Clients &amp; pets</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    owners ||--o{ pets : owns
+    pets ||--o{ pet_medical_records : history
+    pets ||--o{ reminder : has
+    owners { bigint id PK varchar full_name varchar phone varchar email }
+    pets { bigint id PK bigint owner_id FK varchar name varchar species varchar breed }
+    pet_medical_records { bigint id PK bigint pet_id FK varchar record_type date record_date }
+    reminder { bigint id PK bigint pet_id FK bigint owner_id FK date date boolean sent }
+        </pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3a — Appointments, procedures &amp; prescriptions</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    pets ||--o{ appointments : schedules
+    pets ||--o{ procedures : receives
+    pets ||--o{ prescriptions : prescribed
+    pets { bigint id PK varchar name }
+    appointments { bigint id PK bigint pet_id FK date date varchar vet varchar status }
+    procedures { bigint id PK bigint pet_id FK date procedure_date varchar procedure_name decimal cost }
+    prescriptions { bigint id PK bigint pet_id FK varchar drug varchar prescriber date date boolean dispensed }
+        </pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>3b — Procedures &amp; medications</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    procedures ||--o{ procedure_medications : uses
+    medications ||--o{ procedure_medications : listed_in
+    procedures { bigint id PK bigint pet_id FK varchar procedure_name }
+    medications { bigint id PK varchar name varchar category }
+    procedure_medications { bigint id PK bigint procedure_id FK bigint medication_id FK }
+        </pre>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>4a — Billing &amp; sales</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    pets ||--o{ billing_records : billed_for
+    billing_records ||--o{ sales : generates
+    sales ||--o{ sale_lines : contains
+    pets { bigint id PK varchar name }
+    billing_records { bigint id PK bigint pet_id FK bigint owner_id FK decimal amount varchar status }
+    sales { bigint id PK bigint billing_id FK bigint pet_id FK decimal amount timestamp occurred_at }
+    sale_lines { bigint id PK bigint sale_id FK varchar line_kind varchar item_name decimal amount }
+        </pre>
+      </div>
+      <p class="hint">If printing: use <strong>A3 landscape</strong> or scale to <strong>Fit to page</strong> so this row stays complete.</p>
+    </section>
+
+    <section class="panel">
+      <h2>4b — Inventory, notifications &amp; audit</h2>
+      <div class="diagram-wrap">
+        <pre class="mermaid">
+erDiagram
+    inventory_items { bigint id PK varchar name varchar category int quantity decimal price }
+    notifications { bigint id PK varchar title text message boolean is_read }
+    audit_log { bigint id PK varchar action varchar entity_type bigint entity_id timestamp created_at }
+    data_access_log { bigint id PK bigint user_id varchar resource timestamp accessed_at }
+    operation_logs { bigint id PK bigint user_id varchar operation text details }
+        </pre>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <strong>Save as PDF without cut-off:</strong><br>
+    1. Press <strong>Ctrl + P</strong><br>
+    2. Orientation: <strong>Landscape</strong><br>
+    3. Paper: <strong>A3</strong> (best) or A4 with <strong>Scale: Fit to page</strong><br>
+    4. Turn on <strong>Background graphics</strong><br>
+    5. Save as PDF — you get one page per section (6 pages total, nothing cut off)
+  </footer>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "neutral",
+      er: { useMaxWidth: false, diagramPadding: 16 },
+      securityLevel: "loose",
+    });
+  </script>
+</body>
+</html>

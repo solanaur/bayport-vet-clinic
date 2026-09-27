@@ -1,0 +1,204 @@
+// Bayport Veterinary Clinic — import at https://dbdiagram.io → Export PNG/PDF (landscape)
+// File → Import → paste this file
+
+Project bayport_vet_clinic {
+  database_type: "PostgreSQL"
+  Note: "Supabase public schema — Bayport VCMS"
+}
+
+// ── Auth ──────────────────────────────────────────
+Table users {
+  id bigint [pk, increment]
+  username varchar [unique, not null]
+  password varchar
+  full_name varchar
+  email varchar
+  mfa_enabled boolean
+  role varchar [not null]
+  active boolean
+}
+
+Table roles {
+  id bigint [pk, increment]
+  name varchar [unique]
+}
+
+Table user_roles {
+  user_id bigint [ref: > users.id]
+  role_id bigint [ref: > roles.id]
+}
+
+Table mfa_code {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id]
+  code varchar
+  expires_at timestamp
+}
+
+// ── Clients ───────────────────────────────────────
+Table owners {
+  id bigint [pk, increment]
+  full_name varchar [not null]
+  phone varchar [not null]
+  email varchar
+  address varchar
+}
+
+Table pets {
+  id bigint [pk, increment]
+  owner_id bigint [ref: > owners.id]
+  name varchar [not null]
+  species varchar
+  breed varchar
+  microchip varchar
+  date_of_birth date
+  deleted boolean
+}
+
+Table pet_medical_records {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id, not null]
+  record_type varchar [not null]
+  record_date date
+  title varchar
+  description text
+}
+
+Table reminder {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id]
+  owner_id bigint [ref: > owners.id]
+  date date
+  message varchar
+  sent boolean
+}
+
+// ── Clinical ──────────────────────────────────────
+Table appointments {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id]
+  date date
+  time varchar
+  vet varchar
+  status varchar
+}
+
+Table procedures {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id]
+  procedure_date date
+  procedure_name varchar
+  vet varchar
+  cost decimal
+}
+
+Table medications {
+  id bigint [pk, increment]
+  name varchar
+  dosage varchar
+  category varchar
+}
+
+Table procedure_medications {
+  id bigint [pk, increment]
+  procedure_id bigint [ref: > procedures.id, not null]
+  medication_id bigint [ref: > medications.id, not null]
+}
+
+Table prescriptions {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id]
+  drug varchar
+  dosage varchar
+  prescriber varchar
+  date date
+  dispensed boolean
+}
+
+Table doctors {
+  id bigint [pk, increment]
+  name varchar
+  license_no varchar
+}
+
+// ── Billing ───────────────────────────────────────
+Table billing_records {
+  id bigint [pk, increment]
+  pet_id bigint [ref: > pets.id]
+  owner_id bigint [ref: > owners.id]
+  amount decimal
+  discount_amount decimal
+  status varchar
+}
+
+Table sales {
+  id bigint [pk, increment]
+  billing_id bigint [ref: > billing_records.id]
+  pet_id bigint [ref: > pets.id]
+  amount decimal
+  occurred_at timestamp
+}
+
+Table sale_lines {
+  id bigint [pk, increment]
+  sale_id bigint [ref: > sales.id, not null]
+  line_kind varchar [not null]
+  item_name varchar [not null]
+  amount decimal
+}
+
+// ── Inventory & ops ───────────────────────────────
+Table inventory_items {
+  id bigint [pk, increment]
+  name varchar
+  category varchar
+  quantity int
+  price decimal
+}
+
+Table inventory_sku_suppression {
+  id bigint [pk, increment]
+  sku varchar
+}
+
+Table notifications {
+  id bigint [pk, increment]
+  title varchar
+  message text
+  is_read boolean
+}
+
+Table audit_log {
+  id bigint [pk, increment]
+  action varchar
+  entity_type varchar
+  entity_id bigint
+  created_at timestamp
+}
+
+Table data_access_log {
+  id bigint [pk, increment]
+  user_id bigint
+  resource varchar
+  accessed_at timestamp
+}
+
+Table operation_logs {
+  id bigint [pk, increment]
+  user_id bigint
+  operation varchar
+  details text
+}
+
+Table print_jobs {
+  id bigint [pk, increment]
+  job_type varchar
+  status varchar
+}
+
+Table email_templates {
+  id bigint [pk, increment]
+  name varchar
+  subject varchar
+  body text
+}
