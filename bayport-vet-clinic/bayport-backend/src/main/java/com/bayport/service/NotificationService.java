@@ -48,6 +48,7 @@ public class NotificationService {
                     Notification notif = new Notification();
                     notif.setUserId(vet.getId());
                     notif.setType("APPOINTMENT_NEW");
+                    notif.setRead(false);
                     notif.setMessage(truncateMessage("New appointment created for " + ownerName + " - " + petName));
                     notificationRepository.save(notif);
                 });
@@ -75,13 +76,7 @@ public class NotificationService {
             final String safeMsg = truncateMessage(message);
             userRepository.findAll().stream()
                     .filter(this::isFrontOfficeStaff)
-                    .forEach(u -> {
-                        Notification notif = new Notification();
-                        notif.setUserId(u.getId());
-                        notif.setType(type);
-                        notif.setMessage(safeMsg);
-                        notificationRepository.save(notif);
-                    });
+                    .forEach(u -> saveUnread(u.getId(), type, safeMsg));
         } catch (Exception e) {
             System.err.println("Error notifying Front Office: " + e.getMessage());
         }
@@ -114,16 +109,19 @@ public class NotificationService {
                     .filter(u -> "admin".equalsIgnoreCase(u.getRole())
                             || (u.getRoles() != null && u.getRoles().stream()
                             .anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()))))
-                    .forEach(u -> {
-                        Notification notif = new Notification();
-                        notif.setUserId(u.getId());
-                        notif.setType(type);
-                        notif.setMessage(safeMsg);
-                        notificationRepository.save(notif);
-                    });
+                    .forEach(u -> saveUnread(u.getId(), type, safeMsg));
         } catch (Exception e) {
             System.err.println("Error notifying admins: " + e.getMessage());
         }
+    }
+
+    private void saveUnread(Long userId, String type, String message) {
+        Notification notif = new Notification();
+        notif.setUserId(userId);
+        notif.setType(type);
+        notif.setRead(false);
+        notif.setMessage(message);
+        notificationRepository.save(notif);
     }
 }
 

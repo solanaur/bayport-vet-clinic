@@ -62,9 +62,9 @@
               <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide border-b border-slate-200">
                 <tr>
                   <th class="px-4 py-3 w-14"></th>
-                  <th class="px-4 py-3">Item</th>
+                  <th id="invColItem" class="px-4 py-3">Item</th>
                   <th class="px-4 py-3 hidden sm:table-cell">Category</th>
-                  <th class="px-4 py-3">Stock</th>
+                  <th id="invColStock" class="px-4 py-3">Stock</th>
                   <th class="px-4 py-3 text-right">Price</th>
                 </tr>
               </thead>
@@ -276,6 +276,10 @@
       const off = 'inv-tab px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900';
       document.getElementById('invTabProducts').className = tab === 'products' ? on : off;
       document.getElementById('invTabServices').className = tab === 'services' ? on : off;
+      const itemHead = document.getElementById("invColItem");
+      const stockHead = document.getElementById("invColStock");
+      if (itemHead) itemHead.textContent = tab === "services" ? "Service" : "Item";
+      if (stockHead) stockHead.classList.toggle("hidden", tab === "services");
       render();
     }
 
@@ -369,32 +373,37 @@
       const items = filteredList();
       updateSummary();
 
+      const colCount = invTab === "services" ? 4 : 5;
       if (!allItems.length) {
-        tbody.innerHTML = `<tr><td colspan="5">${typeof bpEmptyState === "function" ? bpEmptyState("No inventory yet.", "box", "bp-empty-state--table") : `<div class="px-4 py-16 text-center text-slate-500">No inventory yet.</div>`}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${colCount}">${typeof bpEmptyState === "function" ? bpEmptyState("No inventory yet.", "box", "bp-empty-state--table") : `<div class="px-4 py-16 text-center text-slate-500">No inventory yet.</div>`}</td></tr>`;
         return;
       }
 
       if (!items.length) {
-        tbody.innerHTML = `<tr><td colspan="5">${typeof bpEmptyState === "function" ? bpEmptyState(`No ${invTab === "services" ? "services" : "products"} match your search.`, "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-500">No matches.</div>`}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="${colCount}">${typeof bpEmptyState === "function" ? bpEmptyState(`No ${invTab === "services" ? "services" : "products"} match your search.`, "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-500">No matches.</div>`}</td></tr>`;
         return;
       }
 
       const lowIds = new Set(lowStockItems().map((x) => x.id));
+      const servicesView = invTab === "services";
       tbody.innerHTML = items.map((i) => {
         const st = stockLabel(i);
+        const stockCell = servicesView
+          ? ""
+          : `<td class="px-4 py-3 align-middle ${st.cls}">
+            <div>${st.html}</div>
+            ${stockHealthBar(i)}
+          </td>`;
         return `
-        <tr class="border-t border-slate-100 cursor-pointer inv-row ${lowIds.has(i.id) ? "bg-[#fffbeb]" : ""}" data-id="${i.id}">
+        <tr class="border-t border-slate-100 cursor-pointer inv-row ${!servicesView && lowIds.has(i.id) ? "bg-[#fffbeb]" : ""}" data-id="${i.id}">
           <td class="px-4 py-3 align-middle">${itemPhotoHtml(i)}</td>
-          <td class="px-4 py-3">
+          <td class="px-4 py-3 align-middle">
             <div class="font-medium text-slate-900">${escapeHtml(i.name || '')}</div>
             <div class="text-xs text-slate-400 font-mono mt-0.5">${escapeHtml(i.sku || '')}</div>
           </td>
-          <td class="px-4 py-3 text-slate-600 hidden sm:table-cell">${escapeHtml(i.category || '—')}</td>
-          <td class="px-4 py-3 ${st.cls}">
-            <div>${st.html}</div>
-            ${stockHealthBar(i)}
-          </td>
-          <td class="px-4 py-3 text-right tabular-nums font-medium">₱${money(i.unitPrice)}</td>
+          <td class="px-4 py-3 align-middle text-slate-600 hidden sm:table-cell">${escapeHtml(i.category || '—')}</td>
+          ${stockCell}
+          <td class="px-4 py-3 align-middle text-right tabular-nums font-medium whitespace-nowrap">₱${money(i.unitPrice)}</td>
         </tr>`;
       }).join('');
 

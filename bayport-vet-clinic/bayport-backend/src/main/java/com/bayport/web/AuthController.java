@@ -6,10 +6,13 @@ import com.bayport.auth.dto.LoginRequest;
 import com.bayport.auth.dto.MfaVerifyRequest;
 import com.bayport.entity.User;
 import com.bayport.repository.UserRepository;
+import com.bayport.security.LoginAttemptService;
+import com.bayport.security.RateLimitService;
 import com.bayport.service.AuditLogService;
 import com.bayport.service.BayportService;
 import com.bayport.service.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -17,13 +20,18 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
 public class AuthController {
+
+    private static final Set<String> BYPASS_USERNAMES = Set.of("admin", "vet", "frontdesk", "recept", "pharm");
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
@@ -33,6 +41,9 @@ public class AuthController {
     private final BayportService bayportService;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final LoginAttemptService loginAttemptService;
+    private final RateLimitService rateLimitService;
+    private final boolean otpReturnWhenUndelivered;
 
     public AuthController(
             AuthenticationManager authenticationManager,
@@ -42,7 +53,10 @@ public class AuthController {
             AuditLogService auditLogService,
             BayportService bayportService,
             PasswordEncoder passwordEncoder,
-            EmailService emailService) {
+            EmailService emailService,
+            LoginAttemptService loginAttemptService,
+            RateLimitService rateLimitService,
+            @Value("${bayport.security.otp-return-when-undelivered:false}") boolean otpReturnWhenUndelivered) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.mfaService = mfaService;
@@ -51,111 +65,131 @@ public class AuthController {
         this.bayportService = bayportService;
         this.passwordEncoder = passwordEncoder;
         this.emailService = emailService;
+        this.loginAttemptService = loginAttemptService;
+        this.rateLimitService = rateLimitService;
+        this.otpReturnWhenUndelivered = otpReturnWhenUndelivered;
     }
 
     @PostMapping("/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
-        try {
-            User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+        String username = request.getUsername() == null ? "" : request.getUsername().trim();
+        String clientKey = clientKey(httpRequest, username);
 
-            // Special handling for admin and default accounts - bypass OTP requirement
-            String requestUsername = request.getUsername();
-            String usernameLower = requestUsername.toLowerCase();
-            boolean isDefaultAccount = usernameLower.equals("admin") || usernameLower.equals("vet") ||
-                                     usernameLower.equals("recept") || usernameLower.equals("pharm") ||
-                                     usernameLower.equals("frontdesk");
-            
-            // Check both the request username and the user's role
-            boolean isAdminRole = "admin".equalsIgnoreCase(user.getRole()) || 
-                                 user.getRoles().stream().anyMatch(r -> "ROLE_ADMIN".equalsIgnoreCase(r.getName()));
-            
-            if (isDefaultAccount || isAdminRole) {
-                // Use Spring Security authentication for password verification
-                try {
-                    Authentication auth = authenticationManager.authenticate(
-                        new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-                    );
-                    
-                    if (auth == null || !auth.isAuthenticated()) {
-                        auditLogService.log("LOGIN_FAILED", "User", request.getUsername(), 
-                            "Login failed: Invalid credentials", httpRequest);
-                        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                                .body(Map.of("error", "Invalid username or password"));
-                    }
-                    
-                    // Reload user to get latest data
-                    user = userRepository.findByUsername(request.getUsername())
-                            .orElseThrow(() -> new RuntimeException("User not found"));
-                    
-                    // Default accounts (admin, vet, recept, pharm) bypass all checks - no TOS, no OTP, no restrictions
-                    String logMessage = isDefaultAccount ? 
-                        String.format("%s logged in (bypass all authentication)", user.getUsername()) :
-                        "Admin logged in (bypass all authentication)";
-                    auditLogService.log("LOGIN", "User", String.valueOf(user.getId()), logMessage, httpRequest);
-                    
-                    // Generate JWT token for bypass accounts
-                    String token = jwtService.generateToken(user.getUsername());
-                    
-                    // Return response in format expected by frontend
-                    Map<String, Object> payload = toPayload(user);
-                    payload = new java.util.HashMap<>(payload);
-                    payload.put("token", token); // Include JWT token in response
-                    return ResponseEntity.ok(payload);
-                } catch (Exception e) {
-                    auditLogService.log("LOGIN_FAILED", "User", request.getUsername(), 
-                        "Login failed: " + e.getMessage(), httpRequest);
+        if (!rateLimitService.allowLogin(clientKey)) {
+            auditLogService.log("LOGIN_RATE_LIMITED", "User", username, "Login rate limited", httpRequest);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", "Too many login attempts. Please try again later."));
+        }
+
+        if (loginAttemptService.isBlocked(username)) {
+            long wait = loginAttemptService.secondsRemaining(username);
+            auditLogService.log("LOGIN_LOCKED", "User", username, "Account temporarily locked", httpRequest);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", "Too many failed attempts. Try again in " + wait + " seconds."));
+        }
+
+        try {
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user == null) {
+                loginAttemptService.recordFailure(username);
+                auditLogService.log("LOGIN_FAILED", "User", username, "Login failed: invalid credentials", httpRequest);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid username or password"));
+            }
+
+            try {
+                Authentication auth = authenticationManager.authenticate(
+                        new UsernamePasswordAuthenticationToken(username, request.getPassword())
+                );
+                if (auth == null || !auth.isAuthenticated()) {
+                    loginAttemptService.recordFailure(username);
+                    auditLogService.log("LOGIN_FAILED", "User", username, "Login failed: invalid credentials", httpRequest);
                     return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                             .body(Map.of("error", "Invalid username or password"));
                 }
+            } catch (Exception e) {
+                loginAttemptService.recordFailure(username);
+                auditLogService.log("LOGIN_FAILED", "User", username, "Login failed: invalid credentials", httpRequest);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid username or password"));
             }
 
-            // For non-admin users, use Spring Security authentication
-            // First, ensure password is set (migrate from passwordHash if needed)
+            user = userRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            if (BYPASS_USERNAMES.contains(username.toLowerCase(Locale.ROOT))) {
+                loginAttemptService.recordSuccess(username);
+                auditLogService.log("LOGIN_SUCCESS", "User", String.valueOf(user.getId()),
+                        "Bypass account login (OTP not required)", httpRequest);
+                String token = jwtService.generateToken(user.getUsername());
+                Map<String, Object> payload = new HashMap<>(toPayload(user));
+                payload.put("token", token);
+                return ResponseEntity.ok(payload);
+            }
+
             if (user.getPassword() == null && user.getPasswordHash() != null) {
                 user.setPassword(user.getPasswordHash());
                 userRepository.save(user);
             }
 
-            // Authenticate user
-            Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-            );
+            if (user.hasTotpSecret()) {
+                auditLogService.log("OTP_CHALLENGE", "User", String.valueOf(user.getId()),
+                        "Google Authenticator TOTP required", httpRequest);
+                Map<String, Object> totpChallenge = new HashMap<>();
+                totpChallenge.put("status", "MFA_REQUIRED");
+                totpChallenge.put("mfaType", "TOTP");
+                totpChallenge.put("username", user.getUsername());
+                totpChallenge.put("emailConfigured", emailService.isConfigured());
+                totpChallenge.put("emailDelivered", false);
+                totpChallenge.put("message", "Enter the 6-digit code from Google Authenticator.");
+                return ResponseEntity.ok(totpChallenge);
+            }
 
-            // ALWAYS require OTP verification for all users (MFA requirement)
-            // Check if user has email for OTP
             if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
-                auditLogService.log("LOGIN_FAILED", "User", String.valueOf(user.getId()), 
-                    "User email is required for MFA", httpRequest);
+                auditLogService.log("LOGIN_FAILED", "User", String.valueOf(user.getId()),
+                        "User email is required for MFA", httpRequest);
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(Map.of("error", "User email is required for authentication. Please contact administrator."));
             }
-            
-            // Send OTP to user's email (or admin notification if SMTP not configured)
+
+            MfaService.DeliveryResult sent;
             try {
-                mfaService.sendMfaCode(user);
+                sent = mfaService.sendMfaCode(user);
+            } catch (ResponseStatusException rse) {
+                return ResponseEntity.status(rse.getStatusCode())
+                        .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
             } catch (Exception emailEx) {
-                auditLogService.log("LOGIN_FAILED", "User", String.valueOf(user.getId()),
-                        "MFA send failed: " + emailEx.getMessage(), httpRequest);
+                auditLogService.log("OTP_FAILED", "User", String.valueOf(user.getId()),
+                        "MFA send failed", httpRequest);
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                        .body(Map.of(
-                                "error", "Could not send OTP. Configure email (SPRING_MAIL_USERNAME / SPRING_MAIL_PASSWORD) or ask an administrator.",
-                                "details", emailEx.getMessage() != null ? emailEx.getMessage() : "Email send failed"
-                        ));
+                        .body(Map.of("error", "Could not send OTP. Configure email or ask an administrator."));
             }
-            auditLogService.log("LOGIN_MFA_REQUIRED", "User", String.valueOf(user.getId()),
-                    "OTP code sent to user email", httpRequest);
-            Map<String, Object> mfaResponse = new java.util.HashMap<>();
+
+            auditLogService.log("OTP_SENT", "User", String.valueOf(user.getId()),
+                    sent.emailDelivered() ? "OTP code sent to user email" : "OTP generated (email not delivered)",
+                    httpRequest);
+            Map<String, Object> mfaResponse = new HashMap<>();
             mfaResponse.put("status", "MFA_REQUIRED");
+            mfaResponse.put("mfaType", "EMAIL");
             mfaResponse.put("username", user.getUsername());
             mfaResponse.put("emailConfigured", emailService.isConfigured());
-            mfaResponse.put("message", emailService.isConfigured()
-                    ? "OTP code sent to your email. Please verify to complete login."
-                    : "OTP was sent to administrator notifications (email not configured). Ask admin for the code.");
+            boolean placeholderInbox = isPlaceholderEmail(user.getEmail());
+            boolean emailDelivered = sent.emailDelivered() && !placeholderInbox;
+            mfaResponse.put("emailDelivered", emailDelivered);
+            if (emailDelivered) {
+                mfaResponse.put("message", "OTP code sent to your email. Please verify to complete login.");
+            } else if (otpReturnWhenUndelivered && sent.code() != null) {
+                mfaResponse.put("localOtp", sent.code());
+                mfaResponse.put("message", "Email could not be delivered to this account. Enter this one-time code: "
+                        + sent.code());
+            } else {
+                mfaResponse.put("message",
+                        "OTP was sent to administrator notifications. Ask an administrator for the code.");
+            }
             return ResponseEntity.ok(mfaResponse);
         } catch (Exception e) {
-            auditLogService.log("LOGIN_FAILED", "User", request.getUsername(), 
-                "Login failed: " + e.getMessage(), httpRequest);
+            loginAttemptService.recordFailure(username);
+            auditLogService.log("LOGIN_FAILED", "User", username, "Login failed", httpRequest);
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid username or password"));
         }
@@ -163,18 +197,36 @@ public class AuthController {
 
     @PostMapping("/auth/mfa/verify")
     public ResponseEntity<?> verifyMfa(@RequestBody MfaVerifyRequest request, HttpServletRequest httpRequest) {
+        String username = request.getUsername() == null ? "" : request.getUsername().trim();
         try {
-            User user = userRepository.findByUsername(request.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            if (loginAttemptService.isBlocked(username)) {
+                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                        .body(Map.of("error", "Too many failed attempts. Please try again later."));
+            }
 
-            if (!mfaService.verifyCode(user, request.getCode())) {
-                auditLogService.log("MFA_VERIFY_FAILED", "User", String.valueOf(user.getId()), 
-                    "Invalid or expired MFA code", httpRequest);
+            User user = userRepository.findByUsername(username).orElse(null);
+            if (user == null) {
+                auditLogService.log("OTP_FAILED", "User", username, "Invalid or expired MFA code", httpRequest);
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Invalid or expired code"));
             }
 
-            // TOS is now handled on frontend via checkbox, but we still update the database
+            boolean ok;
+            try {
+                ok = mfaService.verifyLogin(user, request.getCode());
+            } catch (ResponseStatusException rse) {
+                return ResponseEntity.status(rse.getStatusCode())
+                        .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
+            }
+
+            if (!ok) {
+                loginAttemptService.recordFailure(username);
+                auditLogService.log("OTP_FAILED", "User", String.valueOf(user.getId()),
+                        "Invalid or expired MFA code", httpRequest);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Invalid or expired code"));
+            }
+
             String currentTosVersion = "v1.0";
             if (user.getTosVersionAccepted() == null || !user.getTosVersionAccepted().equals(currentTosVersion)) {
                 user.setTosVersionAccepted(currentTosVersion);
@@ -182,45 +234,114 @@ public class AuthController {
                 userRepository.save(user);
             }
 
+            loginAttemptService.recordSuccess(username);
             String token = jwtService.generateToken(user.getUsername());
-            
-            auditLogService.log("LOGIN", "User", String.valueOf(user.getId()), 
-                "User logged in successfully with MFA", httpRequest);
+            auditLogService.log("OTP_VERIFIED", "User", String.valueOf(user.getId()),
+                    "User logged in successfully with MFA", httpRequest);
+            auditLogService.log("LOGIN_SUCCESS", "User", String.valueOf(user.getId()),
+                    "User logged in successfully with MFA", httpRequest);
 
-            // Return response in format expected by frontend (flat structure with role at top level)
-            Map<String, Object> payload = toPayload(user);
-            payload = new java.util.HashMap<>(payload);
-            payload.put("token", token); // Include JWT token in response
+            Map<String, Object> payload = new HashMap<>(toPayload(user));
+            payload.put("token", token);
             return ResponseEntity.ok(payload);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Verification failed: " + e.getMessage()));
+                    .body(Map.of("error", "Verification failed"));
         }
     }
 
-    // Legacy endpoint for backward compatibility - handles /api/auth/login
+    @PostMapping("/auth/password-reset/request")
+    public ResponseEntity<?> requestPasswordReset(@RequestBody Map<String, String> body, HttpServletRequest httpRequest) {
+        String email = body.get("email") == null ? "" : body.get("email").trim();
+        String clientKey = clientKey(httpRequest, email);
+        if (!rateLimitService.allowPasswordReset(clientKey)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", "Too many reset requests. Please try again later."));
+        }
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "OK");
+        response.put("message", "If that email is registered, a reset code has been sent. Check Inbox and Spam.");
+        userRepository.findByEmail(email).ifPresent(user -> {
+            try {
+                MfaService.DeliveryResult sent = mfaService.sendMfaCode(user);
+                auditLogService.log("PASSWORD_RESET_REQUESTED", "User", String.valueOf(user.getId()),
+                        "Password reset OTP sent", httpRequest);
+                if (otpReturnWhenUndelivered && sent.code() != null) {
+                    response.put("localOtp", sent.code());
+                    response.put("emailDelivered", sent.emailDelivered());
+                }
+            } catch (Exception ignored) {
+                // Do not reveal whether email exists or mail failed
+            }
+        });
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/auth/password-reset/confirm")
+    public ResponseEntity<?> confirmPasswordReset(@RequestBody Map<String, String> body, HttpServletRequest httpRequest) {
+        String email = body.get("email") == null ? "" : body.get("email").trim();
+        String code = body.get("code") == null ? body.get("otp") : body.get("code");
+        String newPassword = body.get("newPassword") == null ? body.get("password") : body.get("newPassword");
+
+        if (email.isEmpty() || code == null || code.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email and code are required"));
+        }
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || !mfaService.verifyCode(user, code)) {
+            auditLogService.log("PASSWORD_RESET_FAILED", "User", email, "Invalid reset attempt", httpRequest);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid or expired code"));
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPasswordHash(user.getPassword());
+        user.setDisplayPassword(null);
+        user.setPlainPassword(null);
+        userRepository.save(user);
+        auditLogService.log("PASSWORD_RESET", "User", String.valueOf(user.getId()),
+                "Password reset completed", httpRequest);
+        return ResponseEntity.ok(Map.of("status", "OK", "message", "Password updated successfully"));
+    }
+
     @PostMapping("/api/auth/login")
     public ResponseEntity<?> legacyLogin(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         return login(request, httpRequest);
     }
 
+    private static boolean isPlaceholderEmail(String email) {
+        if (email == null || email.isBlank()) {
+            return true;
+        }
+        String value = email.trim().toLowerCase(Locale.ROOT);
+        return value.endsWith("@bayportvet.com")
+                || value.endsWith("@example.com")
+                || value.endsWith("@test.com");
+    }
+
+    private static String clientKey(HttpServletRequest request, String identity) {
+        String ip = request != null ? request.getRemoteAddr() : "unknown";
+        return identity + "|" + ip;
+    }
+
     private Map<String, Object> toPayload(User user) {
-        // Get role from roles set or fallback to legacy role field
         String role = "user";
         if (user.getRoles() != null && !user.getRoles().isEmpty()) {
             String roleName = user.getRoles().iterator().next().getName();
-            role = roleName.replace("ROLE_", "").toLowerCase();
+            role = roleName.replace("ROLE_", "").toLowerCase(Locale.ROOT);
             if ("receptionist".equals(role) || "pharmacist".equals(role)) {
                 role = "front_office";
             }
         } else if (user.getRole() != null) {
-            role = user.getRole().toLowerCase();
+            role = user.getRole().toLowerCase(Locale.ROOT);
             if ("receptionist".equals(role) || "pharmacist".equals(role)) {
                 role = "front_office";
             }
         }
-        
-        // Return flat structure expected by frontend (not nested in "user" object)
+
         return Map.of(
                 "id", user.getId(),
                 "name", user.getFullName() != null ? user.getFullName() : user.getName(),
@@ -232,4 +353,3 @@ public class AuthController {
         );
     }
 }
-

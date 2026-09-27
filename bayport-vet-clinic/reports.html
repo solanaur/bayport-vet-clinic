@@ -180,6 +180,28 @@
             <a href="billing.html" class="text-xs font-medium text-slate-500 hover:text-slate-800">Open billing →</a>
           </div>
         </section>
+
+        <section id="consult-services" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-100 flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-base font-bold text-slate-900">Consultation services (itemized)</h2>
+            <div id="consultServiceTotal" class="text-sm font-semibold text-slate-700 tabular-nums">Total ₱0.00</div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                <tr>
+                  <th class="px-3 py-2.5 text-left">Invoice</th>
+                  <th class="px-3 py-2.5 text-left">Date</th>
+                  <th class="px-3 py-2.5 text-left">Pet</th>
+                  <th class="px-3 py-2.5 text-left">Service</th>
+                  <th class="px-3 py-2.5 text-left">Performed by</th>
+                  <th class="px-3 py-2.5 text-right">Amount (₱)</th>
+                </tr>
+              </thead>
+              <tbody id="consultServiceRows" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -612,6 +634,8 @@
         posSales: 0,
         posProcedureRevenue: 0,
         posProductRevenue: 0,
+        consultationServiceLines: [],
+        consultationServiceRevenue: 0,
         newPatients: [],
         events: [],
       };
@@ -673,6 +697,53 @@
       } else {
         bar.classList.add("hidden");
       }
+    }
+
+    function renderConsultationServices(summary, billing, start, end) {
+      let lines = Array.isArray(summary?.consultationServiceLines) ? summary.consultationServiceLines.slice() : [];
+      if (!lines.length && Array.isArray(billing)) {
+        for (const b of billing) {
+          if (!inRange(b.issuedAt || b.createdAt, start, end)) continue;
+          const itemized = Array.isArray(b.lines) ? b.lines : [];
+          if (!itemized.length) continue;
+          for (const l of itemized) {
+            lines.push({
+              invoiceId: b.id,
+              consultationId: b.consultationId,
+              issuedAt: b.issuedAt || "",
+              petName: b.petName || "",
+              ownerName: b.ownerName || "",
+              serviceName: l.serviceName || "Service",
+              performedBy: l.performedBy || "",
+              serviceCost: Number(l.serviceCost) || 0,
+              invoiceTotal: Number(b.amount) || 0,
+            });
+          }
+        }
+      }
+      const tbody = document.getElementById("consultServiceRows");
+      const totalEl = document.getElementById("consultServiceTotal");
+      const total = lines.reduce((s, l) => s + (Number(l.serviceCost) || 0), 0);
+      if (totalEl) totalEl.textContent = `Total ₱${formatPrice(total)}`;
+      if (!tbody) return;
+      if (!lines.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No itemized consultation services in this range.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = lines
+        .map((l) => {
+          const inv = l.invoiceId != null ? `#${l.invoiceId}` : "—";
+          const when = l.issuedAt ? fmtDT(l.issuedAt) : "—";
+          return `<tr class="align-middle">
+            <td class="px-3 py-2.5 font-medium text-slate-900 whitespace-nowrap">${esc(inv)}</td>
+            <td class="px-3 py-2.5 text-slate-600 whitespace-nowrap">${esc(when)}</td>
+            <td class="px-3 py-2.5">${esc(l.petName || "—")}</td>
+            <td class="px-3 py-2.5">${esc(l.serviceName || "Service")}</td>
+            <td class="px-3 py-2.5 text-slate-600">${esc(l.performedBy || "—")}</td>
+            <td class="px-3 py-2.5 text-right font-semibold tabular-nums whitespace-nowrap">₱${formatPrice(l.serviceCost)}</td>
+          </tr>`;
+        })
+        .join("");
     }
 
     function applyRecentRows() {
@@ -881,6 +952,7 @@
         applyTopRows();
 
         renderRecent(sales, billing, petsById, start, end);
+        renderConsultationServices(summary, billing, start, end);
 
         document.getElementById("salesStatus").textContent = `Last updated ${new Date().toLocaleTimeString()}`;
         if (summaryErrMsg) {
@@ -970,6 +1042,20 @@
         [],
         ["Backend summary — POS product lines"],
         ...((r.posProductLines || []).map((x) => [x.date, x.petName, x.itemName, x.sku, x.quantity, formatPrice(x.lineTotal)])),
+        [],
+        ["Consultation services (itemized)"],
+        ["Invoice", "Consultation", "Date", "Pet", "Owner", "Service", "Performed by", "Amount", "Invoice total"],
+        ...((r.consultationServiceLines || []).map((x) => [
+          x.invoiceId,
+          x.consultationId,
+          x.issuedAt,
+          x.petName,
+          x.ownerName,
+          x.serviceName,
+          x.performedBy,
+          formatPrice(x.serviceCost),
+          formatPrice(x.invoiceTotal),
+        ])),
       ];
       downloadCsv(`Bayport_Reports_${r.from || ""}_${r.to || ""}.csv`, rows);
       toast("CSV exported.", false);

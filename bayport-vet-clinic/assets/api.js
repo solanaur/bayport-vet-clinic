@@ -397,6 +397,16 @@ window.Api = {
       body: { username, code },
       timeoutMs: 180000,
     }),
+    requestPasswordReset: (email) => ApiHttp("/auth/password-reset/request", {
+      method: "POST",
+      body: { email },
+      timeoutMs: 180000,
+    }),
+    confirmPasswordReset: (email, code, newPassword) => ApiHttp("/auth/password-reset/confirm", {
+      method: "POST",
+      body: { email, code, newPassword },
+      timeoutMs: 180000,
+    }),
   },
 
   notifications: {
@@ -585,6 +595,7 @@ window.Api = {
     listByDate: (date) => ApiHttp(`/appointments?date=${encodeURIComponent(date)}`, { token: Api.token() }),
     listForVet: (name) => ApiHttp(`/appointments?vet=${encodeURIComponent(name)}`, { token: Api.token() }),
     listUnassigned: () => ApiHttp("/appointments?unassigned=true", { token: Api.token() }),
+    listVets: () => ApiHttp("/appointments/vets", { token: Api.token() }),
     get: (id) => ApiHttp(`/appointments/${id}`, { token: Api.token() }),
     create: (appt) => ApiHttp("/appointments", { method: "POST", body: appt, token: Api.token() }),
     update: (appt) => ApiHttp(`/appointments/${appt.id}`, { method: "PUT", body: appt, token: Api.token() }),
@@ -676,6 +687,11 @@ window.Api = {
       const name = `Bayport_Inventory_${tabLabel}_${today}${suffix}.pdf`;
       return window.downloadBayportPdf(`/inventory/export/pdf?${params.toString()}`, name);
     },
+  },
+
+  consultations: {
+    create: (body) => ApiHttp("/consultations", { method: "POST", body, token: Api.token() })
+      .then((r) => { window.Api.invalidatePetsCache(); return r; }),
   },
 
   billing: {

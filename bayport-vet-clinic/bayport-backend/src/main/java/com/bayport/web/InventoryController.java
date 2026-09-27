@@ -38,26 +38,31 @@ public class InventoryController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")
     public List<InventoryItem> list() {
         return inventoryService.list();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")
     public InventoryItem get(@PathVariable Long id) {
         return inventoryService.get(id);
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public InventoryItem create(@RequestBody InventoryItem item) {
         return inventoryService.create(item);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public InventoryItem update(@PathVariable Long id, @RequestBody InventoryItem item) {
         return inventoryService.update(id, item);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         inventoryService.delete(id);
         return ResponseEntity.noContent().build();

@@ -86,6 +86,10 @@ public class Pet {
     @Column(name = "known_medications", columnDefinition = "TEXT")
     private String knownMedications;
 
+    /** Assigned veterinarian (users.id). Null = unassigned / legacy. */
+    @Column(name = "assigned_veterinarian_id")
+    private Long assignedVeterinarianId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", insertable = false, updatable = false)
     private Owner ownerEntity;
@@ -209,5 +213,8 @@ public class Pet {
 
     public String getKnownMedications() { return knownMedications; }
     public void setKnownMedications(String knownMedications) { this.knownMedications = knownMedications; }
+
+    public Long getAssignedVeterinarianId() { return assignedVeterinarianId; }
+    public void setAssignedVeterinarianId(Long assignedVeterinarianId) { this.assignedVeterinarianId = assignedVeterinarianId; }
 }
 

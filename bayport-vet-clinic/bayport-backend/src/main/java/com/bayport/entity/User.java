@@ -34,6 +34,11 @@ public class User {
     @Column(name = "mfa_enabled", nullable = true, columnDefinition = "BOOLEAN DEFAULT FALSE") // Allow null for existing users
     private Boolean mfaEnabled = false;
 
+    /** Base32 TOTP secret for Google Authenticator. Never returned on list/get user APIs. */
+    @JsonIgnore
+    @Column(name = "totp_secret", length = 64)
+    private String totpSecret;
+
     @Column(name = "tos_version_accepted")
     private String tosVersionAccepted;
 
@@ -126,6 +131,10 @@ public class User {
     public boolean isMfaEnabled() { return mfaEnabled != null && mfaEnabled; }
     public Boolean getMfaEnabled() { return mfaEnabled; } // Getter for nullable Boolean
     public void setMfaEnabled(Boolean mfaEnabled) { this.mfaEnabled = mfaEnabled; } // Accepts Boolean (nullable)
+
+    public String getTotpSecret() { return totpSecret; }
+    public void setTotpSecret(String totpSecret) { this.totpSecret = totpSecret; }
+    public boolean hasTotpSecret() { return totpSecret != null && !totpSecret.isBlank(); }
 
     public String getTosVersionAccepted() { return tosVersionAccepted; }
     public void setTosVersionAccepted(String tosVersionAccepted) { this.tosVersionAccepted = tosVersionAccepted; }

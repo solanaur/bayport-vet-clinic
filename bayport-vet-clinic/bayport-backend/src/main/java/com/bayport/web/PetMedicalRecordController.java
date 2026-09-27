@@ -21,28 +21,34 @@ public class PetMedicalRecordController {
     private final PetMedicalRecordService medicalRecordService;
     private final PdfService pdfService;
     private final PrescriptionRepository prescriptionRepository;
+    private final com.bayport.security.RecordAccessService recordAccessService;
 
     public PetMedicalRecordController(
             PetMedicalRecordService medicalRecordService,
             PdfService pdfService,
-            PrescriptionRepository prescriptionRepository) {
+            PrescriptionRepository prescriptionRepository,
+            com.bayport.security.RecordAccessService recordAccessService) {
         this.medicalRecordService = medicalRecordService;
         this.pdfService = pdfService;
         this.prescriptionRepository = prescriptionRepository;
+        this.recordAccessService = recordAccessService;
     }
 
     @GetMapping
     public List<PetMedicalRecord> list(@PathVariable Long petId) {
+        recordAccessService.requirePetAccess(petId);
         return medicalRecordService.listByPet(petId);
     }
 
     @GetMapping("/{recordId}")
     public PetMedicalRecord get(@PathVariable Long petId, @PathVariable Long recordId) {
+        recordAccessService.requirePetAccess(petId);
         return medicalRecordService.getById(petId, recordId);
     }
 
     @PostMapping
     public PetMedicalRecord create(@PathVariable Long petId, @RequestBody PetMedicalRecord record) {
+        recordAccessService.requirePetAccess(petId);
         return medicalRecordService.create(petId, record);
     }
 
@@ -51,11 +57,13 @@ public class PetMedicalRecordController {
             @PathVariable Long petId,
             @PathVariable Long recordId,
             @RequestBody PetMedicalRecord record) {
+        recordAccessService.requirePetAccess(petId);
         return medicalRecordService.update(petId, recordId, record);
     }
 
     @DeleteMapping("/{recordId}")
     public ResponseEntity<Void> delete(@PathVariable Long petId, @PathVariable Long recordId) {
+        recordAccessService.requirePetAccess(petId);
         medicalRecordService.delete(petId, recordId);
         return ResponseEntity.noContent().build();
     }
@@ -65,6 +73,7 @@ public class PetMedicalRecordController {
             @PathVariable Long petId,
             @PathVariable Long recordId,
             @RequestParam("file") MultipartFile file) throws Exception {
+        recordAccessService.requirePetAccess(petId);
         return medicalRecordService.attachFile(petId, recordId, file);
     }
 }

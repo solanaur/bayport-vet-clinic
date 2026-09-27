@@ -326,16 +326,29 @@
       deps.toast("Walk-in customers cannot pay clinic invoices. Select a registered pet instead.", true);
       return;
     }
-    const subtotal = Number(bill.subtotalAmount != null ? bill.subtotalAmount : bill.amount) || 0;
     const existing = cart.find((l) => l.kind === "billing" && l.billingId === bill.id);
     if (existing) return;
-    cart.push({
-      kind: "billing",
-      billingId: bill.id,
-      name: bill.description || `Invoice #${bill.id}`,
-      unitPrice: subtotal,
-      qty: 1,
-    });
+    const itemized = Array.isArray(bill.lines) ? bill.lines.filter((l) => l && (l.serviceName || l.serviceCost != null)) : [];
+    if (itemized.length) {
+      itemized.forEach((line, idx) => {
+        cart.push({
+          kind: "billing",
+          billingId: bill.id,
+          name: line.serviceName || `Service ${idx + 1}`,
+          unitPrice: Number(line.serviceCost) || 0,
+          qty: 1,
+        });
+      });
+    } else {
+      const subtotal = Number(bill.subtotalAmount != null ? bill.subtotalAmount : bill.amount) || 0;
+      cart.push({
+        kind: "billing",
+        billingId: bill.id,
+        name: bill.description || `Invoice #${bill.id}`,
+        unitPrice: subtotal,
+        qty: 1,
+      });
+    }
     if (bill.petId && document.getElementById("payPetSel")) {
       document.getElementById("payPetSel").value = String(bill.petId);
     }

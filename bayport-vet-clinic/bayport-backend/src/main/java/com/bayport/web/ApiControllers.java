@@ -11,8 +11,11 @@ import com.bayport.service.InventoryService;
 import com.bayport.service.PosService;
 import com.bayport.service.ReportService;
 import com.bayport.storage.FileStorageService;
+import com.bayport.security.RecordAccessService;
 import com.bayport.security.SecurityUtils;
+import com.bayport.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -43,6 +47,11 @@ public class ApiControllers {
     private final EmailService emailService;
     private final PosService posService;
     private final InventoryService inventoryService;
+    private final RecordAccessService recordAccessService;
+    private final AuditLogService auditLogService;
+    private final com.bayport.auth.TotpService totpService;
+    private final boolean otpReturnWhenUndelivered;
+    private static final Set<String> BYPASS_USERNAMES = Set.of("admin", "vet", "frontdesk", "recept", "pharm");
 
     public ApiControllers(
             BayportService bayportService,
@@ -55,7 +64,11 @@ public class ApiControllers {
             EmailService emailService,
             PosService posService,
             InventoryService inventoryService,
-            FileStorageService fileStorageService
+            FileStorageService fileStorageService,
+            RecordAccessService recordAccessService,
+            AuditLogService auditLogService,
+            com.bayport.auth.TotpService totpService,
+            @Value("${bayport.security.otp-return-when-undelivered:false}") boolean otpReturnWhenUndelivered
     ) {
         this.bayportService = bayportService;
         this.reportService = reportService;
@@ -68,6 +81,10 @@ public class ApiControllers {
         this.posService = posService;
         this.inventoryService = inventoryService;
         this.fileStorageService = fileStorageService;
+        this.recordAccessService = recordAccessService;
+        this.auditLogService = auditLogService;
+        this.totpService = totpService;
+        this.otpReturnWhenUndelivered = otpReturnWhenUndelivered;
     }
 
     private ResponseEntity<Map<String, Object>> adminReportsDenied(Authentication auth) {
@@ -102,7 +119,7 @@ public class ApiControllers {
     /* --------- Pets --------- */
     @GetMapping("/pets")
     public ResponseEntity<List<Pet>> listPets(){
-        return ResponseEntity.ok(bayportService.getAllPets());
+        return ResponseEntity.ok(recordAccessService.filterPets(bayportService.getAllPets()));
     }
 
     /**
@@ -110,6 +127,7 @@ public class ApiControllers {
      * registered with the primary {@code /api} controller (avoids static-resource 404 in some deployments).
      */
     @GetMapping({"/sales/pos-recent", "/sales/pos/history"})
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")
     public ResponseEntity<List<Map<String, Object>>> salesPosRecent(
             @RequestParam(name = "limit", defaultValue = "40") int limit) {
         return ResponseEntity.ok(posService.recentPosSales(limit));
@@ -117,12 +135,22 @@ public class ApiControllers {
 
     @GetMapping("/pets/{id}")
     public ResponseEntity<Pet> getPet(@PathVariable("id") long id) {
+        try {
+            recordAccessService.requirePetAccess(id);
+        } catch (ResponseStatusException ex) {
+            if (ex.getStatusCode() == HttpStatus.FORBIDDEN) {
+                auditLogService.log("UNAUTHORIZED_RECORD_ACCESS_ATTEMPT", "Pet", String.valueOf(id),
+                        "Denied pet access", null);
+            }
+            throw ex;
+        }
         return bayportService.getPetById(id).map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping(value = "/pets/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadPetProfilePdf(@PathVariable("id") long id) {
+        recordAccessService.requirePetAccess(id);
         return bayportService.getPetById(id)
                 .map(pet -> {
                     byte[] pdf = pdfService.buildPetProfilePdf(pet);
@@ -136,7 +164,7 @@ public class ApiControllers {
 
     @GetMapping(value = "/pets/pdf/all", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> downloadAllPetsPdf() {
-        List<Pet> pets = bayportService.getAllPetsWithDetails();
+        List<Pet> pets = recordAccessService.filterPets(bayportService.getAllPetsWithDetails());
         if (pets.isEmpty()) {
             return ResponseEntity.noContent().build();
         }
@@ -148,36 +176,58 @@ public class ApiControllers {
     }
 
     @PostMapping("/pets")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")
     public Pet createPet(@RequestBody Pet p){
         if (p.getProcedures() == null) p.setProcedures(new ArrayList<>());
-        return bayportService.savePet(p);
+        // Only admins/front office may set veterinarian assignment; vets cannot self-assign arbitrary IDs from client
+        var me = recordAccessService.requireCurrentUser();
+        if (recordAccessService.isVeterinarian(me) && !recordAccessService.isAdmin(me) && !recordAccessService.isFrontOffice(me)) {
+            p.setAssignedVeterinarianId(me.getId());
+        } else if (p.getAssignedVeterinarianId() != null) {
+            userRepository.findById(p.getAssignedVeterinarianId()).ifPresent(u -> {
+                if (!recordAccessService.isVeterinarian(u)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assigned user must be a veterinarian");
+                }
+            });
+        }
+        Pet saved = bayportService.savePet(p);
+        auditLogService.log("PET_CREATED", "Pet", String.valueOf(saved.getId()), "Pet created", null);
+        return saved;
     }
 
     @PutMapping("/pets/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','STAFF')")
     public ResponseEntity<?> updatePet(@PathVariable("id") long id,
                                        @RequestBody Pet pet) {
-
-        // If no pet with this id exists, return 404
+        recordAccessService.requirePetAccess(id);
         if (bayportService.getPetById(id).isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-
-        // Delegate to the service and return the updated pet (procedures are managed separately)
-        return ResponseEntity.ok(bayportService.updatePet(id, pet));
+        var me = recordAccessService.requireCurrentUser();
+        if (recordAccessService.isVeterinarian(me) && !recordAccessService.isAdmin(me) && !recordAccessService.isFrontOffice(me)) {
+            // Vets cannot reassign pets away from themselves via mass assignment
+            Pet existing = bayportService.getPetById(id).orElseThrow();
+            pet.setAssignedVeterinarianId(existing.getAssignedVeterinarianId());
+        }
+        Pet updated = bayportService.updatePet(id, pet);
+        auditLogService.log("PET_UPDATED", "Pet", String.valueOf(id), "Pet updated", null);
+        return ResponseEntity.ok(updated);
     }
 
 
     @DeleteMapping("/pets/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Void> deletePet(@PathVariable long id){
         if (bayportService.getPetById(id).isEmpty()) return ResponseEntity.notFound().build();
-        // Use soft delete - move to recycle bin
         bayportService.softDeletePet(id);
+        auditLogService.log("PET_DELETED", "Pet", String.valueOf(id), "Pet soft-deleted", null);
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping(value="/pets/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/pets/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String,String>> uploadPhoto(@PathVariable long id,
                       @RequestPart("file") MultipartFile file) throws IOException {
+        recordAccessService.requirePetAccess(id);
         Pet pet = bayportService.getPetById(id).orElse(null);
         if (pet == null) return ResponseEntity.notFound().build();
         String photoUrl = fileStorageService.store(file);
@@ -187,6 +237,7 @@ public class ApiControllers {
     }
 
     @PostMapping(value = "/inventory/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Map<String, String>> uploadInventoryPhoto(@PathVariable long id,
                                                                     @RequestPart("file") MultipartFile file) throws IOException {
         InventoryItem item = inventoryService.get(id);
@@ -202,8 +253,11 @@ public class ApiControllers {
     @PostMapping("/pets/{id}/procedures")
     public ResponseEntity<Pet> addProcedure(@PathVariable long id, @RequestBody Procedure proc){
         try {
+            recordAccessService.requirePetAccess(id);
             Pet pet = bayportService.addProcedureToPet(id, proc);
             return ResponseEntity.ok(pet);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -214,8 +268,11 @@ public class ApiControllers {
                                                      @PathVariable long procedureId,
                                                      @RequestBody Procedure body) {
         try {
+            recordAccessService.requirePetAccess(petId);
             Procedure updated = bayportService.updateProcedure(petId, procedureId, body);
             return ResponseEntity.ok(updated);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -225,8 +282,11 @@ public class ApiControllers {
     public ResponseEntity<Void> deleteProcedure(@PathVariable long petId,
                                                 @PathVariable long procedureId) {
         try {
+            recordAccessService.requirePetAccess(petId);
             bayportService.deleteProcedure(petId, procedureId);
             return ResponseEntity.noContent().build();
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -240,18 +300,22 @@ public class ApiControllers {
             @RequestParam(name = "currentUser", required = false) String currentUser,
             @RequestParam(name = "date", required = false) String date) {
 
-        // If date is provided, return appointments for that specific date
+        // Ignore client-supplied currentUser; scope from SecurityContext
+        String authUser = recordAccessService.requireCurrentUser().getUsername();
+
         if (date != null && !date.isBlank()) {
             try {
                 LocalDate appointmentDate = LocalDate.parse(date);
-                List<Appointment> appointmentsByDate = bayportService.getAppointmentsByDate(appointmentDate);
+                List<Appointment> appointmentsByDate = recordAccessService.filterAppointments(
+                        bayportService.getAppointmentsByDate(appointmentDate));
                 return ResponseEntity.ok(appointmentsByDate);
             } catch (Exception e) {
                 return ResponseEntity.badRequest().build();
             }
         }
 
-        List<Appointment> all = bayportService.getAllAppointmentsForUser(currentUser);
+        List<Appointment> all = recordAccessService.filterAppointments(
+                bayportService.getAllAppointmentsForUser(authUser));
 
         if (vet != null && !vet.isBlank()) {
             all = all.stream().filter(a -> vet.equalsIgnoreCase(Objects.toString(a.getVet(), ""))).toList();
@@ -262,10 +326,19 @@ public class ApiControllers {
         return ResponseEntity.ok(all);
     }
 
+    @GetMapping("/appointments/vets")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST','VET','VETERINARIAN','STAFF')")
+    public List<Map<String, String>> listAppointmentVets() {
+        return bayportService.listAssignableVeterinarians();
+    }
+
     @GetMapping("/appointments/{id}")
     public ResponseEntity<Appointment> getAppointment(@PathVariable long id) {
         return bayportService.getAppointmentById(id)
-                .map(ResponseEntity::ok)
+                .map(a -> {
+                    recordAccessService.requireAppointmentAccess(a);
+                    return ResponseEntity.ok(a);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -286,8 +359,11 @@ public class ApiControllers {
     @PostMapping("/appointments/{id}/approve")
     public ResponseEntity<?> approve(@PathVariable("id") long id) {
         try {
+            bayportService.getAppointmentById(id).ifPresent(recordAccessService::requireAppointmentAccess);
             Appointment appointment = bayportService.approveAppointment(id);
             return ResponseEntity.ok(appointment);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (RuntimeException e) {
@@ -298,8 +374,11 @@ public class ApiControllers {
     @PostMapping("/appointments/{id}/done")
     public ResponseEntity<Appointment> done(@PathVariable("id") long id) {
         try {
+            bayportService.getAppointmentById(id).ifPresent(recordAccessService::requireAppointmentAccess);
             Appointment appointment = bayportService.markAppointmentDone(id);
             return ResponseEntity.ok(appointment);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -308,8 +387,11 @@ public class ApiControllers {
     @PostMapping("/appointments/{id}/cancel")
     public ResponseEntity<?> cancelAppt(@PathVariable("id") long id) {
         try {
+            bayportService.getAppointmentById(id).ifPresent(recordAccessService::requireAppointmentAccess);
             Appointment appointment = bayportService.cancelAppointment(id);
             return ResponseEntity.ok(appointment);
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.notFound().build();
         } catch (IllegalStateException e) {
@@ -318,6 +400,7 @@ public class ApiControllers {
     }
 
     @DeleteMapping("/appointments/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Void> deleteAppt(@PathVariable("id") long id) {
         if (bayportService.getAppointmentById(id).isEmpty()) return ResponseEntity.notFound().build();
         bayportService.deleteAppointment(id);
@@ -327,37 +410,57 @@ public class ApiControllers {
     /* --------- Prescriptions --------- */
     @GetMapping("/prescriptions")
     public ResponseEntity<List<Prescription>> listRx(){
-        return ResponseEntity.ok(bayportService.getAllPrescriptions());
+        return ResponseEntity.ok(recordAccessService.filterPrescriptions(bayportService.getAllPrescriptions()));
     }
 
     @GetMapping("/prescriptions/{id}")
     public ResponseEntity<Prescription> getRx(@PathVariable long id) {
         return bayportService.getPrescriptionById(id)
-                .map(ResponseEntity::ok)
+                .map(rx -> {
+                    recordAccessService.requirePrescriptionAccess(rx);
+                    return ResponseEntity.ok(rx);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/prescriptions")
-    public Prescription createRx(@RequestBody Prescription r){ return bayportService.savePrescription(r); }
+    @PreAuthorize("hasAnyRole('ADMIN','VET','VETERINARIAN')")
+    public Prescription createRx(@RequestBody Prescription r){
+        if (r.getPetId() != null) {
+            recordAccessService.requirePetAccess(r.getPetId());
+        }
+        Prescription saved = bayportService.savePrescription(r);
+        auditLogService.log("PRESCRIPTION_CREATED", "Prescription", String.valueOf(saved.getId()), "Rx created", null);
+        return saved;
+    }
 
     @PutMapping("/prescriptions/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','VET','VETERINARIAN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Prescription> updateRx(@PathVariable long id, @RequestBody Prescription body) {
-        if (bayportService.getPrescriptionById(id).isEmpty()) {
+        Optional<Prescription> existing = bayportService.getPrescriptionById(id);
+        if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.ok(bayportService.updatePrescription(id, body));
+        recordAccessService.requirePrescriptionAccess(existing.get());
+        Prescription updated = bayportService.updatePrescription(id, body);
+        auditLogService.log("PRESCRIPTION_UPDATED", "Prescription", String.valueOf(id), "Rx updated", null);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/prescriptions/{id}")
+    @PreAuthorize("hasAnyRole('ADMIN','VET','VETERINARIAN')")
     public ResponseEntity<Void> deleteRx(@PathVariable long id) {
-        if (bayportService.getPrescriptionById(id).isEmpty()) {
+        Optional<Prescription> existing = bayportService.getPrescriptionById(id);
+        if (existing.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        recordAccessService.requirePrescriptionAccess(existing.get());
         bayportService.deletePrescription(id);
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/prescriptions/{id}/dispense")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Prescription> dispense(@PathVariable long id){
         try {
             Prescription prescription = bayportService.dispensePrescription(id);
@@ -368,10 +471,14 @@ public class ApiControllers {
     }
 
     @PatchMapping("/prescriptions/{id}/archive")
+    @PreAuthorize("hasAnyRole('ADMIN','VET','VETERINARIAN','FRONT_OFFICE','RECEPTIONIST','PHARMACIST')")
     public ResponseEntity<Prescription> archive(@PathVariable long id,
                                                 @RequestParam(defaultValue = "true") boolean archived) {
         try {
+            bayportService.getPrescriptionById(id).ifPresent(recordAccessService::requirePrescriptionAccess);
             return ResponseEntity.ok(bayportService.archivePrescription(id, archived));
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
@@ -379,15 +486,10 @@ public class ApiControllers {
 
     /* --------- Users --------- */
     @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<User>> listUsers(){ 
         try {
             List<User> users = bayportService.getAllUsers();
-            // Log for debugging
-            System.out.println("GET /api/users - Found " + (users != null ? users.size() : 0) + " users in database");
-            if (users != null && !users.isEmpty()) {
-                System.out.println("First user: " + users.get(0).getUsername() + " (" + users.get(0).getRole() + ")");
-            }
-            // Ensure we always return a list, never null
             if (users == null) {
                 users = new java.util.ArrayList<>();
             }
@@ -395,14 +497,14 @@ public class ApiControllers {
                     .header("Content-Type", "application/json")
                     .body(users);
         } catch (Exception e) {
-            System.err.println("Error in listUsers: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error in listUsers", e);
             return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new java.util.ArrayList<>());
         }
     }
 
     @GetMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> getUser(@PathVariable long id) {
         return bayportService.getUserById(id)
                 .map(ResponseEntity::ok)
@@ -410,10 +512,12 @@ public class ApiControllers {
     }
 
     @PostMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
     public User createUser(@RequestBody User u){ return bayportService.saveUser(u); }
     
     // New OTP-based user creation endpoints
     @PostMapping("/users/send-otp")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> sendUserCreationOtp(@RequestBody Map<String, String> request) {
         String email = request.get("email");
         if (email == null || email.trim().isEmpty()) {
@@ -427,25 +531,41 @@ public class ApiControllers {
         }
         
         try {
-            mfaService.sendOtpByEmail(email);
-            return ResponseEntity.ok(Map.of("status", "OTP_SENT", "message", "OTP sent to email"));
+            com.bayport.auth.MfaService.DeliveryResult sent = mfaService.sendOtpByEmail(email);
+            Map<String, Object> body = new HashMap<>();
+            body.put("status", "OTP_SENT");
+            body.put("emailDelivered", sent.emailDelivered());
+            body.put("from", emailService.getConfiguredFrom());
+            // Desktop: always show the code so create-user can finish when Gmail accepts
+            // the SMTP send but the message never reaches the inbox (spam / delayed).
+            if (otpReturnWhenUndelivered && sent.code() != null) {
+                body.put("localOtp", sent.code());
+            }
+            if (sent.emailDelivered()) {
+                String from = emailService.getConfiguredFrom();
+                String hint = "OTP emailed from " + (from == null || from.isBlank() ? "the clinic mailbox" : from)
+                        + ". Check Inbox and Spam for " + email.trim() + ".";
+                if (otpReturnWhenUndelivered && sent.code() != null) {
+                    hint += " If it did not arrive, use this code: " + sent.code();
+                }
+                body.put("message", hint);
+            } else if (otpReturnWhenUndelivered && sent.code() != null) {
+                body.put("message", "Email could not be sent. Enter this one-time code: " + sent.code());
+            } else {
+                body.put("message", "OTP generated. Ask an administrator for the code if email did not arrive.");
+            }
+            return ResponseEntity.ok(body);
+        } catch (ResponseStatusException rse) {
+            return ResponseEntity.status(rse.getStatusCode())
+                    .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
         } catch (Exception e) {
-            String detail = e.getMessage();
-            Throwable cause = e.getCause();
-            while ((detail == null || detail.isBlank()) && cause != null) {
-                detail = cause.getMessage();
-                cause = cause.getCause();
-            }
-            if (detail == null || detail.isBlank()) {
-                detail = "Email delivery failed";
-            }
-            detail = detail.replaceFirst("^(Failed to send OTP:\\s*)+", "")
-                           .replaceFirst("^(Failed to send email:\\s*)+", "");
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to send OTP: " + detail));
+            String detail = e.getMessage() == null || e.getMessage().isBlank() ? "Failed to send OTP" : e.getMessage();
+            return ResponseEntity.status(500).body(Map.of("error", detail));
         }
     }
     
     @PostMapping("/users/verify-otp-create")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> verifyOtpAndCreateUser(@RequestBody Map<String, Object> request) {
         String email = (String) request.get("email");
         String otp = (String) request.get("otp");
@@ -461,13 +581,16 @@ public class ApiControllers {
         if (password == null || password.length() < 6) {
             return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
         }
+
+        String normalizedRole = role.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("admin", "vet", "veterinarian", "front_office", "receptionist", "pharmacist", "staff").contains(normalizedRole)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
+        }
         
-        // Verify OTP by email
         if (!mfaService.verifyOtpByEmail(email, otp)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired OTP"));
         }
         
-        // Create user
         try {
             User newUser = new User();
             newUser.setName(name);
@@ -475,36 +598,69 @@ public class ApiControllers {
             newUser.setUsername(username);
             newUser.setEmail(email);
             newUser.setRole(role);
-            newUser.setPassword(password); // Will be hashed by saveUser
-            newUser.setMfaEnabled(true); // Enable MFA for all new users
+            newUser.setPassword(password);
+            newUser.setMfaEnabled(true);
             
             User created = bayportService.saveUser(newUser);
-            return ResponseEntity.ok(created);
+            Map<String, Object> body = new HashMap<>();
+            body.put("id", created.getId());
+            body.put("name", created.getFullName() != null ? created.getFullName() : created.getName());
+            body.put("username", created.getUsername());
+            body.put("email", created.getEmail());
+            body.put("role", created.getRole());
+            body.put("mfaEnabled", true);
+
+            String createdUsername = created.getUsername() == null ? "" : created.getUsername().toLowerCase(Locale.ROOT);
+            if (!BYPASS_USERNAMES.contains(createdUsername)) {
+                com.bayport.auth.TotpService.Enrollment enrollment = totpService.enroll(created.getUsername());
+                created.setTotpSecret(enrollment.secret());
+                created.setMfaEnabled(true);
+                created = userRepository.save(created);
+                body.put("totpSecret", enrollment.secret());
+                body.put("totpUri", enrollment.otpauthUri());
+                body.put("totpIssuer", com.bayport.auth.TotpService.ISSUER);
+                body.put("mfaType", "TOTP");
+            }
+
+            auditLogService.log("USER_CREATED", "User", String.valueOf(created.getId()), "User created", null);
+            return ResponseEntity.ok(body);
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to create user: " + e.getMessage()));
+            return ResponseEntity.status(500).body(Map.of("error", "Failed to create user"));
         }
     }
 
     @PutMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<User> updateUser(@PathVariable long id, @RequestBody User u){
-        if (bayportService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(bayportService.updateUser(id, u));
+        Optional<User> existingOpt = bayportService.getUserById(id);
+        if (existingOpt.isEmpty()) return ResponseEntity.notFound().build();
+        String oldRole = existingOpt.get().getRole();
+        User updated = bayportService.updateUser(id, u);
+        if (oldRole != null && updated.getRole() != null && !oldRole.equalsIgnoreCase(updated.getRole())) {
+            auditLogService.log("ROLE_CHANGED", "User", String.valueOf(id),
+                    "Role changed", null);
+        }
+        auditLogService.log("USER_UPDATED", "User", String.valueOf(id), "User updated", null);
+        return ResponseEntity.ok(updated);
     }
 
     @GetMapping("/users/{id}/password")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> getUserPassword(@PathVariable long id) {
-        return bayportService.getUserById(id)
-                .map(user -> {
-                    String displayPassword = user.getDisplayPassword();
-                    if (displayPassword == null || displayPassword.isEmpty()) {
-                        return ResponseEntity.ok(Map.of("password", "", "hasPassword", false));
-                    }
-                    return ResponseEntity.ok(Map.of("password", displayPassword, "hasPassword", true));
-                })
-                .orElse(ResponseEntity.notFound().build());
+        // Passwords are never retrievable — only hashes are stored
+        if (bayportService.getUserById(id).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.status(HttpStatus.GONE)
+                .body(Map.of(
+                        "error", "Password viewing is disabled for security",
+                        "hasPassword", true,
+                        "password", ""
+                ));
     }
 
     @PostMapping("/users/{id}/send-edit-otp")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> sendEditCredentialsOtp(@PathVariable long id) {
         return bayportService.getUserById(id)
                 .map(user -> {
@@ -515,15 +671,19 @@ public class ApiControllers {
                     try {
                         mfaService.sendMfaCode(user);
                         return ResponseEntity.ok(Map.of("status", "OTP_SENT", "message", "OTP sent to user email"));
+                    } catch (ResponseStatusException rse) {
+                        return ResponseEntity.status(rse.getStatusCode())
+                                .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
                     } catch (Exception e) {
                         return ResponseEntity.status(500)
-                                .body(Map.of("error", "Failed to send OTP: " + e.getMessage()));
+                                .body(Map.of("error", "Failed to send OTP"));
         }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping("/users/{id}/edit-credentials")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> editCredentials(@PathVariable long id,
                                               @RequestBody Map<String, Object> request) {
         String otp = (String) request.get("otp");
@@ -533,7 +693,6 @@ public class ApiControllers {
         
         return bayportService.getUserById(id)
                 .map(user -> {
-                    // Verify OTP
                     if (otp == null || otp.trim().isEmpty()) {
                         return ResponseEntity.badRequest()
                                 .body(Map.of("error", "OTP is required"));
@@ -544,7 +703,6 @@ public class ApiControllers {
                                 .body(Map.of("error", "Invalid or expired OTP"));
                     }
                     
-                    // Update credentials
                     try {
                         boolean updated = false;
                         if (username != null && !username.trim().isEmpty() && !username.equals(user.getUsername())) {
@@ -552,7 +710,6 @@ public class ApiControllers {
                             updated = true;
                         }
                         if (email != null && !email.trim().isEmpty() && !email.equals(user.getEmail())) {
-                            // Check if email is already in use by another user
                             java.util.Optional<User> existing = userRepository.findByEmail(email);
                             if (existing.isPresent() && !existing.get().getId().equals(id)) {
                                 return ResponseEntity.badRequest()
@@ -572,6 +729,8 @@ public class ApiControllers {
                         
                         if (updated) {
                             bayportService.updateUser(id, user);
+                            auditLogService.log("PASSWORD_CHANGED", "User", String.valueOf(id),
+                                    "Credentials updated via admin OTP flow", null);
                             return ResponseEntity.ok(Map.of("success", true, "message", "Credentials updated successfully"));
                         } else {
             return ResponseEntity.badRequest()
@@ -579,21 +738,24 @@ public class ApiControllers {
                         }
         } catch (Exception e) {
             return ResponseEntity.status(500)
-                                .body(Map.of("error", "Failed to update credentials: " + e.getMessage()));
+                                .body(Map.of("error", "Failed to update credentials"));
         }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable long id){
         if (bayportService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
         bayportService.deleteUser(id);
+        auditLogService.log("USER_DISABLED", "User", String.valueOf(id), "User deleted", null);
         return ResponseEntity.noContent().build();
     }
 
     /* --------- Reports & Ops --------- */
     @GetMapping("/ops/log")
+    @PreAuthorize("hasRole('ADMIN')")
     public List<OperationLog> opsLog(
             @RequestParam String from,
             @RequestParam String to

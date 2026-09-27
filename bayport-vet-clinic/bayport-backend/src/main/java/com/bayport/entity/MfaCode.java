@@ -10,14 +10,15 @@ public class MfaCode {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = true)
     private User user; // Nullable for pre-user-creation OTPs
     
     @Column(length = 255)
     private String email; // Used when user is null (for user creation OTPs)
 
-    @Column(nullable = false, length = 10)
+    /** Hashed OTP (BCrypt). Legacy plaintext codes may still verify during migration. */
+    @Column(nullable = false, length = 100)
     private String code;
 
     @Column(name = "expires_at", nullable = false)
@@ -25,6 +26,10 @@ public class MfaCode {
 
     @Column(nullable = false)
     private boolean used = false;
+
+    /** Failed verification attempts against this OTP. */
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount = 0;
 
     public MfaCode() {}
 
@@ -74,5 +79,13 @@ public class MfaCode {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public int getAttemptCount() {
+        return attemptCount;
+    }
+
+    public void setAttemptCount(int attemptCount) {
+        this.attemptCount = attemptCount;
     }
 }

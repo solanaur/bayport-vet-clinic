@@ -420,8 +420,8 @@ function createWindow() {
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
-      sandbox: false, // Changed to false for better compatibility
-      webSecurity: false, // Allow file:// protocol to access localhost API
+      sandbox: true,
+      webSecurity: false, // file:// UI must reach localhost API in desktop shell
       nodeIntegration: false,
       backgroundThrottling: false,
       spellcheck: false

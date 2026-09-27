@@ -36,6 +36,9 @@ public class Procedure {
     @JsonSerialize(using = MoneySerializer.class)
     private BigDecimal cost;
 
+    @Column(name = "consultation_id")
+    private Long consultationId;
+
     @JsonBackReference
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id")
@@ -78,6 +81,9 @@ public class Procedure {
 
     public BigDecimal getCost() { return cost; }
     public void setCost(BigDecimal cost) { this.cost = MoneyUtils.normalize(cost); }
+
+    public Long getConsultationId() { return consultationId; }
+    public void setConsultationId(Long consultationId) { this.consultationId = consultationId; }
 
     public Pet getPet() { return pet; }
     public void setPet(Pet pet) { this.pet = pet; }

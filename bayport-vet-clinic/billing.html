@@ -63,6 +63,7 @@
                     <th class="px-4 py-3">Invoice</th>
                     <th class="px-4 py-3">Pet / owner</th>
                     <th class="px-4 py-3 hidden md:table-cell">Date</th>
+                    <th class="px-4 py-3">Services</th>
                     <th class="px-4 py-3 text-right">Amount</th>
                     <th class="px-4 py-3">Status</th>
                   </tr>
@@ -468,7 +469,8 @@
         if (!inDateRange(r)) return false;
         if (!q) return true;
         const inv = invoiceNo(r).toLowerCase();
-        const str = `${inv} ${r.petName || ""} ${r.ownerName || ""} ${r.description || ""}`.toLowerCase();
+        const lineNames = (r.lines || []).map((l) => l.serviceName || "").join(" ");
+        const str = `${inv} ${r.petName || ""} ${r.ownerName || ""} ${r.description || ""} ${lineNames}`.toLowerCase();
         return str.includes(q);
       });
     }
@@ -556,6 +558,33 @@
       return typeof bpStatusBadge === "function" ? bpStatusBadge(st) : `<span>${esc(st)}</span>`;
     }
 
+    function invoiceServiceLines(r) {
+      const billed = Array.isArray(r?.lines) ? r.lines.filter((l) => l && (l.serviceName || l.serviceCost != null)) : [];
+      if (billed.length) {
+        return billed.map((l) => ({
+          description: l.serviceName || "Service",
+          qty: 1,
+          amount: Number(l.serviceCost) || 0,
+        }));
+      }
+      const desc = String(r?.description || "").trim();
+      if (desc && !/^pos (checkout|sale)$/i.test(desc) && !/^consultation /i.test(desc)) {
+        return [{ description: desc, qty: 1, amount: Number(r.amount) || 0 }];
+      }
+      return [];
+    }
+
+    function combinedServiceHtml(r) {
+      const lines = invoiceServiceLines(r);
+      if (!lines.length) {
+        const fallback = String(r.description || "").trim();
+        return `<div class="text-slate-500">${esc(fallback || "—")}</div>`;
+      }
+      return lines
+        .map((l) => `<div class="truncate" title="${esc(l.description)}">${esc(l.description)}</div>`)
+        .join("");
+    }
+
     function renderTable() {
       let rows = tabFilter(filteredRows());
       rows.sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")));
@@ -573,7 +602,7 @@
 
       const body = document.getElementById("billingRows");
       if (!slice.length) {
-        body.innerHTML = `<tr><td colspan="5">${typeof bpEmptyState === "function" ? bpEmptyState("No invoices match your search.", "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-400">No invoices match your search.</div>`}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="6">${typeof bpEmptyState === "function" ? bpEmptyState("No invoices match your search.", "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-400">No invoices match your search.</div>`}</td></tr>`;
         return;
       }
       body.innerHTML = slice
@@ -586,6 +615,7 @@
               <div class="text-xs text-slate-500">${esc(r.ownerName || "—")}</div>
             </td>
             <td class="px-4 py-3 text-slate-600 hidden md:table-cell whitespace-nowrap">${esc(fmtDateTime(r.issuedAt))}</td>
+            <td class="px-4 py-3 text-slate-700 text-xs leading-5 max-w-[16rem]">${combinedServiceHtml(r)}</td>
             <td class="px-4 py-3 text-right font-semibold tabular-nums">₱${fmtMoney(r.amount)}</td>
             <td class="px-4 py-3">${statusPill(r.status)}</td>
           </tr>`;
@@ -604,22 +634,18 @@
       const discount = Number(r.discountAmount || 0) || 0;
       const netTotal = Number(r.amount) || Math.max(0, subtotal - discount);
       const paidAmt = isPaid ? netTotal : 0;
-      const descPreview = (r.description || "Service").trim();
-      const genericDesc = /^pos (checkout|sale)$/i.test(descPreview);
-
       document.getElementById("drawerBody").innerHTML = `
         <div class="mb-4">${statusPill(r.status)}</div>
         <div class="text-xs text-slate-500 uppercase tracking-wide">Invoice</div>
         <div class="text-lg font-bold text-slate-900">${esc(invoiceNo(r))}</div>
         <div class="text-xs text-slate-500 mt-1">${esc(fmtDateTime(r.issuedAt))}</div>
-        <div class="mt-6 flex gap-3">
+        <div class="mt-6 flex gap-3 items-center">
           <div class="w-14 h-14 rounded-full bg-slate-200 shrink-0 relative overflow-hidden flex items-center justify-center">
             <span id="billDrawerPetInitial" class="text-slate-600 font-bold text-lg relative z-0">${esc((r.petName || "?").slice(0, 1))}</span>
             <img id="billDrawerPetImg" class="absolute inset-0 z-10 w-full h-full object-cover hidden" alt="" decoding="async" />
           </div>
           <div class="min-w-0 flex-1">
             <div class="font-semibold text-slate-900">${esc(r.petName || "—")}</div>
-            <div id="billDrawerLines" class="text-xs text-slate-500 mt-1">${genericDesc ? "Loading items…" : esc(descPreview)}</div>
           </div>
         </div>
         <div class="mt-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
@@ -627,7 +653,9 @@
           <div class="font-semibold text-slate-900">${esc(r.ownerName || "—")}</div>
         </div>
         <div class="mt-6 space-y-2 border-t border-slate-100 pt-4">
-          <div class="flex justify-between"><span>Subtotal</span><span class="font-medium tabular-nums">₱${fmtMoney(subtotal)}</span></div>
+          <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Services</div>
+          <div id="billDrawerLines" class="space-y-2"></div>
+          <div class="flex justify-between pt-3"><span>Subtotal</span><span class="font-medium tabular-nums">₱${fmtMoney(subtotal)}</span></div>
           <div class="flex justify-between text-slate-500"><span>Discount</span><span class="tabular-nums">₱${fmtMoney(discount)}</span></div>
           <div class="flex justify-between text-slate-500"><span>Tax</span><span>0%</span></div>
           <div class="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100"><span>Total</span><span class="tabular-nums">₱${fmtMoney(netTotal)}</span></div>
@@ -667,13 +695,18 @@
       if (!el) return;
       try {
         const lines = await resolveReceiptLines(r);
-        if (!lines.length) return;
-        if (lines.length === 1) {
-          el.textContent = lines[0].description;
+        if (!lines.length) {
+          el.innerHTML = `<div class="text-slate-400">No itemized services</div>`;
           return;
         }
         el.innerHTML = lines
-          .map((l) => `<div>${esc(l.description)} ×${l.qty || 1}</div>`)
+          .map(
+            (l) =>
+              `<div class="flex justify-between gap-3">
+                <span class="min-w-0">${esc(l.description)}${Number(l.qty) > 1 ? " ×" + l.qty : ""}</span>
+                <span class="shrink-0 tabular-nums">₱${fmtMoney(l.amount)}</span>
+              </div>`,
+          )
           .join("");
       } catch (_) {}
     }
@@ -733,6 +766,14 @@
     }
 
     async function resolveReceiptLines(r) {
+      const billed = Array.isArray(r?.lines) ? r.lines.filter((l) => l && (l.serviceName || l.serviceCost != null)) : [];
+      if (billed.length) {
+        return billed.map((l) => ({
+          description: l.serviceName || "Service",
+          qty: 1,
+          amount: Number(l.serviceCost) || 0,
+        }));
+      }
       const sale = findSaleForBilling(r);
       if (sale && sale.id) {
         try {

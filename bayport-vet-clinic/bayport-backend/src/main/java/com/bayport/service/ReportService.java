@@ -2,12 +2,14 @@ package com.bayport.service;
 
 import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
+import com.bayport.entity.BillingLine;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.Sale;
 import com.bayport.entity.SaleLine;
 import com.bayport.dto.ReportDailyPosRow;
 import com.bayport.dto.ReportTopItemRow;
 import com.bayport.entity.BillingRecord;
+import com.bayport.repository.BillingLineRepository;
 import com.bayport.repository.BillingRecordRepository;
 import com.bayport.repository.InventoryItemRepository;
 import com.bayport.repository.PetRepository;
@@ -42,6 +44,7 @@ public class ReportService {
     private final PosSaleLineBackfillService posSaleLineBackfillService;
     private final InventoryItemRepository inventoryItemRepository;
     private final BillingRecordRepository billingRecordRepository;
+    private final BillingLineRepository billingLineRepository;
 
     public ReportService(PetRepository petRepository,
                          BayportService bayportService,
@@ -50,7 +53,8 @@ public class ReportService {
                          SaleLineRepository saleLineRepository,
                          PosSaleLineBackfillService posSaleLineBackfillService,
                          InventoryItemRepository inventoryItemRepository,
-                         BillingRecordRepository billingRecordRepository) {
+                         BillingRecordRepository billingRecordRepository,
+                         BillingLineRepository billingLineRepository) {
         this.petRepository = petRepository;
         this.bayportService = bayportService;
         this.prescriptionRepository = prescriptionRepository;
@@ -59,6 +63,7 @@ public class ReportService {
         this.posSaleLineBackfillService = posSaleLineBackfillService;
         this.inventoryItemRepository = inventoryItemRepository;
         this.billingRecordRepository = billingRecordRepository;
+        this.billingLineRepository = billingLineRepository;
     }
 
     public ReportSummary summarize(LocalDate start, LocalDate end, String period) {
@@ -161,6 +166,22 @@ public class ReportService {
         } catch (Exception e) {
             summary.totalProfit = BigDecimal.ZERO;
             summary.posSales = BigDecimal.ZERO;
+        }
+
+        try {
+            LocalDateTime rangeStart = start.atStartOfDay();
+            LocalDateTime rangeEndEx = end.plusDays(1).atStartOfDay();
+            for (BillingLine line : billingLineRepository.findIssuedBetween(rangeStart, rangeEndEx)) {
+                summary.consultationServiceLines.add(mapConsultationLine(line));
+            }
+            summary.consultationServiceRevenue = MoneyUtils.normalize(
+                    summary.consultationServiceLines.stream()
+                            .map(r -> r.serviceCost)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+        } catch (Exception e) {
+            summary.consultationServiceLines = new ArrayList<>();
+            summary.consultationServiceRevenue = BigDecimal.ZERO;
         }
 
         enrichFinancialAndDashboard(start, end, summary);
@@ -347,6 +368,21 @@ public class ReportService {
                     return SaleLine.KIND_PRODUCT;
                 })
                 .orElse(SaleLine.KIND_PRODUCT);
+    }
+
+    private static ReportSummary.ConsultationServiceLine mapConsultationLine(BillingLine line) {
+        ReportSummary.ConsultationServiceLine row = new ReportSummary.ConsultationServiceLine();
+        BillingRecord invoice = line.getBilling();
+        row.invoiceId = invoice != null ? invoice.getId() : null;
+        row.consultationId = line.getConsultationId();
+        row.issuedAt = invoice != null && invoice.getIssuedAt() != null ? invoice.getIssuedAt().toString() : "";
+        row.petName = invoice != null && invoice.getPetName() != null ? invoice.getPetName() : "";
+        row.ownerName = invoice != null && invoice.getOwnerName() != null ? invoice.getOwnerName() : "";
+        row.serviceName = line.getServiceName() != null ? line.getServiceName() : "Service";
+        row.performedBy = line.getPerformedBy() != null ? line.getPerformedBy() : "";
+        row.serviceCost = MoneyUtils.normalize(line.getServiceCost());
+        row.invoiceTotal = invoice != null ? MoneyUtils.normalize(invoice.getAmount()) : row.serviceCost;
+        return row;
     }
 
     private static ReportSummary.PosSaleLineRow mapVirtualPosRow(Sale sale,

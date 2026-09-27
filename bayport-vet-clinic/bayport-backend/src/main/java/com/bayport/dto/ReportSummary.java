@@ -31,6 +31,10 @@ public class ReportSummary {
     public BigDecimal posProcedureRevenue = BigDecimal.ZERO;
     public BigDecimal posProductRevenue = BigDecimal.ZERO;
 
+    /** Itemized clinic services billed on consultation invoices (not invoice totals). */
+    public List<ConsultationServiceLine> consultationServiceLines = new ArrayList<>();
+    public BigDecimal consultationServiceRevenue = BigDecimal.ZERO;
+
     /** Pending clinic invoices in range (by {@code issuedAt}), matching the Reports KPI. */
     public BigDecimal pendingBilling = BigDecimal.ZERO;
     /** Reserved for future voided-invoice tracking; UI currently shows none. */
@@ -41,6 +45,19 @@ public class ReportSummary {
     public BigDecimal posOtherPayment = BigDecimal.ZERO;
     public List<ReportDailyPosRow> dailyPos = new ArrayList<>();
     public List<ReportTopItemRow> topItems = new ArrayList<>();
+
+    /** One billed service line from a consultation invoice. */
+    public static class ConsultationServiceLine {
+        public Long invoiceId;
+        public Long consultationId;
+        public String issuedAt;
+        public String petName;
+        public String ownerName;
+        public String serviceName;
+        public String performedBy;
+        public BigDecimal serviceCost;
+        public BigDecimal invoiceTotal;
+    }
 
     /** One row in POS Procedures or POS Products tables. */
     public static class PosSaleLineRow {

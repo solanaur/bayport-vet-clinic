@@ -58,7 +58,6 @@
 })();
 
 window.tryLogin = async function(username, password, role, otp) {
-  if (!role) return { ok: false, msg: "Please select a role first." };
   ensureApiEnabled();
   try {
     let payload = null;
@@ -87,7 +86,10 @@ window.tryLogin = async function(username, password, role, otp) {
         msg: "MFA_REQUIRED",
         username: payload.username,
         emailConfigured: payload.emailConfigured !== false,
+        emailDelivered: payload.emailDelivered === true,
         mfaMessage: payload.message || "",
+        localOtp: payload.localOtp || "",
+        mfaType: payload.mfaType || (payload.localOtp ? "EMAIL" : "EMAIL"),
       };
     }
     if (payload.status === "TOS_REQUIRED") {
@@ -95,13 +97,6 @@ window.tryLogin = async function(username, password, role, otp) {
     }
     if (!payload || !payload.role) {
       return { ok: false, msg: "Unable to read login response." };
-    }
-    const normalizedSelected =
-      role === "receptionist" || role === "pharmacist" ? "front_office" : role;
-    if (normalizedSelected && payload.role !== normalizedSelected) {
-      return {
-        ok: false,
-        msg: `The account "${payload.username}" is registered as ${payload.role.toUpperCase().replace(/_/g, " ")}.` };
     }
     localStorage.setItem("role", payload.role);
     localStorage.setItem("userDisplayName", payload.name);
@@ -160,9 +155,8 @@ window.formatPetAge = function formatPetAge(p) {
 };
 
 /* ===== Log out ===== */
-window.logout = function() {
-  const confirmed = window.confirm("Are you sure you want to log out?");
-  if (!confirmed) return;
+window.clearAuthSession = function (options) {
+  const opts = options || {};
   localStorage.removeItem("role");
   localStorage.removeItem("userDisplayName");
   localStorage.removeItem("userRecordName");
@@ -170,13 +164,21 @@ window.logout = function() {
   localStorage.removeItem("userId");
   localStorage.removeItem("token");
   localStorage.removeItem("jwt");
-  localStorage.removeItem("bayport_remember_username");
+  if (opts.clearRememberedUsername) {
+    localStorage.removeItem("bayport_remember_username");
+  }
   try {
     sessionStorage.removeItem("posPrefillBillingId");
     sessionStorage.removeItem("posPrefillPetId");
     sessionStorage.removeItem("posPrefillDiscount");
     sessionStorage.removeItem("posFocusPendingBilling");
   } catch (_) {}
+};
+
+window.logout = function() {
+  const confirmed = window.confirm("Are you sure you want to log out?");
+  if (!confirmed) return;
+  window.clearAuthSession({ clearRememberedUsername: true });
   sessionStorage.setItem("bayport_login_reset", "1");
   location.href = "index.html";
 };

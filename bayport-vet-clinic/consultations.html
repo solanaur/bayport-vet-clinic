@@ -100,29 +100,44 @@
         </div>
 
         <div id="consult_step_2" class="consult-step-panel hidden">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <label class="text-sm text-gray-700">Procedure category
-            <select id="c_procedure_category" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 mb-6 items-end">
+          <label class="text-sm text-gray-700 md:col-span-4">Category
+            <select id="c_procedure_category" class="w-full border border-gray-300 rounded-md px-3 py-2.5 mt-1"></select>
           </label>
-          <label class="text-sm text-gray-700">Service / Procedure
-            <select id="c_procedure_service" class="w-full border border-gray-300 rounded-md p-3 mt-1"></select>
+          <label class="text-sm text-gray-700 md:col-span-4">Service
+            <select id="c_procedure_service" class="w-full border border-gray-300 rounded-md px-3 py-2.5 mt-1"></select>
           </label>
-          <label class="text-sm text-gray-700 md:col-span-2">Procedure fee (PHP)
-            <input id="c_procedure_cost" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="0" readonly>
+          <label class="text-sm text-gray-700 md:col-span-2">Fee (₱)
+            <input id="c_procedure_cost" type="number" min="0" step="0.01" class="w-full border border-gray-300 rounded-md px-3 py-2.5 mt-1 tabular-nums text-right" value="0" readonly>
           </label>
-          <div class="md:col-span-2 flex items-center gap-2">
-            <button type="button" id="add_procedure_btn" title="Add selected service to this visit" class="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium">
-              <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Add procedure
+          <div class="md:col-span-2">
+            <button type="button" id="add_procedure_btn" title="Add selected service to this visit" class="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] hover:bg-[var(--soft-teal)] hover:text-white text-sm font-medium">
+              <svg class="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              Add
             </button>
           </div>
         </div>
 
-        <section class="border rounded-xl p-4 mb-6">
-          <h4 class="font-semibold mb-3">Procedures in this consultation</h4>
-          <div id="procedure_rows" class="space-y-2 text-sm text-gray-700"></div>
-          <div class="mt-3 text-right text-sm">
-            Procedure total: <span id="procedure_total" class="font-semibold">PHP 0.00</span>
+        <section class="border border-gray-200 rounded-xl overflow-hidden mb-6">
+          <div class="px-4 py-3 border-b border-gray-100 bg-slate-50">
+            <h4 class="font-semibold text-sm text-gray-900">Services in this consultation</h4>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="text-xs font-semibold uppercase tracking-wide text-gray-500 border-b border-gray-100">
+                <tr>
+                  <th class="text-left px-4 py-2 font-semibold">Service</th>
+                  <th class="text-left px-4 py-2 font-semibold hidden sm:table-cell">Category</th>
+                  <th class="text-right px-4 py-2 font-semibold w-28">Fee</th>
+                  <th class="px-4 py-2 w-16"><span class="sr-only">Remove</span></th>
+                </tr>
+              </thead>
+              <tbody id="procedure_rows" class="divide-y divide-gray-100 text-gray-700"></tbody>
+            </table>
+          </div>
+          <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm bg-white">
+            <span class="text-gray-500">Consultation total</span>
+            <span id="procedure_total" class="font-semibold tabular-nums text-gray-900">PHP 0.00</span>
           </div>
         </section>
         </div>
@@ -392,22 +407,23 @@
 
     function renderProcedures() {
       if (!procedures.length) {
-        procedureRows.innerHTML = `<div class="text-gray-400">No procedures added yet.</div>`;
+        procedureRows.innerHTML = `<tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">No services added yet.</td></tr>`;
       } else {
         procedureRows.innerHTML = procedures.map((p, idx) => `
-          <div class="flex items-center justify-between border rounded-lg px-3 py-2">
-            <span>
-              <span class="font-medium">${p.name}</span>
-              <span class="block text-xs text-gray-500">${p.category}</span>
-            </span>
-            <div class="flex items-center gap-3">
-              <span>${php(p.cost)}</span>
-              <button type="button" onclick="removeProcedure(${idx})" class="inline-flex items-center gap-1 text-red-600 hover:text-red-800 text-sm" title="Remove procedure">
+          <tr class="align-middle">
+            <td class="px-4 py-2.5">
+              <div class="font-medium text-gray-900">${escapeHtml(p.name)}</div>
+              <div class="text-xs text-gray-500 sm:hidden">${escapeHtml(p.category || "")}</div>
+            </td>
+            <td class="px-4 py-2.5 text-gray-500 hidden sm:table-cell">${escapeHtml(p.category || "—")}</td>
+            <td class="px-4 py-2.5 text-right tabular-nums font-medium whitespace-nowrap">${php(p.cost)}</td>
+            <td class="px-4 py-2.5 text-right">
+              <button type="button" onclick="removeProcedure(${idx})" class="inline-flex items-center justify-center text-red-600 hover:text-red-800" title="Remove service">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                Remove
+                <span class="sr-only">Remove</span>
               </button>
-            </div>
-          </div>
+            </td>
+          </tr>
         `).join('');
       }
       const total = procedures.reduce((sum, p) => sum + Number(p.cost || 0), 0);
@@ -498,7 +514,7 @@
           const details = [r.dosage, r.directions].filter(Boolean).join(' \u00b7 ');
           return `<div class="py-1">${escapeHtml(r.drug || '')}${details ? `<span class="text-gray-500"> (${escapeHtml(details)})</span>` : ''}</div>`;
         }).join('') || '<span class="text-gray-400">No prescription</span>';
-        const procedureNames = (c.procedures || []).map(p => `<div class="py-1">${escapeHtml(p.name || '')} <span class="text-gray-500">(${php(p.cost || 0)})</span></div>`).join('');
+        const procedureNames = (c.procedures || []).map(p => `<div class="flex items-baseline justify-between gap-3 py-1"><span class="min-w-0 truncate">${escapeHtml(p.name || '')}</span><span class="shrink-0 tabular-nums text-gray-500">${php(p.cost || 0)}</span></div>`).join('');
         const encodedKey = encodeURIComponent(c.key);
         const isExpanded = expandedFinishedKey === c.key;
         const summaryDiagnosis = c.diagnosis && c.diagnosis !== 'N/A' ? c.diagnosis : (c.clinicalNotes || 'N/A');
@@ -524,7 +540,7 @@
                   <div class="text-xs text-gray-500 whitespace-pre-line mt-1">${escapeHtml(c.clinicalNotes || '')}</div>
                 </div>
                 <div>
-                  <div class="font-semibold text-sm mb-1">Procedures</div>
+                  <div class="font-semibold text-sm mb-1">Services</div>
                   <div class="text-sm">${procedureNames || '<span class="text-gray-400">N/A</span>'}</div>
                 </div>
                 <div>
@@ -773,19 +789,28 @@
       }));
 
       try {
-        for (const payload of procedurePayloads) {
-          await Api.pets.addProcedure(petId, payload);
-        }
-        const refreshedPet = await repoGetPet(petId);
-        const candidateProcedures = (refreshedPet?.procedures || []).filter(p => {
-          if (!p || p.performedAt !== performedAt) return false;
-          return procedurePayloads.some(pp =>
-            pp.name === p.name &&
-            pp.category === p.category &&
-            Number(pp.cost || 0) === Number(p.cost || 0)
-          );
+        const apptIdRawEarly = sessionStorage.getItem("consultationAppointmentId");
+        const appointmentIdEarly =
+          apptIdRawEarly && String(apptIdRawEarly).trim() !== "" && !Number.isNaN(Number(apptIdRawEarly))
+            ? Number(apptIdRawEarly)
+            : null;
+        const savedConsult = await Api.consultations.create({
+          petId,
+          appointmentId: appointmentIdEarly,
+          date: performedAt,
+          diagnosis,
+          notes,
+          vet: prescriberName(),
+          services: procedurePayloads.map((p) => ({
+            name: p.name,
+            category: p.category,
+            cost: p.cost,
+            medications: p.medications,
+            notes: p.notes,
+          })),
         });
-        const consultationProcedureId = candidateProcedures
+        const consultationProcedureId = (savedConsult?.procedures || [])
+          .slice()
           .sort((a, b) => Number(b.id || 0) - Number(a.id || 0))[0]?.id || null;
 
         const vetNotes = (typeof getClinicSettings === "function" ? getClinicSettings().rxBlankTemplate : "") || "";

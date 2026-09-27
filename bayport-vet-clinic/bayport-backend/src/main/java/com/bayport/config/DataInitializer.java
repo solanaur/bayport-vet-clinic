@@ -171,7 +171,6 @@ public class DataInitializer implements CommandLineRunner {
         admin.getRoles().add(adminRole);
         userRepository.save(admin);
 
-        // Vet user - bypass OTP
         String vetPassword = passwordEncoder.encode("vet123");
         User vet = new User("Dr. Arla Hernando", "vet", "vet", vetPassword);
         vet.setFullName("Dr. Arla Hernando");

@@ -827,18 +827,34 @@
 
     const DEFAULT_WALKIN_VET = "Dr. Arla Hernando";
 
-    async function openWalkInForm() {
-      const pets = await repoListPets();
-      let users = await repoListUsers();
-      if (!Array.isArray(users)) {
-        if (users && typeof users === "object") {
-          if (Array.isArray(users.content)) users = users.content;
-          else if (Array.isArray(users.data)) users = users.data;
-          else if (Array.isArray(users.users)) users = users.users;
-          else users = [];
-        } else users = [];
+    async function loadWalkInVets() {
+      try {
+        const vets = await Api.appts.listVets();
+        if (Array.isArray(vets) && vets.length) return vets;
+      } catch (e) {
+        console.warn("Appointment vet list:", e);
       }
-      const vets = users.filter((u) => (u.role || "").toLowerCase() === "vet");
+      try {
+        const doctors = await Api.doctors.list();
+        return (doctors || [])
+          .map((d) => ({ name: d.fullName || d.name || "" }))
+          .filter((d) => d.name);
+      } catch (e) {
+        console.warn("Doctor list:", e);
+      }
+      return [];
+    }
+
+    async function openWalkInForm() {
+      let pets = [];
+      let vets = [];
+      try {
+        pets = await repoListPets();
+        vets = await loadWalkInVets();
+      } catch (e) {
+        alert((e && e.message) || "Unable to open the appointment form.");
+        return;
+      }
       const vetDisplay = (v) => String(v.name || v.fullName || v.username || "").trim();
       const vetOptionsHtml = vets
         .map((v) => {

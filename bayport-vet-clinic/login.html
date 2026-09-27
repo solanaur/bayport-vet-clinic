@@ -29,31 +29,6 @@
 
         <form id="loginForm" novalidate>
           <div class="auth-field">
-            <span class="auth-field-label" id="roleLabel">Role</span>
-            <input type="hidden" id="roleValue" value=""/>
-            <div class="auth-role-cards" role="group" aria-labelledby="roleLabel">
-              <button type="button" class="auth-role-card" data-role="admin" aria-pressed="false">
-                <span class="auth-role-card-icon" aria-hidden="true">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                </span>
-                <span class="auth-role-card-title">Admin</span>
-              </button>
-              <button type="button" class="auth-role-card" data-role="vet" aria-pressed="false">
-                <span class="auth-role-card-icon" aria-hidden="true">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.5 8.5h3a2 2 0 012 2v1a2 2 0 01-2 2h-1l-2.5 4.5M19.5 8.5h-3a2 2 0 00-2 2v1a2 2 0 002 2h1l2.5 4.5"/><circle cx="12" cy="6" r="2.5" stroke-width="2"/></svg>
-                </span>
-                <span class="auth-role-card-title">Veterinarian</span>
-              </button>
-              <button type="button" class="auth-role-card" data-role="front_office" aria-pressed="false">
-                <span class="auth-role-card-icon" aria-hidden="true">
-                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                </span>
-                <span class="auth-role-card-title">Front Office</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="auth-field">
             <label for="username">Username</label>
             <div class="auth-input-wrap">
               <svg class="auth-input-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
@@ -73,9 +48,9 @@
           </div>
 
           <div id="otpSection" class="auth-otp-section">
-            <label for="otpCode">Enter OTP Code (4 digits)</label>
-            <input id="otpCode" type="text" maxlength="4" pattern="[0-9]{4}" inputmode="numeric" placeholder="0000"/>
-            <p id="otpHint" class="auth-otp-hint">Enter the 4-digit code sent to your email, or ask an administrator if email is not configured.</p>
+            <label for="otpCode" id="otpCodeLabel">Authenticator or email code</label>
+            <input id="otpCode" type="text" maxlength="6" pattern="[0-9]{4,6}" inputmode="numeric" placeholder="000000"/>
+            <p id="otpHint" class="auth-otp-hint">New accounts use the 6-digit Google Authenticator code. Built-in admin, vet, and front desk logins do not need a code.</p>
             <div class="auth-tos-row">
               <input type="checkbox" id="tosCheckbox"/>
               <label for="tosCheckbox">I accept the <a href="#" id="tosLink">Terms and Conditions</a></label>
@@ -87,7 +62,7 @@
               <input type="checkbox" id="rememberMe"/>
               Remember me
             </label>
-            <a href="#" class="auth-forgot" id="forgotPasswordLink" onclick="return false;">Forgot password?</a>
+            <a href="#" class="auth-forgot" id="forgotPasswordLink">Forgot password?</a>
           </div>
 
           <div class="auth-btn-row">
@@ -107,6 +82,37 @@
 
   <div id="warmupBanner" class="auth-warmup-banner hidden">
     Waking up server… first visit may take up to a minute on free hosting.
+  </div>
+
+  <div id="forgotModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotModalTitle">
+    <div class="auth-modal auth-forgot-modal">
+      <div class="auth-modal-head">
+        <h3 id="forgotModalTitle">Reset password</h3>
+        <button type="button" id="closeForgotModal" class="auth-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <p id="forgotError" class="auth-error" role="alert"></p>
+      <div id="forgotStepEmail">
+        <label class="auth-field-label" for="forgotEmail">Account email</label>
+        <input id="forgotEmail" type="email" class="auth-forgot-input" placeholder="name@example.com" autocomplete="email"/>
+        <p class="auth-otp-hint">A 4-digit code will be sent to this email.</p>
+        <div class="auth-modal-foot">
+          <button type="button" id="cancelForgot" class="auth-btn-secondary" style="width:auto;">Cancel</button>
+          <button type="button" id="sendResetCodeBtn" class="auth-btn-primary" style="width:auto;min-width:140px;">Send reset code</button>
+        </div>
+      </div>
+      <div id="forgotStepReset" class="hidden">
+        <p id="forgotHint" class="auth-otp-hint"></p>
+        <label class="auth-field-label" for="forgotCode">Reset code</label>
+        <input id="forgotCode" type="text" class="auth-forgot-input" maxlength="6" inputmode="numeric" placeholder="4-digit code"/>
+        <label class="auth-field-label" for="forgotNewPassword">New password</label>
+        <input id="forgotNewPassword" type="password" class="auth-forgot-input" placeholder="Minimum 6 characters" autocomplete="new-password"/>
+        <label class="auth-field-label" for="forgotConfirmPassword">Confirm password</label>
+        <input id="forgotConfirmPassword" type="password" class="auth-forgot-input" placeholder="Re-enter new password" autocomplete="new-password"/>
+        <div class="auth-modal-foot">
+          <button type="button" id="confirmResetBtn" class="auth-btn-primary" style="width:auto;min-width:160px;">Update password</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="tosModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tosModalTitle">
@@ -148,8 +154,6 @@
 
     const REMEMBER_KEY = "bayport_remember_username";
     const LOGIN_RESET_KEY = "bayport_login_reset";
-    const roleCards = document.querySelectorAll(".auth-role-card");
-    const roleValueInput = document.getElementById("roleValue");
     const errorBox = document.getElementById("errorBox");
     const otpSection = document.getElementById("otpSection");
     const otpCodeInput = document.getElementById("otpCode");
@@ -157,7 +161,6 @@
     const loginForm = document.getElementById("loginForm");
     const rememberMe = document.getElementById("rememberMe");
     let mfaUsername = null;
-    let selectedRole = null;
 
     function showError(msg, type) {
       errorBox.textContent = msg;
@@ -171,29 +174,7 @@
       errorBox.textContent = "";
     }
 
-    function getSelectedRole() {
-      return selectedRole;
-    }
-
-    function setSelectedRole(role) {
-      selectedRole = role || null;
-      if (roleValueInput) roleValueInput.value = selectedRole || "";
-      roleCards.forEach((card) => {
-        const active = card.dataset.role === selectedRole;
-        card.classList.toggle("is-selected", active);
-        card.setAttribute("aria-pressed", active ? "true" : "false");
-      });
-    }
-
-    function setRoleCardsDisabled(disabled) {
-      roleCards.forEach((card) => {
-        card.disabled = !!disabled;
-        card.classList.toggle("is-disabled", !!disabled);
-      });
-    }
-
     function resetLoginForm() {
-      setSelectedRole(null);
       document.getElementById("username").value = "";
       document.getElementById("password").value = "";
       otpCodeInput.value = "";
@@ -201,20 +182,11 @@
       rememberMe.checked = false;
       document.getElementById("username").disabled = false;
       document.getElementById("password").disabled = false;
-      setRoleCardsDisabled(false);
       otpSection.classList.remove("is-visible");
       mfaUsername = null;
       localStorage.removeItem(REMEMBER_KEY);
       hideError();
     }
-
-    roleCards.forEach((card) => {
-      card.addEventListener("click", () => {
-        if (card.disabled) return;
-        setSelectedRole(card.dataset.role);
-        hideError();
-      });
-    });
 
     if (sessionStorage.getItem(LOGIN_RESET_KEY)) {
       sessionStorage.removeItem(LOGIN_RESET_KEY);
@@ -245,7 +217,6 @@
       const u = document.getElementById("username").value.trim();
       const p = document.getElementById("password").value;
       const otp = otpCodeInput.value.trim();
-      const selectedRole = getSelectedRole();
 
       loginBtn.disabled = true;
       const originalText = loginBtn.innerHTML;
@@ -253,12 +224,6 @@
       hideError();
 
       if (!mfaUsername) {
-        if (!selectedRole) {
-          loginBtn.disabled = false;
-          loginBtn.innerHTML = originalText;
-          showError("Please select your role.", "error");
-          return;
-        }
         if (!u) {
           loginBtn.disabled = false;
           loginBtn.innerHTML = originalText;
@@ -306,7 +271,7 @@
           res = { ok: false, msg: err.message || "Invalid OTP code. Please try again." };
         }
       } else {
-        res = await window.tryLogin(u, p, selectedRole);
+        res = await window.tryLogin(u, p);
       }
 
       loginBtn.disabled = false;
@@ -338,27 +303,41 @@
         otpSection.classList.add("is-visible");
         document.getElementById("username").disabled = true;
         document.getElementById("password").disabled = true;
-        setRoleCardsDisabled(true);
         otpCodeInput.focus();
-        const mfaHint = res.mfaMessage || (res.emailConfigured === false
-          ? "Email is not configured. Ask an administrator for the OTP code (shown in admin notifications)."
-          : "OTP code has been sent to your email. Please enter the 4-digit code.");
+        const isTotp = res.mfaType === "TOTP";
+        const otpLabel = document.getElementById("otpCodeLabel");
+        if (otpLabel) {
+          otpLabel.textContent = isTotp ? "Google Authenticator code (6 digits)" : "Email OTP (4 digits)";
+        }
+        otpCodeInput.maxLength = isTotp ? 6 : 4;
+        otpCodeInput.placeholder = isTotp ? "000000" : "0000";
+        const mfaHint = res.mfaMessage || (isTotp
+          ? "Enter the 6-digit code from Google Authenticator."
+          : (res.emailDelivered
+            ? "OTP code has been sent to your email. Please enter the 4-digit code."
+            : "Email could not be sent. Enter the one-time code shown below."));
         showError(mfaHint, "info");
         const otpHint = document.getElementById("otpHint");
         if (otpHint) {
-          otpHint.textContent = res.emailConfigured === false
-            ? "Check admin notifications (bell icon) for the OTP code, or configure email in Settings."
-            : "Check your registered email for the 4-digit code.";
+          if (isTotp) {
+            otpHint.textContent = "Open Google Authenticator and enter the current 6-digit code for this account.";
+          } else if (res.localOtp) {
+            otpHint.textContent = "Email could not be sent. Your 4-digit code is: " + res.localOtp;
+          } else if (res.emailDelivered) {
+            otpHint.textContent = "Check your registered email for the 4-digit code.";
+          } else {
+            otpHint.textContent = "Check admin notifications (bell icon) for the OTP code, or configure email in Settings.";
+          }
         }
       } else if (res.msg === "TOS_REQUIRED") {
         showError("Please accept the Terms and Conditions to continue.", "error");
       } else {
         showError(res.msg, "error");
-        otpSection.classList.remove("is-visible");
-        mfaUsername = null;
-        document.getElementById("username").disabled = false;
-        document.getElementById("password").disabled = false;
-        setRoleCardsDisabled(false);
+        if (!mfaUsername) {
+          otpSection.classList.remove("is-visible");
+          document.getElementById("username").disabled = false;
+          document.getElementById("password").disabled = false;
+        }
       }
     }
 
@@ -494,8 +473,122 @@ By creating an account or continuing to use the Bayport Veterinary Clinic Manage
       if (e.target === tosModal) tosModal.classList.remove("is-open");
     });
 
-    if (localStorage.getItem("role")) {
-      location.href = "dashboard.html";
+    const forgotModal = document.getElementById("forgotModal");
+    const forgotLink = document.getElementById("forgotPasswordLink");
+    const forgotEmail = document.getElementById("forgotEmail");
+    const forgotCode = document.getElementById("forgotCode");
+    const forgotNewPassword = document.getElementById("forgotNewPassword");
+    const forgotConfirmPassword = document.getElementById("forgotConfirmPassword");
+    const forgotStepEmail = document.getElementById("forgotStepEmail");
+    const forgotStepReset = document.getElementById("forgotStepReset");
+    const forgotHint = document.getElementById("forgotHint");
+    const forgotError = document.getElementById("forgotError");
+    let forgotEmailValue = "";
+
+    function showForgotError(msg) {
+      forgotError.textContent = msg || "";
+      forgotError.classList.toggle("is-visible", !!msg);
+    }
+
+    function openForgotModal() {
+      forgotEmailValue = "";
+      forgotEmail.value = document.getElementById("username").value.trim();
+      forgotCode.value = "";
+      forgotNewPassword.value = "";
+      forgotConfirmPassword.value = "";
+      forgotHint.textContent = "";
+      showForgotError("");
+      forgotStepEmail.classList.remove("hidden");
+      forgotStepReset.classList.add("hidden");
+      forgotModal.classList.add("is-open");
+      forgotEmail.focus();
+    }
+
+    function closeForgotModal() {
+      forgotModal.classList.remove("is-open");
+    }
+
+    forgotLink.addEventListener("click", (e) => {
+      e.preventDefault();
+      openForgotModal();
+    });
+    document.getElementById("closeForgotModal").addEventListener("click", closeForgotModal);
+    document.getElementById("cancelForgot").addEventListener("click", closeForgotModal);
+    forgotModal.addEventListener("click", (e) => {
+      if (e.target === forgotModal) closeForgotModal();
+    });
+
+    document.getElementById("sendResetCodeBtn").addEventListener("click", async () => {
+      const email = forgotEmail.value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showForgotError("Enter the email on the account.");
+        return;
+      }
+      const btn = document.getElementById("sendResetCodeBtn");
+      btn.disabled = true;
+      btn.textContent = "Sending…";
+      showForgotError("");
+      try {
+        const result = await Api.auth.requestPasswordReset(email);
+        forgotEmailValue = email;
+        forgotStepEmail.classList.add("hidden");
+        forgotStepReset.classList.remove("hidden");
+        if (result.localOtp) {
+          forgotHint.innerHTML = "A reset code was emailed. If it is not in Inbox or Spam, use this code: <strong>" + result.localOtp + "</strong>";
+        } else {
+          forgotHint.textContent = result.message || "If that email is registered, a reset code has been sent. Check Inbox and Spam.";
+        }
+        forgotCode.focus();
+      } catch (err) {
+        showForgotError(err.message || "Could not send a reset code.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Send reset code";
+      }
+    });
+
+    document.getElementById("confirmResetBtn").addEventListener("click", async () => {
+      const code = forgotCode.value.trim();
+      const next = forgotNewPassword.value;
+      const confirm = forgotConfirmPassword.value;
+      if (!code || code.length < 4) {
+        showForgotError("Enter the 4-digit reset code.");
+        return;
+      }
+      if (!next || next.length < 6) {
+        showForgotError("New password must be at least 6 characters.");
+        return;
+      }
+      if (next !== confirm) {
+        showForgotError("Passwords do not match.");
+        return;
+      }
+      const btn = document.getElementById("confirmResetBtn");
+      btn.disabled = true;
+      btn.textContent = "Updating…";
+      showForgotError("");
+      try {
+        await Api.auth.confirmPasswordReset(forgotEmailValue, code, next);
+        closeForgotModal();
+        showError("Password updated. Sign in with your new password.", "info");
+      } catch (err) {
+        showForgotError(err.message || "Invalid or expired code.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Update password";
+      }
+    });
+
+    if (typeof window.clearAuthSession === "function") {
+      window.clearAuthSession();
+    } else {
+      localStorage.removeItem("role");
+      localStorage.removeItem("userDisplayName");
+      localStorage.removeItem("userRecordName");
+      localStorage.removeItem("username");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("token");
+      localStorage.removeItem("jwt");
     }
   </script>
 </body>

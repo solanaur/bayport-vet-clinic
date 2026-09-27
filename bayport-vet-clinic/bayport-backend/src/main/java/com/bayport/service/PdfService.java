@@ -598,6 +598,7 @@ public class PdfService {
                     summary.posProcedureLines, summary.posProcedureRevenue);
             addPosSaleLinesSection(document, label, value, "Product line items (POS)",
                     summary.posProductLines, summary.posProductRevenue);
+            addConsultationServiceLinesSection(document, label, value, summary);
 
             if (summary.newPatients != null && !summary.newPatients.isEmpty()) {
                 Paragraph newPatientsTitle = new Paragraph("New patients", label);
@@ -868,6 +869,52 @@ public class PdfService {
             table.addCell(paddedPhraseCell(String.valueOf(r.quantity), value));
             table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.unitPrice), value));
             table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.lineTotal), value));
+        }
+
+        document.add(table);
+        Paragraph sub = new Paragraph("Subtotal: " + MoneyUtils.formatPeso(st), label);
+        sub.setSpacingAfter(10);
+        document.add(sub);
+    }
+
+    private void addConsultationServiceLinesSection(Document document, Font label, Font value,
+                                                    ReportSummary summary) throws DocumentException {
+        Paragraph sectionTitle = new Paragraph("Consultation services (itemized)", label);
+        sectionTitle.setSpacingBefore(10);
+        sectionTitle.setSpacingAfter(8);
+        document.add(sectionTitle);
+
+        List<ReportSummary.ConsultationServiceLine> rows = summary.consultationServiceLines;
+        BigDecimal st = summary.consultationServiceRevenue != null
+                ? summary.consultationServiceRevenue : BigDecimal.ZERO;
+
+        if (rows == null || rows.isEmpty()) {
+            document.add(new Paragraph("No consultation service lines in this period.", value));
+            Paragraph sub = new Paragraph("Subtotal: " + MoneyUtils.formatPeso(st), label);
+            sub.setSpacingAfter(10);
+            document.add(sub);
+            return;
+        }
+
+        PdfPTable table = new PdfPTable(6);
+        table.setWidthPercentage(100);
+        table.setWidths(new float[]{1.3f, 0.9f, 1.6f, 2.2f, 1.4f, 1.1f});
+        table.setSpacingBefore(5);
+        table.setSpacingAfter(8);
+        table.setHeaderRows(1);
+
+        String[] headers = {"Date", "Invoice", "Pet", "Service", "Performed by", "Amount"};
+        for (String h : headers) {
+            table.addCell(summaryTableHeaderCell(h, label));
+        }
+
+        for (ReportSummary.ConsultationServiceLine r : rows) {
+            table.addCell(paddedPhraseCell(nullToEmpty(r.issuedAt), value));
+            table.addCell(paddedPhraseCell(r.invoiceId != null ? "#" + r.invoiceId : "—", value));
+            table.addCell(paddedPhraseCell(nullToEmpty(r.petName), value));
+            table.addCell(paddedPhraseCell(nullToEmpty(r.serviceName), value));
+            table.addCell(paddedPhraseCell(nullToEmpty(r.performedBy), value));
+            table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.serviceCost), value));
         }
 
         document.add(table);

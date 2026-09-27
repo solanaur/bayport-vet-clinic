@@ -111,6 +111,17 @@ public class EmailService {
         return "none";
     }
 
+    /** From-address used for SMTP or API sends (never includes a password). */
+    public String getConfiguredFrom() {
+        if (usesBrevo()) {
+            return brevo.getFromEmail();
+        }
+        if (usesResend()) {
+            return resend.getFrom();
+        }
+        return mailUsername;
+    }
+
     /** True when using Resend's shared test sender — only delivers to your Resend account email. */
     public boolean isResendSandbox() {
         return usesResend() && resend.getFrom().toLowerCase().contains("onboarding@resend.dev");

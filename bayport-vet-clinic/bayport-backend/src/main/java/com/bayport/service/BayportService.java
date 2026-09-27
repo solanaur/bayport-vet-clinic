@@ -20,7 +20,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,6 +65,9 @@ public class BayportService {
 
     @Autowired
     private BillingService billingService;
+
+    @Autowired
+    private ConsultationRepository consultationRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -221,8 +226,20 @@ public class BayportService {
         syncPetLastVaccination(pet, savedProcedure);
         Pet saved = petRepository.save(pet);
 
-        if (savedProcedure.getCost() != null && savedProcedure.getCost().signum() > 0) {
-            billingService.billProcedure(saved, savedProcedure);
+        if (savedProcedure.getConsultationId() == null) {
+            Consultation visit = new Consultation();
+            visit.setPetId(saved.getId());
+            visit.setConsultDate(savedProcedure.getPerformedAt() != null
+                    ? savedProcedure.getPerformedAt() : LocalDate.now());
+            visit.setNotes(savedProcedure.getNotes());
+            visit.setVet(savedProcedure.getVet());
+            visit.setCreatedAt(LocalDateTime.now());
+            Consultation savedVisit = consultationRepository.save(visit);
+            savedProcedure.setConsultationId(savedVisit.getId());
+            savedProcedure = procedureRepository.save(savedProcedure);
+            if (savedProcedure.getCost() != null && savedProcedure.getCost().signum() > 0) {
+                billingService.billConsultation(saved, savedVisit, List.of(savedProcedure));
+            }
         }
         vaccineReminderService.syncPetVaccineReminders(saved);
 
@@ -349,22 +366,86 @@ public class BayportService {
         return saveAppointment(appointment);
     }
 
+    public List<Map<String, String>> listAssignableVeterinarians() {
+        LinkedHashMap<String, Map<String, String>> byLabel = new LinkedHashMap<>();
+        for (User user : userRepository.findAll()) {
+            if (user == null || !user.isActive() || !isVetAccount(user)) {
+                continue;
+            }
+            String label = firstNonBlank(user.getName(), user.getFullName(), user.getUsername());
+            if (label == null) {
+                continue;
+            }
+            byLabel.putIfAbsent(label.toLowerCase(Locale.ROOT), Map.of(
+                    "name", label,
+                    "username", user.getUsername() != null ? user.getUsername() : ""
+            ));
+        }
+        for (Doctor doctor : doctorRepository.findAll()) {
+            if (doctor == null || !StringUtils.hasText(doctor.getFullName())) {
+                continue;
+            }
+            String label = doctor.getFullName().trim();
+            byLabel.putIfAbsent(label.toLowerCase(Locale.ROOT), Map.of(
+                    "name", label,
+                    "username", ""
+            ));
+        }
+        return new ArrayList<>(byLabel.values());
+    }
+
+    private void requireAssignableVeterinarian(String vetName) {
+        if (!StringUtils.hasText(vetName)) {
+            throw new IllegalArgumentException("Veterinarian must be assigned to the appointment");
+        }
+        String wanted = vetName.trim();
+        boolean userMatch = userRepository.findAll().stream().anyMatch(user ->
+                user != null
+                        && user.isActive()
+                        && isVetAccount(user)
+                        && (wanted.equalsIgnoreCase(user.getUsername())
+                        || wanted.equalsIgnoreCase(user.getName())
+                        || wanted.equalsIgnoreCase(user.getFullName())));
+        if (userMatch) {
+            return;
+        }
+        if (doctorRepository.findByFullNameIgnoreCase(wanted).isPresent()) {
+            return;
+        }
+        throw new IllegalArgumentException("Selected veterinarian is not active or not found");
+    }
+
+    private static boolean isVetAccount(User user) {
+        String legacy = user.getRole() == null ? "" : user.getRole().trim().toLowerCase(Locale.ROOT);
+        if (legacy.contains("vet")) {
+            return true;
+        }
+        if (user.getRoles() == null) {
+            return false;
+        }
+        return user.getRoles().stream().anyMatch(role ->
+                role != null && role.getName() != null && role.getName().toUpperCase(Locale.ROOT).contains("VET"));
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
     public Appointment saveAppointment(Appointment appointment) {
         // Validate vet assignment
         if (appointment.getVet() == null || appointment.getVet().trim().isEmpty()) {
             throw new IllegalArgumentException("Veterinarian must be assigned to the appointment");
         }
 
-        // Validate vet is active (check if vet exists in users with role 'vet')
-        User vetUser = userRepository.findByUsername(appointment.getVet())
-                .orElseGet(() -> userRepository.findAll().stream()
-                        .filter(u -> "vet".equalsIgnoreCase(u.getRole()) && appointment.getVet().equalsIgnoreCase(u.getName()))
-                        .findFirst()
-                        .orElse(null));
-        
-        if (vetUser == null || !vetUser.isActive() || !"vet".equalsIgnoreCase(vetUser.getRole())) {
-            throw new IllegalArgumentException("Selected veterinarian is not active or not found");
-        }
+        requireAssignableVeterinarian(appointment.getVet());
 
         // Normalize and validate time (any minute; HH:mm 24h)
         appointment.setTime(normalizeAppointmentTime(appointment.getTime()));
@@ -951,7 +1032,7 @@ public class BayportService {
         }
         
         user.setPasswordHash(passwordEncoder.encode(passwordToEncode));
-        user.setDisplayPassword(passwordToEncode); // Store plaintext for admin viewing
+        user.setDisplayPassword(null); // Never store plaintext passwords
         user.setPassword(null);
         user.setPlainPassword(null); // Clear plain password after encoding
         
@@ -963,9 +1044,8 @@ public class BayportService {
             user.setName(user.getFullName());
         }
         
-        // Set default values for new users
         if (user.getMfaEnabled() == null) {
-            user.setMfaEnabled(false);
+            user.setMfaEnabled(true);
         }
         if (!user.isActive()) {
             user.setActive(true); // New users are active by default
@@ -997,7 +1077,7 @@ public class BayportService {
         existing.setActive(user.isActive());
         if (user.getPassword() != null && !user.getPassword().isBlank()) {
             existing.setPasswordHash(passwordEncoder.encode(user.getPassword()));
-            existing.setDisplayPassword(user.getPassword()); // Store plaintext for admin viewing
+            existing.setDisplayPassword(null);
         }
         
         User updatedUser = userRepository.save(existing);
@@ -1047,7 +1127,7 @@ public class BayportService {
         }
         
         user.setPasswordHash(passwordEncoder.encode(newPassword));
-        user.setDisplayPassword(newPassword); // Store plaintext for admin viewing
+        user.setDisplayPassword(null);
         userRepository.save(user);
     }
 

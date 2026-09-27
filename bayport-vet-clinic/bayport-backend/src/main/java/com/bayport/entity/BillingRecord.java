@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "billing_records")
@@ -41,6 +43,13 @@ public class BillingRecord {
 
     private String referenceType;
     private Long referenceId;
+
+    @Column(name = "consultation_id")
+    private Long consultationId;
+
+    @OneToMany(mappedBy = "billing", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("lineOrder ASC, id ASC")
+    private List<BillingLine> lines = new ArrayList<>();
 
     private LocalDateTime issuedAt = LocalDateTime.now();
     private LocalDateTime paidAt;
@@ -83,6 +92,38 @@ public class BillingRecord {
 
     public Long getReferenceId() { return referenceId; }
     public void setReferenceId(Long referenceId) { this.referenceId = referenceId; }
+
+    public Long getConsultationId() { return consultationId; }
+    public void setConsultationId(Long consultationId) { this.consultationId = consultationId; }
+
+    public List<BillingLine> getLines() { return lines; }
+    public void setLines(List<BillingLine> lines) {
+        this.lines = lines != null ? lines : new ArrayList<>();
+    }
+
+    public void addLine(BillingLine line) {
+        if (this.lines == null) {
+            this.lines = new ArrayList<>();
+        }
+        this.lines.add(line);
+        line.setBilling(this);
+    }
+
+    /** Recalculates subtotal and amount from itemized service lines. */
+    public void refreshTotalFromLines() {
+        BigDecimal sum = BigDecimal.ZERO;
+        if (lines != null) {
+            for (BillingLine line : lines) {
+                if (line.getServiceCost() != null) {
+                    sum = sum.add(line.getServiceCost());
+                }
+            }
+        }
+        BigDecimal subtotal = MoneyUtils.normalize(sum);
+        this.subtotalAmount = subtotal;
+        BigDecimal discount = this.discountAmount != null ? this.discountAmount : BigDecimal.ZERO;
+        this.amount = MoneyUtils.normalize(subtotal.subtract(discount));
+    }
 
     public LocalDateTime getIssuedAt() { return issuedAt; }
     public void setIssuedAt(LocalDateTime issuedAt) { this.issuedAt = issuedAt; }
