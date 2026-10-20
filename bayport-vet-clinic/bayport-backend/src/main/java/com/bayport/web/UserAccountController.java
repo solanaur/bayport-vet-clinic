@@ -5,6 +5,7 @@ import com.bayport.auth.TotpEnrollmentService;
 import com.bayport.entity.User;
 import com.bayport.repository.UserRepository;
 import com.bayport.security.PasswordPolicy;
+import com.bayport.security.StaffAccountRules;
 import com.bayport.security.TemporaryAdminService;
 import com.bayport.service.AuditLogService;
 import com.bayport.service.BayportService;
@@ -12,6 +13,8 @@ import com.bayport.service.EmailService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,19 +29,14 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api")
 public class UserAccountController {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserAccountController.class);
-    private static final Set<String> ALLOWED_ROLES = Set.of(
-            "admin", "vet", "veterinarian", "front_office", "receptionist", "pharmacist", "staff");
-
     private final BayportService bayportService;
     private final com.bayport.auth.MfaService mfaService;
     private final UserRepository userRepository;
@@ -143,25 +141,29 @@ public class UserAccountController {
     @PostMapping("/users/verify-otp-create")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> verifyOtpAndCreateUser(@RequestBody Map<String, Object> request) {
-        String email = (String) request.get("email");
-        String otp = (String) request.get("otp");
-        String name = (String) request.get("name");
-        String username = (String) request.get("username");
-        String password = (String) request.get("password");
-        String role = (String) request.get("role");
+        String email = text(request.get("email"));
+        String otp = text(request.get("otp"));
+        String name = text(request.get("name"));
+        String username = text(request.get("username"));
+        String password = request.get("password") == null ? "" : String.valueOf(request.get("password"));
+        String role = StaffAccountRules.canonicalRole(text(request.get("role")));
 
-        if (email == null || otp == null || name == null || username == null || role == null) {
+        if (email.isBlank() || otp.isBlank() || name.isBlank() || username.isBlank() || role.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "All fields are required"));
+        }
+        if (!StaffAccountRules.allowed(role)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Choose Admin, Vet, or Front Office."));
         }
         try {
             PasswordPolicy.require(password);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         }
-
-        String normalizedRole = role.trim().toLowerCase(Locale.ROOT);
-        if (!ALLOWED_ROLES.contains(normalizedRole)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
+        if (userRepository.findByUsernameIgnoreCase(username).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Username already taken"));
+        }
+        if (userRepository.findByEmail(email).isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Email is already registered"));
         }
         if (!mfaService.verifyOtpByEmail(email, otp)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired OTP"));
@@ -179,18 +181,23 @@ public class UserAccountController {
             }
             newUser.setRole(role);
             newUser.setPassword(password);
+            newUser.setActive(true);
             newUser.setMfaEnabled(true);
             newUser.setTotpPrompted(false);
             newUser.setTotpConfirmed(false);
             newUser.setMustChangePassword(false);
 
             User created = bayportService.saveUser(newUser);
-            TotpEnrollmentService.EncryptedEnrollment enrollment = totpEnrollmentService.enroll(created.getUsername());
-            created.setTotpSecret(enrollment.encryptedSecret());
-            created.setMfaEnabled(true);
-            created.setTotpPrompted(false);
-            created.setTotpConfirmed(false);
-            created = userRepository.save(created);
+            try {
+                TotpEnrollmentService.EncryptedEnrollment enrollment = totpEnrollmentService.enroll(created.getUsername());
+                created.setTotpSecret(enrollment.encryptedSecret());
+                created.setMfaEnabled(true);
+                created.setTotpPrompted(false);
+                created.setTotpConfirmed(false);
+                created = userRepository.save(created);
+            } catch (RuntimeException enrollError) {
+                log.warn("Created user {} without a stored authenticator secret", created.getUsername());
+            }
 
             Map<String, Object> body = new HashMap<>();
             body.put("id", created.getId());
@@ -202,14 +209,24 @@ public class UserAccountController {
             body.put("mfaType", "TOTP");
             body.put("totpSetupOnFirstLogin", true);
             auditLogService.log("USER_CREATED", "User", String.valueOf(created.getId()), "User created", null);
-            if (temporaryAdminService.retireFactoryAccounts()) {
+            java.util.List<String> removed = temporaryAdminService.retireFactoryAccounts();
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String currentUsername = authentication == null ? "" : authentication.getName();
+            if (StaffAccountRules.endCurrentSession(currentUsername, removed)) {
                 body.put("signOutRequired", true);
                 body.put("message", "The temporary admin login has been removed. Sign in with the administrator account you just created.");
             }
             return ResponseEntity.ok(body);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
         } catch (Exception e) {
+            log.error("Could not create user", e);
             return ResponseEntity.status(500).body(Map.of("error", "Failed to create user"));
         }
+    }
+
+    private static String text(Object value) {
+        return value == null ? "" : String.valueOf(value).trim();
     }
 
     @PutMapping("/users/{id}")
@@ -273,8 +290,14 @@ public class UserAccountController {
                                 .body(Map.of("error", "User email is required for OTP"));
                     }
                     try {
-                        mfaService.sendMfaCode(user);
-                        return ResponseEntity.ok(Map.of("status", "OTP_SENT", "message", "OTP sent to user email"));
+                        com.bayport.auth.MfaService.DeliveryResult sent = mfaService.sendMfaCode(user);
+                        Map<String, Object> body = new HashMap<>();
+                        body.put("status", "OTP_SENT");
+                        body.put("emailDelivered", sent.emailDelivered());
+                        body.put("message", sent.emailDelivered()
+                                ? "A 6-digit code was emailed. Check Inbox and Spam."
+                                : "The verification email could not be sent. Configure email and try again.");
+                        return ResponseEntity.ok(body);
                     } catch (ResponseStatusException rse) {
                         return ResponseEntity.status(rse.getStatusCode())
                                 .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));

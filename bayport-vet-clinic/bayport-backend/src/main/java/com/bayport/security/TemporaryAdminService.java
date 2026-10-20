@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,11 +53,11 @@ public class TemporaryAdminService {
     }
 
     @Transactional
-    public boolean retireFactoryAccounts() {
+    public List<String> retireFactoryAccounts() {
         if (!hasDurableAdmin()) {
-            return false;
+            return List.of();
         }
-        boolean removed = false;
+        List<String> removed = new ArrayList<>();
         for (String username : FACTORY_USERNAMES) {
             User user = userRepository.findByUsername(username).orElse(null);
             if (user == null || !usesFactoryPassword(user)) {
@@ -66,8 +67,8 @@ public class TemporaryAdminService {
             if (user.getId() != null) {
                 recoveryCodeRepository.deleteByUserId(user.getId());
             }
+            removed.add(user.getUsername());
             userRepository.delete(user);
-            removed = true;
         }
         return removed;
     }

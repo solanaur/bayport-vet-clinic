@@ -1364,11 +1364,14 @@ public class BayportService {
             case "front_office" -> "ROLE_FRONT_OFFICE";
             default -> "ROLE_" + key.toUpperCase().replace("-", "_");
         };
-        roleRepository.findByName(roleName).ifPresent(rn -> {
-            user.getRoles().clear();
-            user.getRoles().add(rn);
-            userRepository.save(user);
-        });
+        com.bayport.entity.Role role = roleRepository.findByName(roleName)
+                .orElseGet(() -> roleRepository.save(new com.bayport.entity.Role(roleName)));
+        if (user.getRoles() == null) {
+            user.setRoles(new java.util.HashSet<>());
+        }
+        user.getRoles().clear();
+        user.getRoles().add(role);
+        userRepository.save(user);
     }
 }
 

@@ -346,7 +346,7 @@
   <script src="assets/app-header.js"></script>
   <script>
     ensureLoggedIn();
-    const role = getRole();
+    const role = typeof canonicalStaffRole === "function" ? canonicalStaffRole(getRole()) : getRole();
     const isAdmin = role === "admin";
     const isVet = role === "vet";
     const isFront = typeof isFrontOffice === "function" && isFrontOffice(role);
@@ -1280,7 +1280,6 @@
       if (isAdmin) return loadAdminDashboard();
       if (isVet) return loadVetDashboard();
       if (isFront) return loadFrontDashboard();
-      return loadAdminDashboard();
     }
 
     initWelcomeHeader();

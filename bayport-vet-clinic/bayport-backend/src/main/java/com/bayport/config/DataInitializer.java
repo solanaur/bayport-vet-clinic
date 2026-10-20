@@ -48,7 +48,7 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
 
-        if (roleRepository.count() == 0) seedRoles();
+        seedRoles();
         if (ownerRepository.count() == 0) seedOwners();
         if (doctorRepository.count() == 0) seedDoctors();
         if (petRepository.count() == 0) seedPetsAndAppointments();

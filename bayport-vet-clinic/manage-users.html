@@ -76,69 +76,85 @@
     const passwordVisibility = {}; // Track password visibility per user
     const passwordCache = {}; // Cache passwords per user
 
+    function userCell(text, extraClass) {
+      const td = document.createElement("td");
+      td.className = "py-3" + (extraClass ? " " + extraClass : "");
+      td.textContent = text || "";
+      return td;
+    }
+
+    function showRowsMessage(message, className) {
+      rows.replaceChildren();
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = 6;
+      td.className = className;
+      td.textContent = message;
+      tr.appendChild(td);
+      rows.appendChild(tr);
+    }
+
     async function render(){
       try {
-        console.log('Loading users...');
         let users;
         try {
           users = await repoListUsers();
         } catch (err) {
-          console.error('Error fetching users:', err);
-          rows.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error loading users: ${err.message}. Please refresh the page.</td></tr>`;
+          showRowsMessage("Error loading users: " + err.message + ". Please refresh the page.", "text-center text-red-500 py-4");
           return;
         }
-        console.log('Users response type:', typeof users);
-        console.log('Users response:', JSON.stringify(users, null, 2));
-        console.log('Is array?', Array.isArray(users));
-        
-        // Ensure users is an array
+
         let usersArray = [];
         if (Array.isArray(users)) {
           usersArray = users;
-          console.log('Users is already an array, length:', usersArray.length);
-        } else if (users && typeof users === 'object') {
-          // If it's an object but not an array, try to extract array from common response formats
-          if (users.content && Array.isArray(users.content)) {
-            usersArray = users.content;
-          } else if (users.data && Array.isArray(users.data)) {
-            usersArray = users.data;
-          } else if (users.users && Array.isArray(users.users)) {
-            usersArray = users.users;
-          } else {
-            console.error('Unexpected users response format:', users);
-            usersArray = [];
-          }
-        } else if (users === null || users === undefined) {
-          console.warn('Users response is null or undefined');
-          usersArray = [];
-        } else {
-          console.error('Unexpected users response type:', typeof users, users);
-          usersArray = [];
+        } else if (users && typeof users === "object") {
+          if (users.content && Array.isArray(users.content)) usersArray = users.content;
+          else if (users.data && Array.isArray(users.data)) usersArray = users.data;
+          else if (users.users && Array.isArray(users.users)) usersArray = users.users;
         }
-        console.log('Users array length:', usersArray.length);
-        console.log('Users array:', usersArray);
         if (usersArray.length === 0) {
-          rows.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500 py-4">No users found. Click "Add User" to create one.</td></tr>';
+          showRowsMessage('No users found. Click "Add User" to create one.', "text-center text-gray-500 py-4");
           return;
         }
-        rows.innerHTML=usersArray.map(u=>{
-        return `
-        <tr class="border-b">
-          <td class="py-3">${u.name || ''}</td>
-          <td class="py-3 font-mono text-sm">${u.username || ''}</td>
-          <td class="py-3">${u.email || ''}</td>
-          <td class="py-3"><span class="text-xs text-gray-500">Stored as secure hash only</span></td>
-          <td class="py-3 capitalize">${u.role || ''}</td>
-          <td class="py-3 flex gap-2">
-            <button class="px-3 py-2 border rounded-md text-green-600 hover:bg-green-50" onclick="editCredentials(${u.id}, '${(u.name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${(u.email || '').replace(/'/g, "\\'")}')">Edit Credentials</button>
-            <button class="px-3 py-2 border rounded-md text-amber-700 hover:bg-amber-50" onclick="resetMfa(${u.id})">Reset MFA</button>
-            <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="del(${u.id})">Delete</button>
-          </td>
-        </tr>`;
-      }).join('');
+        rows.replaceChildren();
+        for (const u of usersArray) {
+          const tr = document.createElement("tr");
+          tr.className = "border-b";
+          tr.appendChild(userCell(u.name || ""));
+          tr.appendChild(userCell(u.username || "", "font-mono text-sm"));
+          tr.appendChild(userCell(u.email || ""));
+          const pass = document.createElement("td");
+          pass.className = "py-3";
+          const passNote = document.createElement("span");
+          passNote.className = "text-xs text-gray-500";
+          passNote.textContent = "Stored as secure hash only";
+          pass.appendChild(passNote);
+          tr.appendChild(pass);
+          const roleName = String(u.role || "").replaceAll("_", " ");
+          tr.appendChild(userCell(roleName, "capitalize"));
+          const actions = document.createElement("td");
+          actions.className = "py-3 flex gap-2";
+          const edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "px-3 py-2 border rounded-md text-green-600 hover:bg-green-50";
+          edit.textContent = "Edit Credentials";
+          edit.addEventListener("click", () => editCredentials(u.id, u.name || "", u.username || "", u.email || ""));
+          const reset = document.createElement("button");
+          reset.type = "button";
+          reset.className = "px-3 py-2 border rounded-md text-amber-700 hover:bg-amber-50";
+          reset.textContent = "Reset MFA";
+          reset.addEventListener("click", () => resetMfa(u.id));
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "px-3 py-2 border rounded-md text-red-600 hover:bg-red-50";
+          remove.textContent = "Delete";
+          remove.addEventListener("click", () => del(u.id));
+          actions.append(edit, reset, remove);
+          tr.appendChild(actions);
+          rows.appendChild(tr);
+        }
       } catch (err) {
-        console.error('Error loading users:', err);
-        rows.innerHTML = `<tr><td colspan="6" class="text-center text-red-500 py-4">Error loading users: ${err.message}</td></tr>`;
+        showRowsMessage("Error loading users: " + err.message, "text-center text-red-500 py-4");
       }
     }
     
@@ -163,7 +179,7 @@
       modalRoot.innerHTML=`
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-          <h3 class="text-xl font-semibold mb-4">Edit Credentials - ${userName}</h3>
+          <h3 class="text-xl font-semibold mb-4">Edit Credentials — <span id="editUserTitle"></span></h3>
           <div id="editFormFields">
             <p class="text-sm text-gray-600 mb-4">An OTP will be sent to the user's email for verification.</p>
             <div class="mt-5 flex justify-end gap-3">
@@ -177,10 +193,10 @@
               <input id="edit_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="6-digit code" maxlength="6" required>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Username
-              <input id="edit_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentUsername}" placeholder="Leave empty to keep current">
+              <input id="edit_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current">
             </label>
             <label class="text-sm text-gray-600 block mb-3">Email
-              <input id="edit_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentEmail}" placeholder="Leave empty to keep current">
+              <input id="edit_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current">
             </label>
             <label class="text-sm text-gray-600 block mb-3">Password
               <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current (min 10 characters)">
@@ -196,6 +212,12 @@
           </div>
         </div>
       </div>`;
+      const title = document.getElementById("editUserTitle");
+      if (title) title.textContent = userName || "User";
+      const usernameInput = document.getElementById("edit_username");
+      const emailInput = document.getElementById("edit_email");
+      if (usernameInput) usernameInput.value = currentUsername || "";
+      if (emailInput) emailInput.value = currentEmail || "";
       
       window.sendEditOtp = async function(userId){
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -208,9 +230,11 @@
             headers: authJsonHeaders()
           });
           const result = await parseJsonResponse(response);
-          if(response.ok){
+          if(response.ok && result.emailDelivered !== false){
             document.getElementById('editFormFields').classList.add('hidden');
             document.getElementById('editOtpVerificationFields').classList.remove('hidden');
+          } else if (response.ok) {
+            alert(result.message || 'The verification email could not be sent. Configure email and try again.');
           } else {
             alert('Failed to send OTP: ' + (result.error || 'Unknown error'));
           }
@@ -298,7 +322,7 @@
             </label>
             <label class="text-sm text-gray-600 block mb-3">Password <span class="text-red-500">*</span>
               <input id="f_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Minimum 10 characters" required>
-              <p class="text-xs text-gray-500 mt-1">User will set their own password after first login</p>
+              <p class="text-xs text-gray-500 mt-1">They sign in with this username and password. Google Authenticator opens on the first sign-in, then their dashboard.</p>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Confirm Password <span class="text-red-500">*</span>
               <input id="f_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter password" required>
@@ -311,10 +335,10 @@
                 <option value="front_office">Front Office (reception + pharmacy)</option>
               </select>
             </label>
-            <p class="text-xs text-gray-500 mb-4">Send OTP emails a verification code to this address. The new user scans their Google Authenticator QR on first sign-in. Built-in admin / vet / frontdesk logins do not use a code.</p>
+            <p class="text-xs text-gray-500 mb-4">Admin, Vet, and Front Office each open their own screens after they sign in and finish Google Authenticator.</p>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
-              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendOtpForUser()">Send OTP</button>
+              <button id="sendOtpBtn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendOtpForUser()">Send OTP</button>
             </div>
           </div>
           <div id="otpVerificationFields" class="hidden">
@@ -326,12 +350,12 @@
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
               <button class="px-4 py-2 border rounded-md text-[var(--soft-teal)]" onclick="resendOtp()">Resend OTP</button>
-              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndCreateUser()">Verify & Create</button>
+              <button id="verifyCreateBtn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndCreateUser()">Verify & Create</button>
             </div>
           </div>
           <div id="totpSetupFields" class="hidden">
-            <h4 class="text-lg font-semibold mb-2">User created</h4>
-            <p class="text-sm text-gray-600 mb-4">Their Google Authenticator QR code will pop up the first time they sign in. After that it stays hidden, and they can open it from the account menu.</p>
+            <h4 class="text-lg font-semibold mb-2">Account ready</h4>
+            <p id="createdUserNote" class="text-sm text-gray-600 mb-4">They sign in with the username and password you entered. Google Authenticator opens on the first sign-in, then their dashboard.</p>
             <div class="mt-5 flex justify-end">
               <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="closeModal(); render();">Done</button>
             </div>
@@ -362,7 +386,7 @@
           body: JSON.stringify({email})
         });
         const result = await parseJsonResponse(response);
-        if(response.ok){
+        if(response.ok && result.emailDelivered !== false){
           otpSent = true;
           userEmail = email;
           document.getElementById('userFormFields').classList.add('hidden');
@@ -370,8 +394,10 @@
           document.getElementById('otpEmailDisplay').textContent = email;
           const note = document.getElementById('otpSendNote');
           if (note) {
-            note.textContent = result.message || ('A 6-digit code has been sent to ' + email + '. Check Inbox and Spam.');
+            note.textContent = result.message || 'A 6-digit code has been emailed. Check Inbox and Spam.';
           }
+        } else if (response.ok) {
+          alert(result.message || 'The verification email could not be sent. Configure email and try again.');
         } else {
           alert('Failed to send OTP: ' + (result.error || 'Unknown error'));
         }
@@ -403,7 +429,9 @@
       if(password !== passwordConfirm){alert('Passwords do not match. Please re-enter.');return;}
       if(!r){alert('Role required');return;}
       if(!otp || otp.length !== 6){alert('Please enter the 6-digit OTP code');return;}
-      
+
+      const createBtn = document.getElementById('verifyCreateBtn');
+      if (createBtn) createBtn.disabled = true;
       try{
         const response = await fetch(`${window.API_BASE}/users/verify-otp-create`, {
           method: 'POST',
@@ -422,6 +450,11 @@
           }
           document.getElementById('otpVerificationFields').classList.add('hidden');
           if (result.totpSetupOnFirstLogin) {
+            const roleLabel = r === "admin" ? "Admin" : r === "vet" ? "Vet" : "Front Office";
+            const note = document.getElementById('createdUserNote');
+            if (note) {
+              note.textContent = username + " can sign in as " + roleLabel + ". Google Authenticator opens the first time, then their dashboard.";
+            }
             document.getElementById('totpSetupFields').classList.remove('hidden');
           } else {
             alert('User created successfully!');
@@ -433,6 +466,8 @@
         }
       } catch(err){
         alert('Error creating user: ' + err.message);
+      } finally {
+        if (createBtn) createBtn.disabled = false;
       }
     }
     
@@ -440,35 +475,6 @@
     async function saveUser(){
       alert('Please use the new OTP-based user creation flow. Click "Add User" and follow the OTP verification steps.');
     }
-    
-    // Test API connection on page load
-    window.addEventListener('load', async () => {
-      console.log('Page loaded, testing API connection...');
-      try {
-        const testResponse = await fetch(`${window.API_BASE || 'http://localhost:8080/api'}/users`, {
-          method: 'GET',
-          headers: authHeaders({ 'Content-Type': 'application/json' })
-        });
-        console.log('Direct API test - Status:', testResponse.status);
-        console.log('Direct API test - OK:', testResponse.ok);
-        const testData = await testResponse.text();
-        console.log('Direct API test - Response text length:', testData.length);
-        console.log('Direct API test - Response text (first 500 chars):', testData.substring(0, 500));
-        try {
-          const parsed = JSON.parse(testData);
-          console.log('Direct API test - Parsed type:', typeof parsed);
-          console.log('Direct API test - Is array?', Array.isArray(parsed));
-          console.log('Direct API test - Length:', Array.isArray(parsed) ? parsed.length : 'N/A');
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            console.log('Direct API test - First user:', parsed[0]);
-          }
-        } catch (e) {
-          console.error('Direct API test - Parse error:', e);
-        }
-      } catch (err) {
-        console.error('Direct API test - Fetch error:', err);
-      }
-    });
     
     render();
   </script>

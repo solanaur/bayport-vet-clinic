@@ -371,7 +371,7 @@ window.ApiHttp = async function apiHttp(
       localStorage.removeItem("role");
       const page = (location.pathname.split("/").pop() || "").toLowerCase();
       if (page !== "login.html" && page !== "index.html") {
-        sessionStorage.setItem("bayport_login_notice", "That sign-in has ended. Sign in with the administrator account you created.");
+        sessionStorage.setItem("bayport_login_notice", "That sign-in has ended. Please sign in again.");
         location.href = "login.html";
       }
     }

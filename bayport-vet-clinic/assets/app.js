@@ -336,6 +336,15 @@ const CONFIG = {
   pharmacist:   ["dashboard","pet-records","appointments","inventory","billing","reminders"]
 };
 
+/** Role stored on the account, matched to the screens that role can open. */
+window.canonicalStaffRole = function (role) {
+  const r = String(role || "").trim().toLowerCase();
+  if (r === "veterinarian") return "vet";
+  if (r === "administrator") return "admin";
+  if (r === "receptionist" || r === "pharmacist" || r === "staff") return "front_office";
+  return r;
+};
+
 const LABEL = {
   "dashboard":"Dashboard",
   "pet-records":"Pet profiles",
@@ -748,6 +757,7 @@ function normalizeActiveFile(activeFile) {
 window.renderSidebar = function (container, role, activeFile) {
   container.innerHTML = "";
   activeFile = normalizeActiveFile(activeFile);
+  role = window.canonicalStaffRole(role);
 
   const allowed = new Set(CONFIG[role] || []);
   const groups = SIDEBAR_GROUPS[role] || SIDEBAR_GROUPS.front_office;
@@ -1255,7 +1265,7 @@ window.buildPosProcedureRows = function buildPosProcedureRows() {
 window.guard=function(pageKey){
   window.ensureLoggedIn();
   if (pageKey === "prescriptions") pageKey = "consultations";
-  const role=window.getRole();
+  const role = window.canonicalStaffRole(window.getRole());
   const allowed=CONFIG[role]||[];
   if(!allowed.includes(pageKey)) location.href="dashboard.html";
 };
