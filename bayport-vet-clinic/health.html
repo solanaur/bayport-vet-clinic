@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>System Health - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
+  <header id="bpAppHeader"></header>
+  <div class="flex flex-1 min-h-0">
+    <aside class="w-64 lg:w-72 bg-white border-r border-gray-200 p-5 shrink-0 hidden md:block">
+      <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
+    </aside>
+    <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
+      <div class="max-w-3xl mx-auto space-y-5">
+        <div class="flex items-center justify-between gap-4">
+          <h1 class="bp-page-title">System health</h1>
+          <button id="refreshBtn" class="bp-btn-primary" type="button">Refresh</button>
+        </div>
+        <dl id="health" class="bg-white border rounded-xl p-5 text-sm space-y-3"></dl>
+      </div>
+    </main>
+  </div>
+  <script src="assets/deploy-env.js"></script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
+  <script>
+    guard("health");
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
+    renderSidebar(document.getElementById("sidebarNav"), getRole(), "health.html");
+
+    function row(label, value) {
+      return `<div class="flex justify-between gap-4 border-b border-gray-100 pb-2"><dt class="text-gray-500">${label}</dt><dd class="font-medium text-right">${value}</dd></div>`;
+    }
+
+    async function loadHealth() {
+      const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+      const response = await fetch(`${window.API_BASE}/admin/health`, {
+        headers: { Authorization: token ? `Bearer ${token}` : "" }
+      });
+      const box = document.getElementById("health");
+      if (!response.ok) {
+        box.innerHTML = row("Status", "Could not read health details");
+        return;
+      }
+      const data = await response.json();
+      const backup = data.backup || {};
+      const freeMb = Number(data.diskFreeBytes) > 0 ? Math.round(Number(data.diskFreeBytes) / 1048576) + " MB" : "Unknown";
+      box.innerHTML = [
+        row("Version", data.version || "—"),
+        row("Database", data.database || "—"),
+        row("Mail", data.mailConfigured ? "Configured" : "Not configured"),
+        row("Free disk", freeMb),
+        row("Last backup", backup.message || (backup.ok ? "Up to date" : "Needs attention"))
+      ].join("");
+    }
+
+    document.getElementById("refreshBtn").onclick = () => loadHealth();
+    loadHealth();
+  </script>
+</body>
+</html>

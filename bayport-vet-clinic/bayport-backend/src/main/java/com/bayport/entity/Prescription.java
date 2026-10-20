@@ -70,6 +70,15 @@ public class Prescription {
     @Column(name = "print_count")
     private Integer printCount = 0;
 
+    @Column(name = "deleted")
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private java.time.LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id", insertable = false, updatable = false)
     @JsonIgnore
@@ -163,6 +172,13 @@ public class Prescription {
 
     public Integer getPrintCount() { return printCount != null ? printCount : 0; }
     public void setPrintCount(Integer printCount) { this.printCount = printCount; }
+
+    public Boolean getDeleted() { return deleted != null && deleted; }
+    public void setDeleted(Boolean deleted) { this.deleted = deleted; }
+    public java.time.LocalDateTime getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(java.time.LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public String getDeletedBy() { return deletedBy; }
+    public void setDeletedBy(String deletedBy) { this.deletedBy = deletedBy; }
 
     public Pet getPetEntity() { return petEntity; }
     public void setPetEntity(Pet petEntity) { this.petEntity = petEntity; }

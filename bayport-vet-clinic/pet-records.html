@@ -564,7 +564,7 @@
     }
     
     async function delPet(id) {
-      if (!confirm('Delete this pet?')) return;
+      if (!await window.bayportConfirm('Delete this pet?')) return;
       await repoDeletePet(id);
       if (typeof window.showToast === 'function') window.showToast('Pet record deleted');
       render();
@@ -1044,7 +1044,7 @@
           event.stopPropagation();
         }
         
-        if (!confirm('Are you sure you want to delete this owner? This will also delete all associated pets and appointments.')) {
+        if (!await window.bayportConfirm('Are you sure you want to delete this owner? This will also delete all associated pets and appointments.')) {
           return;
         }
         

@@ -236,7 +236,7 @@
       if (url) {
         const escUrl = escapeHtml(url);
         return `<div class="${cls} rounded-lg border border-slate-200 bg-slate-50 overflow-hidden shrink-0 relative">
-          <img src="${escUrl}" alt="" class="w-full h-full object-cover" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling?.classList.remove('hidden')"/>
+          <img data-protected-src="${escUrl}" alt="" class="w-full h-full object-cover" decoding="async" onerror="this.style.display='none';this.nextElementSibling?.classList.remove('hidden')"/>
           <div class="hidden absolute inset-0 flex items-center justify-center text-slate-300 bg-slate-100">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
           </div>
@@ -485,7 +485,7 @@
 
       if (id) {
         document.getElementById('inv_delete').onclick = async () => {
-          if (!confirm('Remove this item from inventory?')) return;
+          if (!await window.bayportConfirm('Remove this item from inventory?')) return;
           try {
             await Api.inventory.remove(id);
             window.closeModal();
@@ -540,7 +540,7 @@
     };
 
     document.getElementById('mergeCatalogBtn').onclick = async () => {
-      if (!confirm('Add missing default products and clinic services? Existing SKUs are skipped.')) return;
+      if (!await window.bayportConfirm('Add missing default products and clinic services? Existing SKUs are skipped.')) return;
       try {
         const r = await Api.inventory.mergeCatalog();
         alert(`Catalog updated — ${r.rowsAddedThisRun} new item(s).`);

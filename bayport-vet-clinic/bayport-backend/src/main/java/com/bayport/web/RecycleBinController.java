@@ -25,6 +25,8 @@ public class RecycleBinController {
     private final BillingRecordRepository billingRecordRepository;
     private final ProcedureRepository procedureRepository;
     private final SaleRepository saleRepository;
+    private final com.bayport.repository.OwnerRepository ownerRepository;
+    private final com.bayport.repository.ConsultationRepository consultationRepository;
 
     public RecycleBinController(PetRepository petRepository, 
                                 AuditLogService auditLogService,
@@ -34,7 +36,9 @@ public class RecycleBinController {
                                 ReminderRepository reminderRepository,
                                 BillingRecordRepository billingRecordRepository,
                                 ProcedureRepository procedureRepository,
-                                SaleRepository saleRepository) {
+                                SaleRepository saleRepository,
+                                com.bayport.repository.OwnerRepository ownerRepository,
+                                com.bayport.repository.ConsultationRepository consultationRepository) {
         this.petRepository = petRepository;
         this.auditLogService = auditLogService;
         this.userRepository = userRepository;
@@ -44,6 +48,8 @@ public class RecycleBinController {
         this.billingRecordRepository = billingRecordRepository;
         this.procedureRepository = procedureRepository;
         this.saleRepository = saleRepository;
+        this.ownerRepository = ownerRepository;
+        this.consultationRepository = consultationRepository;
     }
     
     private boolean isAdmin() {
@@ -100,13 +106,10 @@ public class RecycleBinController {
         // Get deleted pets
         List<Pet> deletedPets = petRepository.findByDeletedTrue();
         result.put("pets", deletedPets);
-        
-        // Note: For appointments, prescriptions, users - they are hard deleted
-        // Only pets have soft delete implemented
-        result.put("appointments", List.of());
-        result.put("prescriptions", List.of());
-        result.put("users", List.of());
-        
+        result.put("appointments", appointmentRepository.findByDeletedTrue());
+        result.put("prescriptions", prescriptionRepository.findByDeletedTrue());
+        result.put("invoices", billingRecordRepository.findByDeletedTrue());
+        result.put("owners", ownerRepository.findByDeletedTrue());
         return ResponseEntity.ok(result);
     }
     
@@ -156,6 +159,16 @@ public class RecycleBinController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("success", false, "error", "Pet not found"));
             }
+            try {
+                com.bayport.service.DeletionGuard.requireNoInvoiceOrPrescription(
+                        prescriptionRepository.countByPetId(id),
+                        billingRecordRepository.countByPetId(id),
+                        "pet");
+            } catch (IllegalStateException blocked) {
+                auditLogService.log("HARD_DELETE_BLOCKED", "Pet", String.valueOf(id), blocked.getMessage());
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("success", false, "error", blocked.getMessage()));
+            }
             
             // Delete all related records first to avoid foreign key constraint violations
             
@@ -198,6 +211,84 @@ public class RecycleBinController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "error", e.getMessage()));
         }
+    }
+
+    @PostMapping("/appointments/{id}/restore")
+    public ResponseEntity<Map<String, Object>> restoreAppointment(@PathVariable Long id) {
+        return restoreRow(appointmentRepository.findById(id).orElse(null), "Appointment", id, row -> {
+            row.setDeleted(false);
+            row.setDeletedAt(null);
+            row.setDeletedBy(null);
+            appointmentRepository.save(row);
+        });
+    }
+
+    @DeleteMapping("/appointments/{id}")
+    public ResponseEntity<Map<String, Object>> purgeAppointment(@PathVariable Long id) {
+        if (!isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", "Access Denied"));
+        }
+        if (consultationRepository.countByAppointmentId(id) > 0) {
+            auditLogService.log("HARD_DELETE_BLOCKED", "Appointment", String.valueOf(id), "A consultation still refers to this appointment");
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "error", "Cannot permanently delete an appointment that has a consultation."));
+        }
+        appointmentRepository.deleteById(id);
+        auditLogService.log("HARD_DELETE", "Appointment", String.valueOf(id), "Permanently deleted");
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @PostMapping("/prescriptions/{id}/restore")
+    public ResponseEntity<Map<String, Object>> restorePrescription(@PathVariable Long id) {
+        return restoreRow(prescriptionRepository.findById(id).orElse(null), "Prescription", id, row -> {
+            row.setDeleted(false);
+            row.setDeletedAt(null);
+            row.setDeletedBy(null);
+            prescriptionRepository.save(row);
+        });
+    }
+
+    @DeleteMapping("/prescriptions/{id}")
+    public ResponseEntity<Map<String, Object>> purgePrescription(@PathVariable Long id) {
+        auditLogService.log("HARD_DELETE_BLOCKED", "Prescription", String.valueOf(id), "Prescriptions are kept");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "error", "Prescriptions cannot be permanently deleted."));
+    }
+
+    @PostMapping("/invoices/{id}/restore")
+    public ResponseEntity<Map<String, Object>> restoreInvoice(@PathVariable Long id) {
+        return restoreRow(billingRecordRepository.findById(id).orElse(null), "Invoice", id, row -> {
+            row.setDeleted(false);
+            row.setDeletedAt(null);
+            row.setDeletedBy(null);
+            billingRecordRepository.save(row);
+        });
+    }
+
+    @DeleteMapping("/invoices/{id}")
+    public ResponseEntity<Map<String, Object>> purgeInvoice(@PathVariable Long id) {
+        auditLogService.log("HARD_DELETE_BLOCKED", "Invoice", String.valueOf(id), "Invoices are kept");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("success", false, "error", "Invoices cannot be permanently deleted."));
+    }
+
+    @PostMapping("/owners/{id}/restore")
+    public ResponseEntity<Map<String, Object>> restoreOwner(@PathVariable Long id) {
+        return restoreRow(ownerRepository.findById(id).orElse(null), "Owner", id, row -> {
+            row.setDeleted(false);
+            row.setDeletedAt(null);
+            row.setDeletedBy(null);
+            ownerRepository.save(row);
+        });
+    }
+
+    private <T> ResponseEntity<Map<String, Object>> restoreRow(T row, String name, Long id, java.util.function.Consumer<T> save) {
+        if (!isAdmin()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("success", false, "error", "Access Denied"));
+        }
+        if (row == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("success", false, "error", name + " not found"));
+        }
+        save.accept(row);
+        auditLogService.log("RESTORE", name, String.valueOf(id), "Restored from recycle bin");
+        return ResponseEntity.ok(Map.of("success", true));
     }
 }
 

@@ -27,7 +27,9 @@ public class OwnerService {
     }
 
     public List<Owner> list() {
-        return ownerRepository.findAll();
+        return ownerRepository.findAll().stream()
+                .filter(owner -> owner.getDeleted() == null || !owner.getDeleted())
+                .toList();
     }
 
     public Owner get(Long id) {
@@ -36,11 +38,10 @@ public class OwnerService {
     }
 
     public List<Owner> search(String term) {
-        if (term == null || term.trim().isEmpty()) {
-            return ownerRepository.findAll();
-        }
-        String pattern = "%" + term.trim() + "%";
-        return ownerRepository.search(pattern);
+        List<Owner> found = (term == null || term.trim().isEmpty())
+                ? ownerRepository.findAll()
+                : ownerRepository.search("%" + term.trim() + "%");
+        return found.stream().filter(owner -> owner.getDeleted() == null || !owner.getDeleted()).toList();
     }
 
     public Owner create(Owner owner) {
@@ -83,7 +84,9 @@ public class OwnerService {
                             "Please cancel or reassign appointments first.", owner.getFullName(), appointmentCount));
         }
         
-        ownerRepository.deleteById(id);
+        owner.setDeleted(true);
+        owner.setDeletedAt(java.time.LocalDateTime.now());
+        ownerRepository.save(owner);
     }
 
     private void validateOwner(Owner owner) {

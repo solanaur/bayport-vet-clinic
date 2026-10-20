@@ -367,7 +367,7 @@
     },
 
     async deleteRecord(petId, recordId) {
-      if (!confirm('Delete this external record?')) return;
+      if (!await window.bayportConfirm('Delete this external record?')) return;
       try {
         await Api.medicalRecords.remove(petId, recordId);
         if (externalExpandedId === recordId) externalExpandedId = null;

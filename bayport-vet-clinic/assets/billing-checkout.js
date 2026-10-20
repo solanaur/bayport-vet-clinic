@@ -416,6 +416,7 @@
     if (!modal || !frame) return;
     if (titleEl) titleEl.textContent = title || "Receipt";
     frame.srcdoc = html;
+    if (typeof window.bayportFitPreviewFrame === "function") window.bayportFitPreviewFrame(frame);
     modal.classList.remove("hidden");
     modal.classList.add("flex");
   }
@@ -657,15 +658,15 @@
     const wrap = document.createElement("div");
     wrap.innerHTML = `
 <div id="payReceiptPreviewModal" class="hidden fixed inset-0 bg-black/50 z-[270] items-center justify-center p-4">
-  <div class="bg-white rounded-xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl border border-slate-200 overflow-hidden">
-    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0">
-      <h3 id="payReceiptPreviewTitle" class="font-semibold text-slate-900">Invoice / receipt</h3>
+  <div class="bg-white rounded-xl w-full flex flex-col shadow-xl border border-slate-200 overflow-hidden" style="max-width:420px;max-height:85vh">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 shrink-0 bg-white">
+      <h3 id="payReceiptPreviewTitle" class="font-semibold text-slate-900">Receipt</h3>
       <div class="flex items-center gap-2">
         <button type="button" id="payReceiptPreviewPrint" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50">Print</button>
         <button type="button" id="payReceiptPreviewClose" class="px-3 py-1.5 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50">Close</button>
       </div>
     </div>
-    <iframe id="payReceiptPreviewFrame" class="w-full flex-1 min-h-0 border-0 bg-white" title="Receipt preview"></iframe>
+    <iframe id="payReceiptPreviewFrame" class="w-full border-0 bg-white" style="height:80px" title="Receipt preview"></iframe>
   </div>
 </div>`;
     while (wrap.firstElementChild) document.body.appendChild(wrap.firstElementChild);

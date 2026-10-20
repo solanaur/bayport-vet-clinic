@@ -26,6 +26,10 @@ public class LocalFileStorageService implements FileStorageService {
     @Override
     public String store(MultipartFile file) throws IOException {
         String original = file.getOriginalFilename();
+        String problem = AttachmentRules.problem(original, file.getSize());
+        if (problem != null) {
+            throw new IllegalArgumentException(problem);
+        }
         if (!StringUtils.hasText(original)) {
             original = "upload.jpg";
         }

@@ -34,7 +34,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             log.info("{} {}{} -> {} ({} ms)",
                     method,
                     uri,
-                    (query != null ? "?" + query : ""),
+                    (query != null ? "?" + com.bayport.security.LogScrubber.scrub(query) : ""),
                     status,
                     time
             );

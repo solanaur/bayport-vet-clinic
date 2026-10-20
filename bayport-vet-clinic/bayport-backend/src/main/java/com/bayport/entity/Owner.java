@@ -24,6 +24,18 @@ public class Owner {
     private String email;
     private String address;
 
+    @Column(name = "deleted")
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private java.time.LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
+    @Column(name = "reminder_opt_out")
+    private Boolean reminderOptOut = false;
+
     // Getters/Setters
     public Long getId() {
         return id;
@@ -64,5 +76,14 @@ public class Owner {
     public void setAddress(String address) {
         this.address = address;
     }
+
+    public Boolean getDeleted() { return deleted != null && deleted; }
+    public void setDeleted(Boolean deleted) { this.deleted = deleted; }
+    public java.time.LocalDateTime getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(java.time.LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public String getDeletedBy() { return deletedBy; }
+    public void setDeletedBy(String deletedBy) { this.deletedBy = deletedBy; }
+    public boolean isReminderOptOut() { return reminderOptOut != null && reminderOptOut; }
+    public void setReminderOptOut(Boolean reminderOptOut) { this.reminderOptOut = reminderOptOut; }
 }
 

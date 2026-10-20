@@ -19,6 +19,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -28,8 +29,16 @@ class BillingServiceTest {
     private BillingRecordRepository billingRecordRepository;
     @Mock
     private SalesService salesService;
+    @Mock
+    private AuditLogService auditLogService;
     @InjectMocks
     private BillingService billingService;
+
+    @Test
+    void get_throwsWhenInvoiceIsMissing() {
+        when(billingRecordRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(IllegalArgumentException.class, () -> billingService.get(99L));
+    }
 
     @Test
     void markPaid_recordsSaleOnlyWhenTransitioningToPaid() {

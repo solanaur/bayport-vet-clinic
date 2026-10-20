@@ -89,17 +89,17 @@ public class NotificationService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void notifyAdminsLoginOtp(String username, String code) {
+    public void notifyAdminsLoginOtp(String username) {
         notifyAdmins("MFA_LOGIN",
-                "Login OTP for " + username + ": " + code
-                        + " (email not configured — share this code with the user, expires in 5 min)");
+                "Login verification email could not be sent for " + username
+                        + ". No code was stored. Configure email and ask them to try again.");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void notifyAdminsSignupOtp(String email, String code) {
+    public void notifyAdminsSignupOtp(String email) {
         notifyAdmins("MFA_SIGNUP",
-                "Signup OTP for " + email + ": " + code
-                        + " (email not configured — expires in 5 min)");
+                "Account verification email could not be sent to " + email
+                        + ". No code was stored. Configure email and try again.");
     }
 
     private void notifyAdmins(String type, String message) {

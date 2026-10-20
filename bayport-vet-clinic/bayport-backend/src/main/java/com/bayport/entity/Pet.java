@@ -90,6 +90,10 @@ public class Pet {
     @Column(name = "assigned_veterinarian_id")
     private Long assignedVeterinarianId;
 
+    /** ACTIVE, DECEASED, INACTIVE, or CAUTION. */
+    @Column(name = "record_status", length = 20)
+    private String recordStatus = "ACTIVE";
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_id", insertable = false, updatable = false)
     private Owner ownerEntity;
@@ -216,5 +220,8 @@ public class Pet {
 
     public Long getAssignedVeterinarianId() { return assignedVeterinarianId; }
     public void setAssignedVeterinarianId(Long assignedVeterinarianId) { this.assignedVeterinarianId = assignedVeterinarianId; }
+
+    public String getRecordStatus() { return recordStatus == null || recordStatus.isBlank() ? "ACTIVE" : recordStatus; }
+    public void setRecordStatus(String recordStatus) { this.recordStatus = recordStatus; }
 }
 

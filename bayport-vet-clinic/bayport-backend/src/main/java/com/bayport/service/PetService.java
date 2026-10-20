@@ -2,7 +2,9 @@ package com.bayport.service;
 
 import com.bayport.entity.Pet;
 import com.bayport.entity.User;
+import com.bayport.repository.BillingRecordRepository;
 import com.bayport.repository.PetRepository;
+import com.bayport.repository.PrescriptionRepository;
 import com.bayport.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,11 +19,19 @@ public class PetService {
     private final PetRepository petRepository;
     private final AuditLogService auditLogService;
     private final UserRepository userRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final BillingRecordRepository billingRecordRepository;
 
-    public PetService(PetRepository petRepository, AuditLogService auditLogService, UserRepository userRepository) {
+    public PetService(PetRepository petRepository,
+                      AuditLogService auditLogService,
+                      UserRepository userRepository,
+                      PrescriptionRepository prescriptionRepository,
+                      BillingRecordRepository billingRecordRepository) {
         this.petRepository = petRepository;
         this.auditLogService = auditLogService;
         this.userRepository = userRepository;
+        this.prescriptionRepository = prescriptionRepository;
+        this.billingRecordRepository = billingRecordRepository;
     }
 
     public List<Pet> getActivePets() {
@@ -72,6 +82,10 @@ public class PetService {
         if (!petRepository.existsById(id)) {
             throw new RuntimeException("Pet not found");
         }
+        DeletionGuard.requireNoInvoiceOrPrescription(
+                prescriptionRepository.countByPetId(id),
+                billingRecordRepository.countByPetId(id),
+                "pet");
 
         petRepository.deleteById(id);
         auditLogService.log("HARD_DELETE", "Pet", String.valueOf(id), "Permanently deleted");

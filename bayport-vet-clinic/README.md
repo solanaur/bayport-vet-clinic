@@ -36,37 +36,27 @@ bayport-vet-clinic/
 
 ## Quick Start
 
-### 1. Create MySQL Database
-
-In **MySQL Workbench**, run the setup script:
-
-```sql
--- Or run: database_setup.sql
-CREATE DATABASE IF NOT EXISTS bayport_db
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-```
-
-### 2. Configure MySQL Credentials
-
-Edit `bayport-backend/src/main/resources/application.properties`:
-
-```properties
-spring.datasource.username=root
-spring.datasource.password=YOUR_MYSQL_PASSWORD
-```
-
-### 3. Run the Application
+From `bayport-backend`:
 
 ```bash
-cd bayport-vet-clinic/desktop-shell
+./mvnw clean test
+```
+
+On Windows use `mvnw.cmd`. Tests do not need a clinic database.
+
+Desktop (one PC, embedded H2):
+
+```bash
+cd desktop-shell
 npm install
 npm run desktop
 ```
 
-This builds the backend and launches the Electron app.
+On first launch the desktop app writes `data/local.secrets.env` with `JWT_SECRET`, `BAYPORT_DB_PASSWORD`, and `TOTP_ENCRYPTION_KEY`. Do not commit that file. Copy `.env.example` when you need the full list of names. Mail and SMS stay empty until you copy `mail.env.example` and `sms.env.example` into `data/` and fill them in locally.
 
-Desktop mode now starts the backend in embedded H2 mode automatically, so no MySQL setup is required for local desktop usage.
+MySQL is for the shared clinic server, not for this single-PC desktop run. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` in the environment. Do not put those passwords in `application.properties`.
+
+Before pushing, from the repository root (the folder that contains this project folder), run `powershell -File scripts/pre-push-check.ps1` or `./scripts/pre-push-check.sh`.
 
 ## Alternative: Backend + Browser
 

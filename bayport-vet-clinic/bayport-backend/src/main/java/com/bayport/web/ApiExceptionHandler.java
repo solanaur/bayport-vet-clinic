@@ -12,8 +12,10 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -88,6 +90,21 @@ public class ApiExceptionHandler {
         body.put("message", "Invalid request payload.");
         body.put("path", request.getRequestURI());
         return ResponseEntity.badRequest().body(body);
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Map<String, Object>> handleConflictedUpdate(ObjectOptimisticLockingFailureException ex,
+                                                                      HttpServletRequest request) {
+        log.warn("Concurrent update on {}", request.getRequestURI());
+        return buildResponse(HttpStatus.CONFLICT,
+                "That record was updated by someone else. Refresh and try again.",
+                request.getRequestURI());
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleMissing(NoResourceFoundException ex,
+                                                             HttpServletRequest request) {
+        return buildResponse(HttpStatus.NOT_FOUND, "Not found", request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

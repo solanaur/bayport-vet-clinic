@@ -54,23 +54,40 @@ public class TotpService {
     }
 
     public boolean verify(String secret, String code) {
+        return matchingStep(secret, code) != null;
+    }
+
+    /** Time step that matched, or null. Callers must reject a step that is not newer than the last accepted one. */
+    public Long matchingStep(String secret, String code) {
         String normalized = code == null ? "" : code.trim().replace(" ", "");
         if (!isEnrolled(secret) || !normalized.matches("\\d{6}")) {
-            return false;
+            return null;
         }
         byte[] key;
         try {
             key = decodeBase32(secret);
         } catch (IllegalArgumentException e) {
-            return false;
+            return null;
         }
-        long step = System.currentTimeMillis() / 1000L / PERIOD_SECONDS;
+        long step = currentStep();
         for (int i = -WINDOW; i <= WINDOW; i++) {
             if (constantTimeEquals(normalized, generateCode(key, step + i))) {
-                return true;
+                return step + i;
             }
         }
-        return false;
+        return null;
+    }
+
+    public long currentStep() {
+        return System.currentTimeMillis() / 1000L / PERIOD_SECONDS;
+    }
+
+    public String codeForStep(String secret, long step) {
+        return generateCode(decodeBase32(secret), step);
+    }
+
+    public static boolean isReplay(Long lastAcceptedStep, long matchedStep) {
+        return lastAcceptedStep != null && matchedStep <= lastAcceptedStep;
     }
 
     private static String generateCode(byte[] key, long step) {

@@ -9,7 +9,7 @@ import com.bayport.entity.Reminder;
 import com.bayport.entity.ReminderType;
 
 import com.bayport.repository.OwnerRepository;
-
+import com.bayport.repository.PetRepository;
 import com.bayport.repository.ReminderRepository;
 
 import lombok.extern.slf4j.Slf4j;
@@ -60,11 +60,20 @@ public class ReminderScheduler {
 
     OwnerRepository ownerRepo;
 
+    @Autowired
+    PetRepository petRepository;
+
 
 
     @Autowired
 
     EmailService emailService;
+
+
+
+    @Autowired
+
+    SmsService smsService;
 
 
 
@@ -172,15 +181,14 @@ public class ReminderScheduler {
 
         log.info("Found {} unsent pet reminder(s) due on or before {}", due.size(), today);
 
+        boolean mailReady = emailService.isConfigured();
+        boolean smsReady = smsService.isConfigured();
 
-
-        if (!emailService.isConfigured()) {
+        if (!mailReady && !smsReady) {
 
             log.warn(
 
-                    "Email is not configured — {} reminder(s) were not sent. "
-
-                            + "Set RESEND_API_KEY (cloud) or SPRING_MAIL_USERNAME + SPRING_MAIL_PASSWORD (local).",
+                    "Neither email nor SMS is configured — {} reminder(s) were not sent.",
 
                     due.size());
 
@@ -194,7 +202,7 @@ public class ReminderScheduler {
 
             result.put("message",
 
-                    "Email is not configured. Set RESEND_API_KEY on Render or SMTP credentials locally, then restart.");
+                    "Email and SMS are not configured. Set mail credentials or data/sms.env, then restart.");
 
             return result;
 
@@ -226,6 +234,14 @@ public class ReminderScheduler {
 
                 }
 
+                if (r.getPetId() != null) {
+                    var pet = petRepository.findById(r.getPetId()).orElse(null);
+                    if (pet != null && !ReminderDispatchPolicy.allowForPet(pet.getRecordStatus())) {
+                        skippedCount++;
+                        continue;
+                    }
+                }
+
                 Owner owner = ownerRepo.findById(r.getOwnerId()).orElse(null);
 
                 if (owner == null) {
@@ -238,13 +254,22 @@ public class ReminderScheduler {
 
                 }
 
+                if (!ReminderDispatchPolicy.allowForOwner(owner.isReminderOptOut())) {
+                    skippedCount++;
+                    continue;
+                }
+
 
 
                 String to = owner.getEmail();
 
-                if (to == null || to.trim().isEmpty()) {
+                String phone = owner.getPhone();
 
-                    log.warn("Reminder {} for owner {} has no email address. Skipping.", r.getId(), owner.getFullName());
+                ReminderDispatchPolicy.Plan plan = ReminderDispatchPolicy.plan(to, phone, mailReady, smsReady);
+
+                if (!plan.hasContact()) {
+
+                    log.warn("Reminder {} for owner {} has no email or mobile. Skipping.", r.getId(), owner.getFullName());
 
                     skippedCount++;
 
@@ -276,7 +301,35 @@ public class ReminderScheduler {
 
 
 
-                emailService.send(to.trim(), subject, message);
+                boolean emailed = false;
+
+                boolean texted = false;
+
+                if (plan.sendSms()) {
+
+                    SmsService.SmsResult sms = smsService.sendAnnouncement(phone, message);
+
+                    texted = sms.accepted();
+
+                }
+
+                if (plan.sendEmail()) {
+
+                    emailService.send(to.trim(), subject, message);
+
+                    emailed = true;
+
+                }
+
+                if (!emailed && !texted) {
+
+                    skippedCount++;
+
+                    failures.add(failureEntry(r.getId(), owner.getFullName(), to, "SMS is not configured and no email was sent."));
+
+                    continue;
+
+                }
 
 
 
@@ -284,7 +337,11 @@ public class ReminderScheduler {
 
                 r.setSentAt(LocalDateTime.now());
 
-                r.setTargetEmail(to.trim());
+                if (plan.sendEmail()) {
+
+                    r.setTargetEmail(to.trim());
+
+                }
 
                 reminderRepo.save(r);
 

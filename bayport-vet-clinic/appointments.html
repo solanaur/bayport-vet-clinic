@@ -712,7 +712,7 @@
     }
 
     async function doCancel(id) {
-      if (!confirm("Cancel this appointment?")) return;
+      if (!await window.bayportConfirm("Cancel this appointment?")) return;
       try {
         await repoCancelAppt(id);
         await loadQueueData();
@@ -722,7 +722,7 @@
     }
 
     async function doDelete(id) {
-      if (!confirm("Delete this appointment permanently?")) return;
+      if (!await window.bayportConfirm("Delete this appointment permanently?")) return;
       try {
         await repoDeleteAppt(id);
         await loadQueueData();

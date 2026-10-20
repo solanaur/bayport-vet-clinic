@@ -4,6 +4,7 @@ import com.bayport.entity.DataAccessLog;
 import com.bayport.entity.User;
 import com.bayport.repository.DataAccessLogRepository;
 import com.bayport.repository.UserRepository;
+import com.bayport.security.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -15,10 +16,14 @@ import java.time.LocalDateTime;
 public class DataAccessLogService {
     private final DataAccessLogRepository dataAccessLogRepository;
     private final UserRepository userRepository;
+    private final ClientIpResolver clientIpResolver;
 
-    public DataAccessLogService(DataAccessLogRepository dataAccessLogRepository, UserRepository userRepository) {
+    public DataAccessLogService(DataAccessLogRepository dataAccessLogRepository,
+                                UserRepository userRepository,
+                                ClientIpResolver clientIpResolver) {
         this.dataAccessLogRepository = dataAccessLogRepository;
         this.userRepository = userRepository;
+        this.clientIpResolver = clientIpResolver;
     }
 
     public void logRead(String entityName, String entityId, String details) {
@@ -44,8 +49,7 @@ public class DataAccessLogService {
         log.setDetails(details);
         
         if (request != null) {
-            String ipAddress = getClientIpAddress(request);
-            log.setIpAddress(ipAddress);
+            log.setIpAddress(clientIpResolver.resolve(request));
         }
         
         dataAccessLogRepository.save(log);
@@ -74,22 +78,9 @@ public class DataAccessLogService {
         log.setDetails(details);
         
         if (request != null) {
-            String ipAddress = getClientIpAddress(request);
-            log.setIpAddress(ipAddress);
+            log.setIpAddress(clientIpResolver.resolve(request));
         }
         
         dataAccessLogRepository.save(log);
-    }
-
-    private String getClientIpAddress(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
-        }
-        String xRealIp = request.getHeader("X-Real-IP");
-        if (xRealIp != null && !xRealIp.isEmpty()) {
-            return xRealIp;
-        }
-        return request.getRemoteAddr();
     }
 }

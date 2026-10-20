@@ -73,31 +73,39 @@
         }
         
         const data = await response.json();
-        
+        const sections = [
+          { key: 'owners', title: 'Owners', label: row => row.fullName || row.name || 'Owner', restore: 'owners', purge: false },
+          { key: 'pets', title: 'Pets', label: row => `${row.name || 'Unknown'} - ${row.owner || 'Unknown Owner'}`, restore: 'pets', purge: true },
+          { key: 'appointments', title: 'Appointments', label: row => `${row.date || ''} ${row.time || ''} ${row.owner || ''}`.trim(), restore: 'appointments', purge: true },
+          { key: 'prescriptions', title: 'Prescriptions', label: row => `${row.pet || 'Pet'} — ${row.drug || 'Medicine'}`, restore: 'prescriptions', purge: false },
+          { key: 'invoices', title: 'Invoices', label: row => `${row.ownerName || 'Owner'} — ${row.amount ?? ''}`, restore: 'invoices', purge: false }
+        ];
+
         let html = '';
-        
-        if (data.pets && data.pets.length > 0) {
+        sections.forEach(section => {
+          const rows = data[section.key] || [];
+          if (!rows.length) return;
           html += `
             <div class="border border-gray-200 rounded-xl p-6">
-              <h4 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Deleted Pets (${data.pets.length})</h4>
+              <h4 class="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Deleted ${section.title} (${rows.length})</h4>
               <div class="space-y-2">
-                ${data.pets.map(pet => `
+                ${rows.map(row => `
                   <div class="p-3 bg-gray-50 rounded-md border border-gray-100 flex justify-between items-center">
                     <div class="flex-1">
-                      <div class="text-sm font-medium text-gray-800">${pet.name || 'Unknown'} - ${pet.owner || 'Unknown Owner'}</div>
-                      <div class="text-xs text-gray-500 mt-1">Deleted by: ${pet.deletedBy || 'System'} | ${formatTimestamp(pet.deletedAt)}</div>
+                      <div class="text-sm font-medium text-gray-800">${section.label(row)}</div>
+                      <div class="text-xs text-gray-500 mt-1">Deleted by: ${row.deletedBy || 'System'} | ${formatTimestamp(row.deletedAt)}</div>
                     </div>
                     <div class="flex gap-2 ml-4">
-                      <button class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700" onclick="restorePet(${pet.id})">Restore</button>
-                      <button class="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700" onclick="permanentlyDeletePet(${pet.id})">Delete Permanently</button>
+                      <button class="px-3 py-1 bg-green-600 text-white rounded-md text-sm hover:bg-green-700" onclick="restoreRecord('${section.restore}', ${row.id})">Restore</button>
+                      ${section.purge ? `<button class="px-3 py-1 bg-red-600 text-white rounded-md text-sm hover:bg-red-700" onclick="purgeRecord('${section.restore}', ${row.id})">Delete Permanently</button>` : ''}
                     </div>
                   </div>
                 `).join('')}
               </div>
             </div>
           `;
-        }
-        
+        });
+
         if (!html) {
           html = '<div class="text-center text-gray-500 py-8">Recycle bin is empty.</div>';
         }
@@ -109,54 +117,34 @@
       }
     }
 
-    async function restorePet(id) {
-      if (!confirm('Are you sure you want to restore this pet?')) return;
-      
+    async function recycleAction(path, method, confirmText) {
+      if (!await window.bayportConfirm(confirmText)) return;
       try {
         const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-        const response = await fetch(`${window.API_BASE}/admin/recycle-bin/pets/${id}/restore`, {
-          method: 'POST',
+        const response = await fetch(`${window.API_BASE}/admin/recycle-bin/${path}`, {
+          method,
           headers: {
             'Authorization': token ? `Bearer ${token}` : '',
             'Content-Type': 'application/json'
           }
         });
-        
         if (response.ok) {
-          alert('Pet restored successfully!');
           loadRecycleBin();
-        } else {
-          const result = await response.json();
-          alert('Failed to restore: ' + (result.error || 'Unknown error'));
+          return;
         }
+        const result = await response.json();
+        alert(result.error || 'The server refused that action.');
       } catch (err) {
-        alert('Error restoring pet: ' + err.message);
+        alert(err.message);
       }
     }
 
-    async function permanentlyDeletePet(id) {
-      if (!confirm('Are you sure you want to permanently delete this pet? This action cannot be undone.')) return;
-      
-      try {
-        const token = localStorage.getItem('token') || localStorage.getItem('jwt');
-        const response = await fetch(`${window.API_BASE}/admin/recycle-bin/pets/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          alert('Pet permanently deleted!');
-          loadRecycleBin();
-        } else {
-          const result = await response.json();
-          alert('Failed to delete: ' + (result.error || 'Unknown error'));
-        }
-      } catch (err) {
-        alert('Error deleting pet: ' + err.message);
-      }
+    function restoreRecord(kind, id) {
+      return recycleAction(`${kind}/${id}/restore`, 'POST', 'Restore this record?');
+    }
+
+    function purgeRecord(kind, id) {
+      return recycleAction(`${kind}/${id}`, 'DELETE', 'Permanently delete this record? Prescriptions and invoices stay in the bin.');
     }
 
     refreshBtn.onclick = loadRecycleBin;

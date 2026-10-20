@@ -1,11 +1,13 @@
 package com.bayport.config;
 
 import com.bayport.auth.JwtService;
+import com.bayport.service.AuditLogService;
 import com.bayport.security.CustomUserDetailsService;
 import com.bayport.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -34,19 +36,47 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
     private final String corsOrigins;
 
     public SecurityConfig(CustomUserDetailsService userDetailsService,
                           JwtService jwtService,
                           PasswordEncoder passwordEncoder,
+                          AuditLogService auditLogService,
                           @Value("${spring.web.cors.allowed-origins:http://localhost:3000,http://127.0.0.1:3000,file://}") String corsOrigins) {
         this.userDetailsService = userDetailsService;
         this.jwtService = jwtService;
         this.passwordEncoder = passwordEncoder;
+        this.auditLogService = auditLogService;
         this.corsOrigins = corsOrigins;
     }
 
     @Bean
+    @Order(1)
+    public SecurityFilterChain clinicPages(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher("/assets/**", "/*.html", "/favicon.ico", "/css/**", "/js/**")
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+            .headers(headers -> headers
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'self'; "
+                                + "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+                                + "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+                                + "font-src 'self' https://fonts.gstatic.com data:; "
+                                + "img-src 'self' blob: data:; "
+                                + "connect-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+                                + "object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"))
+                .frameOptions(frame -> frame.sameOrigin())
+                .contentTypeOptions(contentType -> {})
+            );
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
@@ -56,9 +86,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll()
-                .requestMatchers("/uploads/**", "/legacy-uploads/**").permitAll()
+                .requestMatchers("/uploads/**", "/legacy-uploads/**").authenticated()
                 .requestMatchers("/api/health").permitAll()
-                .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 .requestMatchers("/api/ops/**").hasRole("ADMIN")
@@ -66,6 +95,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .headers(headers -> headers
+                .contentSecurityPolicy(csp -> csp.policyDirectives(
+                        "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'"))
                 .frameOptions(frame -> frame.sameOrigin())
                 .contentTypeOptions(contentType -> {})
                 .referrerPolicy(referrer -> referrer.policy(
@@ -93,7 +124,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtService, userDetailsService);
+        return new JwtAuthenticationFilter(jwtService, userDetailsService, auditLogService);
     }
 
     @Bean

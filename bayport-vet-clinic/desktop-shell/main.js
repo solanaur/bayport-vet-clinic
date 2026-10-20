@@ -3,6 +3,7 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const crypto = require('crypto');
 const http = require('http');
 const log = require('electron-log');
 
@@ -142,36 +143,41 @@ function injectDesktopApiConfig() {
   });
 }
 
-function waitForBackendHealth(maxAttempts = 120) {
+function waitForBackendHealth(maxMs = 120000) {
   return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const checkInterval = setInterval(() => {
-      attempts++;
-      const req = http.get(API_HEALTH_CHECK, { timeout: 2000 }, (res) => {
+    const started = Date.now();
+    let settled = false;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else resolve();
+    };
+    const poll = () => {
+      if (settled) return;
+      const elapsed = Date.now() - started;
+      if (elapsed > maxMs) {
+        finish(new Error(`Backend failed to start within ${Math.round(maxMs / 1000)} seconds.\n\nCheck that Java 17+ is installed and port 8080 is available.`));
+        return;
+      }
+      const req = http.get(API_HEALTH_CHECK, { timeout: 1500 }, (res) => {
+        res.resume();
         if (res.statusCode === 200) {
-          clearInterval(checkInterval);
-          log.info(`Backend is ready! (took ${attempts} seconds)`);
-          resolve();
-        } else if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          reject(new Error(`Backend returned status ${res.statusCode} after ${maxAttempts} seconds.`));
+          log.info(`Backend is ready! (took ${Math.round((Date.now() - started) / 1000)} seconds)`);
+          finish();
+          return;
         }
+        setTimeout(poll, 300);
       });
-      req.on('error', (err) => {
-        if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          const javaCheck = '\n\nCheck that Java 17+ is installed and port 8080 is available.';
-          reject(new Error(`Backend failed to start within ${maxAttempts} seconds.${javaCheck}\n\nError: ${err.message}`));
-        }
+      req.on('error', () => {
+        if (!settled) setTimeout(poll, 300);
       });
       req.on('timeout', () => {
         req.destroy();
-        if (attempts >= maxAttempts) {
-          clearInterval(checkInterval);
-          reject(new Error(`Backend failed to start within ${maxAttempts} seconds.`));
-        }
+        if (!settled) setTimeout(poll, 300);
       });
-    }, 1000);
+    };
+    poll();
   });
 }
 
@@ -235,7 +241,7 @@ async function restartBackend(reason) {
   log.info(`Restarting backend (${reason}), attempt ${backendRestartAttempts}/5`);
   killBackendProcessSync();
   backendStartPromise = launchBackendProcess()
-    .then(() => waitForBackendHealth(90))
+    .then(() => waitForBackendHealth())
     .then(() => {
       backendRestartAttempts = 0;
       injectDesktopApiConfig();
@@ -253,8 +259,8 @@ async function restartBackend(reason) {
   return backendStartPromise;
 }
 
-function loadMailEnv() {
-  const envPath = path.join(DATA_DIR, 'mail.env');
+function loadNamedEnv(fileName) {
+  const envPath = path.join(DATA_DIR, fileName);
   const extra = {};
   if (!fs.existsSync(envPath)) return extra;
   try {
@@ -266,12 +272,62 @@ function loadMailEnv() {
       extra[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim();
     }
     if (Object.keys(extra).length) {
-      log.info('Loaded mail.env for SMTP:', Object.keys(extra).join(', '));
+      log.info('Loaded ' + fileName + ':', Object.keys(extra).join(', '));
     }
   } catch (err) {
-    log.warn('Could not read mail.env:', err.message);
+    log.warn('Could not read ' + fileName + ':', err.message);
   }
   return extra;
+}
+
+function loadMailEnv() {
+  return loadNamedEnv('mail.env');
+}
+
+function ensureLocalSecrets() {
+  const envPath = path.join(DATA_DIR, 'local.secrets.env');
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(envPath)) {
+    const body = [
+      '# Generated on this computer. Keep this file private. Do not commit it.',
+      'JWT_SECRET=' + crypto.randomBytes(48).toString('base64url'),
+      'BAYPORT_DB_PASSWORD=' + crypto.randomBytes(24).toString('base64url'),
+      'TOTP_ENCRYPTION_KEY=' + crypto.randomBytes(32).toString('base64url'),
+      '# First administrator. Used only when the database has no staff accounts.',
+      '# Uncomment and set these before the first start of an empty database.',
+      '# BAYPORT_ADMIN_USER=clinicadmin',
+      '# BAYPORT_ADMIN_PASSWORD=replace-with-at-least-10-characters',
+      '# BAYPORT_ADMIN_EMAIL=admin@your-clinic.example',
+      '',
+    ].join('\n');
+    fs.writeFileSync(envPath, body, { encoding: 'utf8', flag: 'wx' });
+    log.info('Created local.secrets.env with random JWT, database, and authenticator keys');
+    return;
+  }
+  const text = fs.readFileSync(envPath, 'utf8');
+  if (!/^TOTP_ENCRYPTION_KEY=\S+/m.test(text)) {
+    fs.appendFileSync(envPath, '\nTOTP_ENCRYPTION_KEY=' + crypto.randomBytes(32).toString('base64url') + '\n');
+    log.info('Added TOTP_ENCRYPTION_KEY to local.secrets.env');
+  }
+}
+
+function ensureSmsEnvTemplate() {
+  const envPath = path.join(DATA_DIR, 'sms.env');
+  if (fs.existsSync(envPath)) return;
+  const body = [
+    '# Paste a real Semaphore or Twilio key, set BAYPORT_SMS_ENABLED=true, then restart.',
+    '# SMS stays off while the key is empty.',
+    'BAYPORT_SMS_ENABLED=false',
+    'BAYPORT_SMS_PROVIDER=semaphore',
+    'BAYPORT_SMS_API_KEY=',
+    'BAYPORT_SMS_API_SECRET=',
+    'BAYPORT_SMS_SENDER=Bayport',
+    'BAYPORT_SMS_ACCOUNT_SID=',
+    'BAYPORT_SMS_ENDPOINT=',
+    '',
+  ].join('\n');
+  fs.writeFileSync(envPath, body, { encoding: 'utf8' });
+  log.info('Created data/sms.env. Add a provider key before texts can send.');
 }
 
 function launchBackendProcess() {
@@ -281,6 +337,8 @@ function launchBackendProcess() {
       return;
     }
 
+    ensureLocalSecrets();
+    ensureSmsEnvTemplate();
     log.info('Starting Spring Boot backend…');
     const javaPath = resolveJavaExecutable();
     if (javaPath !== 'java' && javaPath !== 'java.exe' && !fs.existsSync(javaPath)) {
@@ -293,16 +351,20 @@ function launchBackendProcess() {
     const uploadPath = `${normalizedDataDir}/uploads`;
 
     backendProcess = spawn(javaPath, [
+      '-Dlogging.level.org.hibernate.SQL=WARN',
+      '-Dlogging.level.org.hibernate.orm.jdbc.bind=WARN',
+      '-Dlogging.level.com.bayport=INFO',
+      '-Dspring.jpa.show-sql=false',
       '-jar',
       JAR_PATH,
       '--spring.profiles.active=h2',
-      `--spring.datasource.url=jdbc:h2:file:${dbPath};AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000`,
+      `--spring.datasource.url=jdbc:h2:file:${dbPath};DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000`,
       `--bayport.upload-dir=${uploadPath}`,
     ], {
       cwd: FRONTEND_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
-      env: { ...process.env, ...loadMailEnv() },
+      env: { ...process.env, ...loadMailEnv(), ...loadNamedEnv('sms.env'), ...loadNamedEnv('local.secrets.env') },
     });
 
     let backendOutput = '';
@@ -337,13 +399,12 @@ function launchBackendProcess() {
       }
     });
 
-    // Give JVM a moment to bind the port before health polling.
-    setTimeout(resolve, 500);
+    resolve();
   });
 }
 
 function startBackend() {
-  return launchBackendProcess().then(() => waitForBackendHealth(120));
+  return launchBackendProcess().then(() => waitForBackendHealth());
 }
 
 // Ensure data directory exists

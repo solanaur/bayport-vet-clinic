@@ -41,7 +41,6 @@ public class ApiControllers {
     private final PdfService pdfService;
     private final String uploadDir;
     private final FileStorageService fileStorageService;
-    private final com.bayport.auth.MfaService mfaService;
     private final com.bayport.repository.UserRepository userRepository;
     private final com.bayport.repository.OwnerRepository ownerRepository;
     private final EmailService emailService;
@@ -49,16 +48,12 @@ public class ApiControllers {
     private final InventoryService inventoryService;
     private final RecordAccessService recordAccessService;
     private final AuditLogService auditLogService;
-    private final com.bayport.auth.TotpService totpService;
-    private final boolean otpReturnWhenUndelivered;
-    private static final Set<String> BYPASS_USERNAMES = Set.of("admin", "vet", "frontdesk", "recept", "pharm");
 
     public ApiControllers(
             BayportService bayportService,
             ReportService reportService,
             PdfService pdfService,
             @Value("${bayport.upload-dir:uploads}") String uploadDir,
-            com.bayport.auth.MfaService mfaService,
             com.bayport.repository.UserRepository userRepository,
             com.bayport.repository.OwnerRepository ownerRepository,
             EmailService emailService,
@@ -66,15 +61,12 @@ public class ApiControllers {
             InventoryService inventoryService,
             FileStorageService fileStorageService,
             RecordAccessService recordAccessService,
-            AuditLogService auditLogService,
-            com.bayport.auth.TotpService totpService,
-            @Value("${bayport.security.otp-return-when-undelivered:false}") boolean otpReturnWhenUndelivered
+            AuditLogService auditLogService
     ) {
         this.bayportService = bayportService;
         this.reportService = reportService;
         this.pdfService = pdfService;
         this.uploadDir = (uploadDir == null || uploadDir.isBlank()) ? "uploads" : uploadDir;
-        this.mfaService = mfaService;
         this.userRepository = userRepository;
         this.ownerRepository = ownerRepository;
         this.emailService = emailService;
@@ -83,8 +75,6 @@ public class ApiControllers {
         this.fileStorageService = fileStorageService;
         this.recordAccessService = recordAccessService;
         this.auditLogService = auditLogService;
-        this.totpService = totpService;
-        this.otpReturnWhenUndelivered = otpReturnWhenUndelivered;
     }
 
     private ResponseEntity<Map<String, Object>> adminReportsDenied(Authentication auth) {
@@ -484,274 +474,6 @@ public class ApiControllers {
         }
     }
 
-    /* --------- Users --------- */
-    @GetMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<User>> listUsers(){ 
-        try {
-            List<User> users = bayportService.getAllUsers();
-            if (users == null) {
-                users = new java.util.ArrayList<>();
-            }
-            return ResponseEntity.ok()
-                    .header("Content-Type", "application/json")
-                    .body(users);
-        } catch (Exception e) {
-            log.error("Error in listUsers", e);
-            return ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new java.util.ArrayList<>());
-        }
-    }
-
-    @GetMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> getUser(@PathVariable long id) {
-        return bayportService.getUserById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
-    public User createUser(@RequestBody User u){ return bayportService.saveUser(u); }
-    
-    // New OTP-based user creation endpoints
-    @PostMapping("/users/send-otp")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> sendUserCreationOtp(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
-        if (email == null || email.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
-        }
-        
-        // Check if email is already in use
-        java.util.Optional<User> existing = userRepository.findByEmail(email);
-        if (existing.isPresent()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is already registered"));
-        }
-        
-        try {
-            com.bayport.auth.MfaService.DeliveryResult sent = mfaService.sendOtpByEmail(email);
-            Map<String, Object> body = new HashMap<>();
-            body.put("status", "OTP_SENT");
-            body.put("emailDelivered", sent.emailDelivered());
-            body.put("from", emailService.getConfiguredFrom());
-            // Desktop: always show the code so create-user can finish when Gmail accepts
-            // the SMTP send but the message never reaches the inbox (spam / delayed).
-            if (otpReturnWhenUndelivered && sent.code() != null) {
-                body.put("localOtp", sent.code());
-            }
-            if (sent.emailDelivered()) {
-                String from = emailService.getConfiguredFrom();
-                String hint = "OTP emailed from " + (from == null || from.isBlank() ? "the clinic mailbox" : from)
-                        + ". Check Inbox and Spam for " + email.trim() + ".";
-                if (otpReturnWhenUndelivered && sent.code() != null) {
-                    hint += " If it did not arrive, use this code: " + sent.code();
-                }
-                body.put("message", hint);
-            } else if (otpReturnWhenUndelivered && sent.code() != null) {
-                body.put("message", "Email could not be sent. Enter this one-time code: " + sent.code());
-            } else {
-                body.put("message", "OTP generated. Ask an administrator for the code if email did not arrive.");
-            }
-            return ResponseEntity.ok(body);
-        } catch (ResponseStatusException rse) {
-            return ResponseEntity.status(rse.getStatusCode())
-                    .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
-        } catch (Exception e) {
-            String detail = e.getMessage() == null || e.getMessage().isBlank() ? "Failed to send OTP" : e.getMessage();
-            return ResponseEntity.status(500).body(Map.of("error", detail));
-        }
-    }
-    
-    @PostMapping("/users/verify-otp-create")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> verifyOtpAndCreateUser(@RequestBody Map<String, Object> request) {
-        String email = (String) request.get("email");
-        String otp = (String) request.get("otp");
-        String name = (String) request.get("name");
-        String username = (String) request.get("username");
-        String password = (String) request.get("password");
-        String role = (String) request.get("role");
-        
-        if (email == null || otp == null || name == null || username == null || role == null) {
-            return ResponseEntity.badRequest().body(Map.of("error", "All fields are required"));
-        }
-        
-        if (password == null || password.length() < 6) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Password must be at least 6 characters"));
-        }
-
-        String normalizedRole = role.trim().toLowerCase(Locale.ROOT);
-        if (!Set.of("admin", "vet", "veterinarian", "front_office", "receptionist", "pharmacist", "staff").contains(normalizedRole)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid role"));
-        }
-        
-        if (!mfaService.verifyOtpByEmail(email, otp)) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Invalid or expired OTP"));
-        }
-        
-        try {
-            User newUser = new User();
-            newUser.setName(name);
-            newUser.setFullName(name);
-            newUser.setUsername(username);
-            newUser.setEmail(email);
-            newUser.setRole(role);
-            newUser.setPassword(password);
-            newUser.setMfaEnabled(true);
-            
-            User created = bayportService.saveUser(newUser);
-            Map<String, Object> body = new HashMap<>();
-            body.put("id", created.getId());
-            body.put("name", created.getFullName() != null ? created.getFullName() : created.getName());
-            body.put("username", created.getUsername());
-            body.put("email", created.getEmail());
-            body.put("role", created.getRole());
-            body.put("mfaEnabled", true);
-
-            String createdUsername = created.getUsername() == null ? "" : created.getUsername().toLowerCase(Locale.ROOT);
-            if (!BYPASS_USERNAMES.contains(createdUsername)) {
-                com.bayport.auth.TotpService.Enrollment enrollment = totpService.enroll(created.getUsername());
-                created.setTotpSecret(enrollment.secret());
-                created.setMfaEnabled(true);
-                created = userRepository.save(created);
-                body.put("totpSecret", enrollment.secret());
-                body.put("totpUri", enrollment.otpauthUri());
-                body.put("totpIssuer", com.bayport.auth.TotpService.ISSUER);
-                body.put("mfaType", "TOTP");
-            }
-
-            auditLogService.log("USER_CREATED", "User", String.valueOf(created.getId()), "User created", null);
-            return ResponseEntity.ok(body);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to create user"));
-        }
-    }
-
-    @PutMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> updateUser(@PathVariable long id, @RequestBody User u){
-        Optional<User> existingOpt = bayportService.getUserById(id);
-        if (existingOpt.isEmpty()) return ResponseEntity.notFound().build();
-        String oldRole = existingOpt.get().getRole();
-        User updated = bayportService.updateUser(id, u);
-        if (oldRole != null && updated.getRole() != null && !oldRole.equalsIgnoreCase(updated.getRole())) {
-            auditLogService.log("ROLE_CHANGED", "User", String.valueOf(id),
-                    "Role changed", null);
-        }
-        auditLogService.log("USER_UPDATED", "User", String.valueOf(id), "User updated", null);
-        return ResponseEntity.ok(updated);
-    }
-
-    @GetMapping("/users/{id}/password")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> getUserPassword(@PathVariable long id) {
-        // Passwords are never retrievable — only hashes are stored
-        if (bayportService.getUserById(id).isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.status(HttpStatus.GONE)
-                .body(Map.of(
-                        "error", "Password viewing is disabled for security",
-                        "hasPassword", true,
-                        "password", ""
-                ));
-    }
-
-    @PostMapping("/users/{id}/send-edit-otp")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> sendEditCredentialsOtp(@PathVariable long id) {
-        return bayportService.getUserById(id)
-                .map(user -> {
-                    if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
-            return ResponseEntity.badRequest()
-                                .body(Map.of("error", "User email is required for OTP"));
-                    }
-                    try {
-                        mfaService.sendMfaCode(user);
-                        return ResponseEntity.ok(Map.of("status", "OTP_SENT", "message", "OTP sent to user email"));
-                    } catch (ResponseStatusException rse) {
-                        return ResponseEntity.status(rse.getStatusCode())
-                                .body(Map.of("error", rse.getReason() != null ? rse.getReason() : "Request blocked"));
-                    } catch (Exception e) {
-                        return ResponseEntity.status(500)
-                                .body(Map.of("error", "Failed to send OTP"));
-        }
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping("/users/{id}/edit-credentials")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> editCredentials(@PathVariable long id,
-                                              @RequestBody Map<String, Object> request) {
-        String otp = (String) request.get("otp");
-        String username = (String) request.get("username");
-        String email = (String) request.get("email");
-        String password = (String) request.get("password");
-        
-        return bayportService.getUserById(id)
-                .map(user -> {
-                    if (otp == null || otp.trim().isEmpty()) {
-                        return ResponseEntity.badRequest()
-                                .body(Map.of("error", "OTP is required"));
-                    }
-                    
-                    if (!mfaService.verifyCode(user, otp)) {
-                        return ResponseEntity.badRequest()
-                                .body(Map.of("error", "Invalid or expired OTP"));
-                    }
-                    
-                    try {
-                        boolean updated = false;
-                        if (username != null && !username.trim().isEmpty() && !username.equals(user.getUsername())) {
-                            user.setUsername(username);
-                            updated = true;
-                        }
-                        if (email != null && !email.trim().isEmpty() && !email.equals(user.getEmail())) {
-                            java.util.Optional<User> existing = userRepository.findByEmail(email);
-                            if (existing.isPresent() && !existing.get().getId().equals(id)) {
-                                return ResponseEntity.badRequest()
-                                        .body(Map.of("error", "Email is already registered to another user"));
-                            }
-                            user.setEmail(email);
-                            updated = true;
-                        }
-                        if (password != null && !password.trim().isEmpty()) {
-                            if (password.length() < 6) {
-                                return ResponseEntity.badRequest()
-                                        .body(Map.of("error", "Password must be at least 6 characters"));
-                            }
-                            user.setPassword(password);
-                            updated = true;
-                        }
-                        
-                        if (updated) {
-                            bayportService.updateUser(id, user);
-                            auditLogService.log("PASSWORD_CHANGED", "User", String.valueOf(id),
-                                    "Credentials updated via admin OTP flow", null);
-                            return ResponseEntity.ok(Map.of("success", true, "message", "Credentials updated successfully"));
-                        } else {
-            return ResponseEntity.badRequest()
-                                    .body(Map.of("error", "No changes provided"));
-                        }
-        } catch (Exception e) {
-            return ResponseEntity.status(500)
-                                .body(Map.of("error", "Failed to update credentials"));
-        }
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @DeleteMapping("/users/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable long id){
-        if (bayportService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
-        bayportService.deleteUser(id);
-        auditLogService.log("USER_DISABLED", "User", String.valueOf(id), "User deleted", null);
-        return ResponseEntity.noContent().build();
-    }
 
     /* --------- Reports & Ops --------- */
     @GetMapping("/ops/log")
@@ -1005,8 +727,11 @@ public class ApiControllers {
 
     @DeleteMapping("/admin/reset-data")
     public ResponseEntity<Map<String, Object>> resetData(@RequestBody AdminResetRequest request) {
-        bayportService.resetSystemData(request.username(), request.password());
-        return ResponseEntity.ok(Map.of("success", true));
+        auditLogService.log("SYSTEM_RESET_BLOCKED", "System", "reset", "Data wipe was refused");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                "success", false,
+                "message", "Wiping clinic records is disabled. Restore from a backup instead."
+        ));
     }
 
     public record AdminResetRequest(String username, String password) {}

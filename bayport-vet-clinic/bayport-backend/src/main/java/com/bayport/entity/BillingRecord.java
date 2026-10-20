@@ -14,7 +14,7 @@ import java.util.List;
 @Table(name = "billing_records")
 public class BillingRecord {
 
-    public enum Status { PENDING, PAID }
+    public enum Status { PENDING, PAID, VOID }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -53,6 +53,21 @@ public class BillingRecord {
 
     private LocalDateTime issuedAt = LocalDateTime.now();
     private LocalDateTime paidAt;
+
+    @Column(name = "void_reason", length = 255)
+    private String voidReason;
+
+    @Column(name = "voided_at")
+    private LocalDateTime voidedAt;
+
+    @Column(name = "deleted")
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
 
     // Getters / setters
     public Long getId() { return id; }
@@ -130,5 +145,16 @@ public class BillingRecord {
 
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+    public String getVoidReason() { return voidReason; }
+    public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
+    public LocalDateTime getVoidedAt() { return voidedAt; }
+    public void setVoidedAt(LocalDateTime voidedAt) { this.voidedAt = voidedAt; }
+
+    public Boolean getDeleted() { return deleted != null && deleted; }
+    public void setDeleted(Boolean deleted) { this.deleted = deleted; }
+    public LocalDateTime getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public String getDeletedBy() { return deletedBy; }
+    public void setDeletedBy(String deletedBy) { this.deletedBy = deletedBy; }
 }
 

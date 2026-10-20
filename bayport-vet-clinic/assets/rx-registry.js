@@ -461,7 +461,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
     };
 
     async function dispenseGroup(groupKey) {
-      if (!confirm('Mark all products in this prescription as dispensed? This will automatically archive the prescription.')) return;
+      if (!await window.bayportConfirm('Mark all products in this prescription as dispensed? This will automatically archive the prescription.')) return;
       try {
         const list = await repoListRx();
         const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey && !r.dispensed);
@@ -514,7 +514,7 @@ window.initBayportRxRegistry = function initBayportRxRegistry(options) {
     }
     
     async function removeGroup(groupKey) {
-      if (!confirm('Delete this entire prescription with all products?')) return;
+      if (!await window.bayportConfirm('Delete this entire prescription with all products?')) return;
       try {
         const list = await repoListRx();
         const groupRxs = list.filter(r => `${r.petId}_${r.date}_${r.prescriber}` === groupKey);

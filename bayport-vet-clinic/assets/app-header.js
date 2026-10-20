@@ -197,6 +197,196 @@
       closeAllHeaderMenus(root);
       if (typeof window.logout === "function") window.logout();
     });
+
+    const viewQr = menu.querySelector("#bpMenuViewQr");
+    viewQr?.addEventListener("click", () => {
+      closeAllHeaderMenus(root);
+      reenrollAuthenticator();
+    });
+  }
+
+  function ensureQrLibrary() {
+    if (typeof qrcode === "function") return Promise.resolve();
+    if (window.__bayportQrLoading) return window.__bayportQrLoading;
+    window.__bayportQrLoading = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "assets/qrcode.js";
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("QR library failed to load"));
+      document.head.appendChild(script);
+    });
+    return window.__bayportQrLoading;
+  }
+
+  function paintHeaderQr(uri) {
+    const host = document.getElementById("bpQrHost");
+    if (!host || typeof qrcode !== "function" || !uri) return;
+    const qr = qrcode(0, "M");
+    qr.addData(uri);
+    qr.make();
+    host.innerHTML = qr.createSvgTag(4, 2);
+  }
+
+  function hideQrModal() {
+    const modal = document.getElementById("bpQrModal");
+    if (!modal) return;
+    modal.style.display = "none";
+    modal.classList.add("hidden");
+  }
+
+  function ensureQrModal() {
+    if (document.getElementById("bpQrModal")) return;
+    const wrap = document.createElement("div");
+    wrap.id = "bpQrModal";
+    wrap.className = "bp-dialog-backdrop hidden";
+    wrap.style.display = "none";
+    wrap.innerHTML = `
+      <div class="bp-dialog" style="max-width:420px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <h3 style="margin:0;">Google Authenticator</h3>
+          <button type="button" id="bpQrClose" class="auth-modal-close" aria-label="Close" style="border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;">&times;</button>
+        </div>
+        <p id="bpQrLead">Scan this QR code in Google Authenticator. You can open it again from your name menu.</p>
+        <div id="bpQrHost" style="display:flex;justify-content:center;margin:14px 0;"></div>
+        <div id="bpQrConfirmRow">
+          <label style="display:block;font-size:13px;color:#475467;">6-digit code
+            <input id="bpQrCode" inputmode="numeric" maxlength="6" style="display:block;width:100%;margin-top:6px;border:1px solid #d0d5dd;border-radius:8px;padding:10px;font-size:16px;" placeholder="000000"/>
+          </label>
+          <p id="bpQrError" style="color:#b42318;font-size:13px;min-height:18px;margin:8px 0 0;"></p>
+        </div>
+        <div class="bp-dialog-actions">
+          <button type="button" id="bpQrHide" class="bp-btn-secondary">Hide</button>
+          <button type="button" id="bpQrConfirm" class="bp-btn-primary">Confirm code</button>
+        </div>
+      </div>`;
+    document.body.appendChild(wrap);
+    wrap.addEventListener("click", (e) => {
+      if (e.target === wrap) hideQrModal();
+    });
+    wrap.querySelector("#bpQrClose").addEventListener("click", hideQrModal);
+    wrap.querySelector("#bpQrHide").addEventListener("click", hideQrModal);
+    wrap.querySelector("#bpQrConfirm").addEventListener("click", confirmAuthenticatorCode);
+    wrap.querySelector("#bpQrCode").addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6);
+    });
+  }
+
+  async function showQrModal(uri, askForCode) {
+    ensureQrModal();
+    await ensureQrLibrary();
+    paintHeaderQr(uri);
+    const row = document.getElementById("bpQrConfirmRow");
+    const confirm = document.getElementById("bpQrConfirm");
+    const lead = document.getElementById("bpQrLead");
+    if (row) row.style.display = askForCode ? "block" : "none";
+    if (confirm) confirm.style.display = askForCode ? "inline-block" : "none";
+    if (lead) {
+      lead.textContent = askForCode
+        ? "This appears on your first sign-in. Scan it in Google Authenticator, then enter the 6-digit code. Hide it when you are done — you can open it again from your name menu."
+        : "Scan this code if you need to add the account to Google Authenticator again.";
+    }
+    const err = document.getElementById("bpQrError");
+    if (err) err.textContent = "";
+    const modal = document.getElementById("bpQrModal");
+    modal.classList.remove("hidden");
+    modal.style.display = "flex";
+  }
+
+  async function reenrollAuthenticator() {
+    const ask = window.bayportPrompt || window.prompt;
+    const currentPassword = await ask("Enter your current password to reset Google Authenticator.", { password: true, title: "Google Authenticator" });
+    if (!currentPassword) return;
+    const code = await ask("Enter the current 6-digit code from Google Authenticator.", { title: "Google Authenticator" });
+    if (!code) return;
+    try {
+      const response = await fetch(`${apiBase()}/me/totp/reenroll`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ currentPassword, code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.mfaSetupToken) {
+        window.alert(data.error || "Could not reset Google Authenticator.");
+        return;
+      }
+      sessionStorage.setItem("bayport_mfa_setup_token", data.mfaSetupToken);
+      const qrResponse = await fetch(`${apiBase()}/me/totp-qr`, {
+        headers: { Authorization: "Bearer " + data.mfaSetupToken, Accept: "application/json" },
+      });
+      const qr = await qrResponse.json().catch(() => ({}));
+      if (!qrResponse.ok || !qr.otpauthUri) {
+        window.alert(qr.error || "Could not open the new QR code.");
+        return;
+      }
+      sessionStorage.setItem("bayport_totp_uri", qr.otpauthUri);
+      await showQrModal(qr.otpauthUri, true);
+    } catch (err) {
+      window.alert(err.message || "Could not reset Google Authenticator.");
+    }
+  }
+
+  async function openAuthenticatorQr(askForCode) {
+    try {
+      let uri = sessionStorage.getItem("bayport_totp_uri") || "";
+      if (!uri) {
+        const base = apiBase();
+        const response = await fetch(`${base}/me/totp-qr`, { headers: authHeaders() });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.otpauthUri) {
+          window.alert(data.error || "Google Authenticator is not set up for this account.");
+          return;
+        }
+        uri = data.otpauthUri;
+      }
+      await showQrModal(uri, askForCode);
+    } catch (err) {
+      window.alert(err.message || "Could not open the QR code.");
+    }
+  }
+
+  async function confirmAuthenticatorCode() {
+    const code = (document.getElementById("bpQrCode")?.value || "").trim();
+    const err = document.getElementById("bpQrError");
+    if (code.length !== 6) {
+      if (err) err.textContent = "Enter the 6-digit code from Google Authenticator.";
+      return;
+    }
+    try {
+      const setupToken = sessionStorage.getItem("bayport_mfa_setup_token");
+      const headers = setupToken
+        ? { "Content-Type": "application/json", Authorization: "Bearer " + setupToken }
+        : authHeaders();
+      const response = await fetch(`${apiBase()}/me/totp/confirm`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (err) err.textContent = data.error || "That code did not match.";
+        return;
+      }
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("jwt", data.token);
+      }
+      sessionStorage.removeItem("bayport_totp_uri");
+      sessionStorage.removeItem("bayport_mfa_setup_token");
+      hideQrModal();
+      if (Array.isArray(data.recoveryCodes) && data.recoveryCodes.length) {
+        window.alert("Save these recovery codes. Each works once:\n\n" + data.recoveryCodes.join("\n"));
+      }
+    } catch (e) {
+      if (err) err.textContent = e.message || "Could not confirm the code.";
+    }
+  }
+
+  function maybeShowFirstLoginQr() {
+    const uri = sessionStorage.getItem("bayport_totp_popup");
+    if (!uri) return;
+    sessionStorage.removeItem("bayport_totp_popup");
+    sessionStorage.setItem("bayport_totp_uri", uri);
+    showQrModal(uri, true).catch((err) => console.error(err));
   }
 
   let bpGlobalHeaderCloserBound = false;
@@ -289,7 +479,10 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </button>
-          <div id="bpUserMenuDropdown" class="hidden absolute right-0 mt-2 w-52 rounded-lg bg-white text-gray-900 shadow-lg border border-[#E5E7EB] py-1 z-[200] overflow-hidden">
+          <div id="bpUserMenuDropdown" class="hidden absolute right-0 mt-2 w-64 rounded-lg bg-white text-gray-900 shadow-lg border border-[#E5E7EB] py-1 z-[200] overflow-hidden">
+            <button type="button" id="bpMenuViewQr" class="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 text-gray-800">
+              Reset Google Authenticator
+            </button>
             <button type="button" id="bpMenuLogout" class="w-full text-left px-4 py-3 text-sm font-medium hover:bg-red-50 text-red-700">
               Log out
             </button>
@@ -309,5 +502,6 @@
     wireNotifications(root, accentVar);
     wireUserMenu(root);
     wireDocumentClose();
+    maybeShowFirstLoginQr();
   };
 })();

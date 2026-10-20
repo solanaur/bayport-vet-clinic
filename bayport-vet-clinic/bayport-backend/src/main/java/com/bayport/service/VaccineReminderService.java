@@ -10,6 +10,7 @@ import com.bayport.repository.PetMedicalRecordRepository;
 import com.bayport.repository.ProcedureRepository;
 import com.bayport.repository.ReminderRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -35,6 +36,7 @@ public class VaccineReminderService {
         this.medicalRecordRepository = medicalRecordRepository;
     }
 
+    @Transactional
     public void syncPetVaccineReminders(Pet pet) {
         if (pet == null || pet.getId() == null || pet.getOwnerId() == null) {
             return;

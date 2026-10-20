@@ -80,6 +80,7 @@ class PosServiceTest {
         Sale sale = new Sale();
         sale.setId(100L);
         when(salesService.recordPosSale(any())).thenReturn(sale);
+        when(billingRecordRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         posService.checkout(req);
 

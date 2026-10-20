@@ -1302,7 +1302,7 @@
       renderProcedures();
     }
 
-    async function delProc(idx){ if(confirm('Delete this procedure?')){ await repoDeleteProcedure(id, idx); renderProcedures(); } }
+    async function delProc(idx){ if(await window.bayportConfirm('Delete this procedure?')){ await repoDeleteProcedure(id, idx); renderProcedures(); } }
 
 let currentPet = null;
 let petRemindersCache = [];
@@ -1682,7 +1682,7 @@ async function sendReminderEmail(reminderId){
 }
 
 async function deleteReminder(reminderId){
-  if(!confirm('Delete this reminder?')) return;
+  if(!await window.bayportConfirm('Delete this reminder?')) return;
   try{
     await Api.reminders.remove(reminderId);
     renderPetReminders();

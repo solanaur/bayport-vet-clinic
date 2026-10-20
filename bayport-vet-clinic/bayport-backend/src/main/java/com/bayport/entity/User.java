@@ -2,7 +2,6 @@ package com.bayport.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 
@@ -34,10 +33,34 @@ public class User {
     @Column(name = "mfa_enabled", nullable = true, columnDefinition = "BOOLEAN DEFAULT FALSE") // Allow null for existing users
     private Boolean mfaEnabled = false;
 
-    /** Base32 TOTP secret for Google Authenticator. Never returned on list/get user APIs. */
+    /** Encrypted TOTP secret for Google Authenticator. Never returned on list/get user APIs. */
     @JsonIgnore
-    @Column(name = "totp_secret", length = 64)
+    @Column(name = "totp_secret", length = 512)
     private String totpSecret;
+
+    /** Last TOTP time step that was accepted. Older or equal codes are rejected. */
+    @JsonIgnore
+    @Column(name = "totp_last_step")
+    private Long totpLastStep;
+
+    /** Incremented to invalidate outstanding access tokens. */
+    @Column(name = "token_version")
+    private Integer tokenVersion = 0;
+
+    /** True after the first-login QR was shown once. Later sign-ins ask for the code only. */
+    @Column(name = "totp_prompted")
+    private Boolean totpPrompted = false;
+
+    /** True after the user has entered a valid Google Authenticator code at least once. */
+    @Column(name = "totp_confirmed")
+    private Boolean totpConfirmed = false;
+
+    /** Optional mobile number for SMS verification codes. */
+    @Column(length = 32)
+    private String phone;
+
+    @Column(name = "must_change_password")
+    private Boolean mustChangePassword = false;
 
     @Column(name = "tos_version_accepted")
     private String tosVersionAccepted;
@@ -70,14 +93,6 @@ public class User {
     @JsonIgnoreProperties({"users", "hibernateLazyInitializer", "handler"}) // Prevent circular reference
     private Set<Role> roles = new HashSet<>();
 
-    @Transient
-    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    private String plainPassword; // For password input only
-
-    @Column(name = "display_password")
-    @JsonIgnore
-    private String displayPassword; // Plaintext password for admin viewing only
-
     public User() {}
 
     public User(String name, String role, String username, String passwordHash) {
@@ -106,6 +121,18 @@ public class User {
         // Ensure mfaEnabled is not null
         if (mfaEnabled == null) {
             mfaEnabled = false;
+        }
+        if (totpPrompted == null) {
+            totpPrompted = false;
+        }
+        if (totpConfirmed == null) {
+            totpConfirmed = false;
+        }
+        if (mustChangePassword == null) {
+            mustChangePassword = false;
+        }
+        if (tokenVersion == null) {
+            tokenVersion = 0;
         }
     }
 
@@ -136,6 +163,25 @@ public class User {
     public void setTotpSecret(String totpSecret) { this.totpSecret = totpSecret; }
     public boolean hasTotpSecret() { return totpSecret != null && !totpSecret.isBlank(); }
 
+    public boolean isTotpPrompted() { return totpPrompted != null && totpPrompted; }
+    public void setTotpPrompted(Boolean totpPrompted) { this.totpPrompted = totpPrompted; }
+
+    public boolean isTotpConfirmed() { return totpConfirmed != null && totpConfirmed; }
+    public void setTotpConfirmed(Boolean totpConfirmed) { this.totpConfirmed = totpConfirmed; }
+
+    public Long getTotpLastStep() { return totpLastStep; }
+    public void setTotpLastStep(Long totpLastStep) { this.totpLastStep = totpLastStep; }
+
+    public int getTokenVersion() { return tokenVersion == null ? 0 : tokenVersion; }
+    public void setTokenVersion(Integer tokenVersion) { this.tokenVersion = tokenVersion; }
+    public void bumpTokenVersion() { this.tokenVersion = getTokenVersion() + 1; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public boolean isMustChangePassword() { return mustChangePassword != null && mustChangePassword; }
+    public void setMustChangePassword(Boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
+
     public String getTosVersionAccepted() { return tosVersionAccepted; }
     public void setTosVersionAccepted(String tosVersionAccepted) { this.tosVersionAccepted = tosVersionAccepted; }
 
@@ -163,11 +209,5 @@ public class User {
         this.passwordHash = passwordHash;
         if (this.password == null) this.password = passwordHash; // Sync new field
     }
-
-    public String getPlainPassword() { return plainPassword; }
-    public void setPlainPassword(String plainPassword) { this.plainPassword = plainPassword; }
-
-    public String getDisplayPassword() { return displayPassword; }
-    public void setDisplayPassword(String displayPassword) { this.displayPassword = displayPassword; }
 }
 

@@ -7,5 +7,9 @@ import java.util.List;
 
 public interface BillingRecordRepository extends JpaRepository<BillingRecord, Long> {
     List<BillingRecord> findByPetId(Long petId);
+
+    List<BillingRecord> findByDeletedTrue();
+
+    long countByPetId(Long petId);
 }
 

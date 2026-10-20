@@ -26,15 +26,20 @@ public class BillingService {
 
     private final BillingRecordRepository billingRecordRepository;
     private final SalesService salesService;
+    private final AuditLogService auditLogService;
 
     public BillingService(BillingRecordRepository billingRecordRepository,
-                          SalesService salesService) {
+                          SalesService salesService,
+                          AuditLogService auditLogService) {
         this.billingRecordRepository = billingRecordRepository;
         this.salesService = salesService;
+        this.auditLogService = auditLogService;
     }
 
     public List<BillingRecord> listAll() {
-        return billingRecordRepository.findAll();
+        return billingRecordRepository.findAll().stream()
+                .filter(record -> record.getDeleted() == null || !record.getDeleted())
+                .toList();
     }
 
     public BillingRecord get(Long id) {
@@ -58,6 +63,9 @@ public class BillingService {
 
     public BillingRecord markPaid(Long id) {
         BillingRecord record = get(id);
+        if (record.getStatus() == BillingRecord.Status.VOID) {
+            throw new IllegalArgumentException("A void invoice cannot be marked paid.");
+        }
         if (record.getStatus() != BillingRecord.Status.PAID) {
             record.setStatus(BillingRecord.Status.PAID);
             record.setPaidAt(LocalDateTime.now());
@@ -67,8 +75,26 @@ public class BillingService {
         return record;
     }
 
+    public BillingRecord voidInvoice(Long id, String reason) {
+        BillingRecord record = get(id);
+        String problem = BillingVoidRules.problem(record.getStatus() == null ? "" : record.getStatus().name(), reason);
+        if (problem != null) {
+            throw new IllegalArgumentException(problem);
+        }
+        record.setStatus(BillingRecord.Status.VOID);
+        record.setVoidReason(reason.trim());
+        record.setVoidedAt(LocalDateTime.now());
+        billingRecordRepository.save(record);
+        auditLogService.log("VOID", "Invoice", String.valueOf(id), reason.trim());
+        return record;
+    }
+
     public void delete(Long id) {
-        billingRecordRepository.deleteById(id);
+        BillingRecord record = billingRecordRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invoice not found"));
+        record.setDeleted(true);
+        record.setDeletedAt(LocalDateTime.now());
+        billingRecordRepository.save(record);
     }
 
     public BillingRecord billProcedure(Pet pet, Procedure procedure) {

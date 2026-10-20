@@ -2,20 +2,18 @@ package com.bayport.security;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+/**
+ * Lockout behavior lives in {@link LoginLockoutPolicy}. This checks the service still builds with a store.
+ */
 class LoginAttemptServiceTest {
 
     @Test
-    void locksAfterConfiguredFailuresAndClearsOnSuccess() {
-        LoginAttemptService svc = new LoginAttemptService(3, 60);
-        assertFalse(svc.isBlocked("alice"));
-        svc.recordFailure("alice");
-        svc.recordFailure("alice");
-        assertFalse(svc.isBlocked("alice"));
-        svc.recordFailure("alice");
-        assertTrue(svc.isBlocked("alice"));
-        svc.recordSuccess("alice");
-        assertFalse(svc.isBlocked("alice"));
+    void policyClearsAfterTheLockWindow() {
+        LoginLockoutPolicy.Decision locked = LoginLockoutPolicy.onFailure(4, 0, 100, 5, 60);
+        assertTrue(LoginLockoutPolicy.blocked(locked.lockedUntilEpoch(), locked.nextAllowedEpoch(), 100));
+        assertFalse(LoginLockoutPolicy.blocked(locked.lockedUntilEpoch(), locked.nextAllowedEpoch(), 160));
     }
 }

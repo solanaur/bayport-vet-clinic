@@ -30,6 +30,15 @@ public class Appointment {
     @Column(name = "consultation_started_at")
     private Instant consultationStartedAt;
 
+    @Column(name = "deleted")
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private java.time.LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by", length = 100)
+    private String deletedBy;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pet_id", insertable = false, updatable = false)
     @JsonIgnoreProperties({"procedures", "ownerEntity", "hibernateLazyInitializer", "handler"})
@@ -77,6 +86,13 @@ public class Appointment {
 
     public Instant getConsultationStartedAt() { return consultationStartedAt; }
     public void setConsultationStartedAt(Instant consultationStartedAt) { this.consultationStartedAt = consultationStartedAt; }
+
+    public Boolean getDeleted() { return deleted != null && deleted; }
+    public void setDeleted(Boolean deleted) { this.deleted = deleted; }
+    public java.time.LocalDateTime getDeletedAt() { return deletedAt; }
+    public void setDeletedAt(java.time.LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public String getDeletedBy() { return deletedBy; }
+    public void setDeletedBy(String deletedBy) { this.deletedBy = deletedBy; }
 
     public Pet getPet() { return pet; }
     public void setPet(Pet pet) { this.pet = pet; }

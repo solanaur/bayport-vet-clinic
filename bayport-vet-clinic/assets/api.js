@@ -33,15 +33,27 @@ window.normalizeApiBase = function normalizeApiBase(url) {
   return base;
 };
 
+function isDesktopPage() {
+  try {
+    if (window.desktopBridge && window.desktopBridge.isDesktopApp) return true;
+    if (window.location && window.location.protocol === "file:") return true;
+  } catch (_) {}
+  return false;
+}
+
 function getSameOriginApiBase() {
   try {
-    return `${window.location.origin.replace(/\/+$/, "")}/api`;
+    if (isDesktopPage()) return "";
+    const origin = window.location.origin || "";
+    if (!origin || origin === "null") return "";
+    return `${origin.replace(/\/+$/, "")}/api`;
   } catch (_) {
     return "";
   }
 }
 
 window.isStaticHostedSite = function isStaticHostedSite() {
+  if (isDesktopPage()) return false;
   if (window.BAYPORT_USE_SAME_ORIGIN_API) return true;
   try {
     const h = (window.location.hostname || "").toLowerCase();
@@ -353,6 +365,16 @@ window.ApiHttp = async function apiHttp(
         }
       }
     }
+    if (res.status === 401 && !String(path).includes("/auth/")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("jwt");
+      localStorage.removeItem("role");
+      const page = (location.pathname.split("/").pop() || "").toLowerCase();
+      if (page !== "login.html" && page !== "index.html") {
+        sessionStorage.setItem("bayport_login_notice", "That sign-in has ended. Sign in with the administrator account you created.");
+        location.href = "login.html";
+      }
+    }
     throw new Error(cleanMessage);
   }
 
@@ -386,26 +408,50 @@ window.Api = {
     check: () => ApiHttp("/health"),
   },
 
+  backups: {
+    status: () => ApiHttp("/backup-status", { token: Api.token() }),
+    list: () => ApiHttp("/admin/backups", { token: Api.token() }),
+    create: () => ApiHttp("/admin/backups", { method: "POST", token: Api.token() }),
+    restore: (id, confirm) => ApiHttp(`/admin/backups/${encodeURIComponent(id)}/restore`, {
+      method: "POST",
+      token: Api.token(),
+      body: { confirm },
+    }),
+    download: (id) => window.downloadBayportPdf(`/admin/backups/${encodeURIComponent(id)}/download`, `${id}.zip`),
+  },
+
   auth: {
     login: (username, password, otp) => ApiHttp("/auth/login", {
       method: "POST",
       body: { username, password },
-      timeoutMs: 180000,
     }),
-    verifyMfa: (username, code) => ApiHttp("/auth/mfa/verify", {
+    verifyMfa: (mfaToken, code) => ApiHttp("/auth/mfa/verify", {
       method: "POST",
-      body: { username, code },
-      timeoutMs: 180000,
+      body: { mfaToken, code },
+    }),
+    logout: () => ApiHttp("/auth/logout", { method: "POST", token: Api.token() }),
+    totpQr: (token) => ApiHttp("/me/totp-qr", { token }),
+    confirmTotp: (token, code) => ApiHttp("/me/totp/confirm", {
+      method: "POST",
+      token,
+      body: { code },
+    }),
+    reenrollTotp: (currentPassword, code) => ApiHttp("/me/totp/reenroll", {
+      method: "POST",
+      token: Api.token(),
+      body: { currentPassword, code },
     }),
     requestPasswordReset: (email) => ApiHttp("/auth/password-reset/request", {
       method: "POST",
       body: { email },
-      timeoutMs: 180000,
     }),
     confirmPasswordReset: (email, code, newPassword) => ApiHttp("/auth/password-reset/confirm", {
       method: "POST",
       body: { email, code, newPassword },
-      timeoutMs: 180000,
+    }),
+    replaceDefaultPassword: (username, currentPassword, newPassword) => ApiHttp("/auth/password/replace-default", {
+      method: "POST",
+      body: { username, currentPassword, newPassword },
     }),
   },
 

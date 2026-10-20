@@ -10,6 +10,10 @@ import java.util.List;
 public interface PrescriptionRepository extends JpaRepository<Prescription, Long> {
     List<Prescription> findByPetId(Long petId);
 
+    List<Prescription> findByDeletedTrue();
+
+    long countByPetId(Long petId);
+
     void deleteByPetId(Long petId);
 }
 

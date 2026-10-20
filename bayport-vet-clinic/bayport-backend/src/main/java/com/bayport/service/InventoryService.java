@@ -48,6 +48,8 @@ public class InventoryService {
         existing.setReorderLevel(item.getReorderLevel());
         existing.setUnitPrice(item.getUnitPrice());
         existing.setPhoto(item.getPhoto());
+        existing.setBatchNo(item.getBatchNo());
+        existing.setExpiryDate(item.getExpiryDate());
         return repository.save(existing);
     }
 

@@ -1,8 +1,12 @@
-# macOS
+# OS
 .DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
 
 # Node / Electron
 node_modules/
+desktop-shell/node_modules/
 npm-debug.log*
 yarn-error.log*
 dist/
@@ -12,29 +16,49 @@ out/
 # Netlify CLI local link state
 .netlify/
 
-# Bundled JRE / Electron build output (regenerate locally; do not commit)
+# Bundled JRE / Electron build output (regenerate locally)
 bayport-vet-clinic/desktop-shell/runtime/
 bayport-vet-clinic/desktop-shell/dist/
 
 # Java / Spring Boot
 target/
+*.class
+*.jar
+!bayport-vet-clinic/bayport-backend/.mvn/wrapper/maven-wrapper.jar
 *.log
 *.tmp
 
-# IDEs / Editor
+# IDEs
 .idea/
 .vscode/
 *.iml
+*.ipr
+*.iws
 
-# Databases / data files
+# Databases, dumps, and runtime data
+/data
 data/
 *.mv.db
 *.db
 *.trace.db
 *.lock.db
+data/backups/
+*.dump
+*.sql.gz
+*.mysql
 
-# Runtime logs and user uploads (not source)
-bayport-vet-clinic/logs/
-bayport-vet-clinic/bayport-backend/logs/
-bayport-vet-clinic/bayport-backend/uploads/
-bayport-vet-clinic/data/
+# Secrets. Example files stay tracked.
+.env
+*.env
+.env.*
+!.env.example
+!**/.env.example
+!**/*.env.example
+*.p12
+*.pem
+*.key
+
+# Logs and uploads
+logs/
+uploads/
+*.log

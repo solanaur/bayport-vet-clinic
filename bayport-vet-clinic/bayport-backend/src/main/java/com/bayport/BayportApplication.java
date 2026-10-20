@@ -16,7 +16,10 @@ public class BayportApplication {
 
     public static void main(String[] args) {
         loadLocalMailEnvIfNeeded();
-        SpringApplication.run(BayportApplication.class, args);
+        SpringApplication app = new SpringApplication(BayportApplication.class);
+        app.addInitializers(new com.bayport.config.SecurityEnvironmentValidator());
+        app.addInitializers(new com.bayport.config.H2PasswordBootstrap());
+        app.run(args);
     }
 
     /**

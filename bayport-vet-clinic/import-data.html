@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Import - Bayport</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/bayport-design.css">
+</head>
+<body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
+  <header id="bpAppHeader"></header>
+  <div class="flex flex-1 min-h-0">
+    <aside class="w-64 lg:w-72 bg-white border-r border-gray-200 p-5 shrink-0 hidden md:block">
+      <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
+    </aside>
+    <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
+      <div class="max-w-3xl mx-auto space-y-5">
+        <h1 class="bp-page-title">Import records</h1>
+        <p class="text-sm text-gray-600">Download a template, check the file, then save. A file with any error is not saved.</p>
+        <label class="block text-sm">Kind
+          <select id="kind" class="mt-1 w-full border rounded-md px-3 py-2">
+            <option value="owners">Owners</option>
+            <option value="pets">Pets</option>
+            <option value="vaccinations">Vaccinations</option>
+            <option value="inventory">Inventory</option>
+          </select>
+        </label>
+        <div class="flex gap-2">
+          <button id="templateBtn" class="bp-btn-primary" type="button">Download template</button>
+        </div>
+        <input id="file" type="file" accept=".csv,text/csv" class="text-sm"/>
+        <div class="flex gap-2">
+          <button id="previewBtn" class="bp-btn-primary" type="button">Preview</button>
+          <button id="commitBtn" class="px-3 py-2 bg-green-700 text-white rounded-md text-sm" type="button">Save import</button>
+        </div>
+        <pre id="result" class="text-sm whitespace-pre-wrap bg-white border rounded-md p-4"></pre>
+      </div>
+    </main>
+  </div>
+  <script src="assets/deploy-env.js"></script>
+  <script src="assets/api.js"></script>
+  <script src="assets/app.js"></script>
+  <script src="assets/app-header.js"></script>
+  <script>
+    guard("import-data");
+    if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
+    renderSidebar(document.getElementById("sidebarNav"), getRole(), "import-data.html");
+
+    function authHeaders() {
+      const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+      return { Authorization: token ? `Bearer ${token}` : "" };
+    }
+
+    function parseCsv(text) {
+      const lines = text.replace(/\r/g, "").split("\n").filter((line) => line.trim());
+      if (!lines.length) return [];
+      const headers = lines[0].split(",").map((cell) => cell.trim());
+      return lines.slice(1).map((line) => {
+        const cells = line.split(",");
+        const row = {};
+        headers.forEach((header, index) => { row[header] = (cells[index] || "").trim(); });
+        return row;
+      });
+    }
+
+    document.getElementById("templateBtn").onclick = async () => {
+      const kind = document.getElementById("kind").value;
+      const response = await fetch(`${window.API_BASE}/admin/import/${kind}/template`, { headers: authHeaders() });
+      const text = await response.text();
+      const blob = new Blob([text], { type: "text/csv" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = kind + "-template.csv";
+      link.click();
+    };
+
+    async function send(commit) {
+      const file = document.getElementById("file").files[0];
+      const result = document.getElementById("result");
+      if (!file) {
+        result.textContent = "Choose a CSV file first.";
+        return;
+      }
+      const rows = parseCsv(await file.text());
+      const kind = document.getElementById("kind").value;
+      const response = await fetch(`${window.API_BASE}/admin/import/${kind}`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ commit, rows })
+      });
+      result.textContent = await response.text();
+    }
+
+    document.getElementById("previewBtn").onclick = () => send(false);
+    document.getElementById("commitBtn").onclick = () => send(true);
+  </script>
+</body>
+</html>

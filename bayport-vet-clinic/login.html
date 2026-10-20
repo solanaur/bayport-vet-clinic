@@ -48,9 +48,10 @@
           </div>
 
           <div id="otpSection" class="auth-otp-section">
-            <label for="otpCode" id="otpCodeLabel">Authenticator or email code</label>
-            <input id="otpCode" type="text" maxlength="6" pattern="[0-9]{4,6}" inputmode="numeric" placeholder="000000"/>
-            <p id="otpHint" class="auth-otp-hint">New accounts use the 6-digit Google Authenticator code. Built-in admin, vet, and front desk logins do not need a code.</p>
+            <label for="otpCode" id="otpCodeLabel">Google Authenticator or recovery code</label>
+            <input id="otpCode" type="text" maxlength="12" inputmode="text" placeholder="000000" autocomplete="one-time-code"/>
+            <p id="otpHint" class="auth-otp-hint">After your password is set, enter the 6-digit Google Authenticator code.</p>
+            <button type="button" id="viewQrBtn" class="auth-forgot" style="display:none;margin-top:8px;background:none;border:0;padding:0;cursor:pointer;">View QR code for Google Authenticator</button>
             <div class="auth-tos-row">
               <input type="checkbox" id="tosCheckbox"/>
               <label for="tosCheckbox">I accept the <a href="#" id="tosLink">Terms and Conditions</a></label>
@@ -84,6 +85,23 @@
     Waking up server… first visit may take up to a minute on free hosting.
   </div>
 
+  <div id="passwordChangeModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="passwordChangeTitle">
+    <div class="auth-modal auth-forgot-modal">
+      <div class="auth-modal-head">
+        <h3 id="passwordChangeTitle">Choose a new password</h3>
+      </div>
+      <p id="passwordChangeError" class="auth-error" role="alert"></p>
+      <p class="auth-otp-hint">Built-in passwords are no longer accepted. Use at least 10 characters, then sign in again. Google Authenticator is required after that.</p>
+      <label class="auth-field-label" for="replaceNewPassword">New password</label>
+      <input id="replaceNewPassword" type="password" class="auth-forgot-input" placeholder="Minimum 10 characters" autocomplete="new-password"/>
+      <label class="auth-field-label" for="replaceConfirmPassword">Confirm password</label>
+      <input id="replaceConfirmPassword" type="password" class="auth-forgot-input" placeholder="Re-enter new password" autocomplete="new-password"/>
+      <div class="auth-modal-foot">
+        <button type="button" id="replacePasswordBtn" class="auth-btn-primary" style="width:auto;min-width:160px;">Save password</button>
+      </div>
+    </div>
+  </div>
+
   <div id="forgotModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="forgotModalTitle">
     <div class="auth-modal auth-forgot-modal">
       <div class="auth-modal-head">
@@ -105,7 +123,7 @@
         <label class="auth-field-label" for="forgotCode">Reset code</label>
         <input id="forgotCode" type="text" class="auth-forgot-input" maxlength="6" inputmode="numeric" placeholder="4-digit code"/>
         <label class="auth-field-label" for="forgotNewPassword">New password</label>
-        <input id="forgotNewPassword" type="password" class="auth-forgot-input" placeholder="Minimum 6 characters" autocomplete="new-password"/>
+        <input id="forgotNewPassword" type="password" class="auth-forgot-input" placeholder="Minimum 10 characters" autocomplete="new-password"/>
         <label class="auth-field-label" for="forgotConfirmPassword">Confirm password</label>
         <input id="forgotConfirmPassword" type="password" class="auth-forgot-input" placeholder="Re-enter new password" autocomplete="new-password"/>
         <div class="auth-modal-foot">
@@ -128,6 +146,38 @@
     </div>
   </div>
 
+  <div id="qrModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="qrModalTitle">
+    <div class="auth-modal">
+      <div class="auth-modal-head">
+        <h3 id="qrModalTitle">Google Authenticator</h3>
+        <button type="button" id="closeQrModal" class="auth-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="auth-modal-body" style="text-align:center;">
+        <p class="auth-otp-hint">Scan this code in Google Authenticator, then enter the 6-digit code.</p>
+        <div id="qrHost" style="display:flex;justify-content:center;margin:12px 0;"></div>
+      </div>
+      <div class="auth-modal-foot">
+        <button type="button" id="hideQrModal" class="auth-btn-primary" style="width:auto;min-width:120px;">Hide</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="recoveryModal" class="auth-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+    <div class="auth-modal">
+      <div class="auth-modal-head">
+        <h3 id="recoveryModalTitle">Save your recovery codes</h3>
+      </div>
+      <div class="auth-modal-body">
+        <p class="auth-otp-hint">These codes are shown once. Each code works one time if you lose your phone. Store them somewhere safe.</p>
+        <pre id="recoveryCodeList" style="white-space:pre-wrap;font-family:ui-monospace,monospace;background:#f8fafc;padding:12px;border-radius:8px;"></pre>
+      </div>
+      <div class="auth-modal-foot">
+        <button type="button" id="recoverySavedBtn" class="auth-btn-primary" style="width:auto;min-width:180px;">I have saved these codes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/qrcode.js"></script>
   <script src="assets/deploy-env.js"></script>
   <script>window.USE_API=true;</script>
   <script src="assets/api.js"></script>
@@ -160,7 +210,38 @@
     const loginBtn = document.getElementById("loginBtn");
     const loginForm = document.getElementById("loginForm");
     const rememberMe = document.getElementById("rememberMe");
-    let mfaUsername = null;
+    let mfaToken = null;
+    let mfaSetupToken = null;
+    let pendingTotpUri = "";
+    let pendingSession = null;
+
+    function paintLoginQr(uri) {
+      const host = document.getElementById("qrHost");
+      if (!host || typeof qrcode !== "function" || !uri) return;
+      const qr = qrcode(0, "M");
+      qr.addData(uri);
+      qr.make();
+      host.innerHTML = qr.createSvgTag(4, 2);
+    }
+
+    function openQrModal(uri) {
+      if (!uri) return;
+      pendingTotpUri = uri;
+      paintLoginQr(uri);
+      document.getElementById("qrModal").classList.add("is-open");
+      document.getElementById("viewQrBtn").style.display = "inline";
+    }
+
+    function closeQrModal() {
+      document.getElementById("qrModal").classList.remove("is-open");
+    }
+
+    document.getElementById("viewQrBtn").addEventListener("click", () => openQrModal(pendingTotpUri));
+    document.getElementById("closeQrModal").addEventListener("click", closeQrModal);
+    document.getElementById("hideQrModal").addEventListener("click", closeQrModal);
+    document.getElementById("qrModal").addEventListener("click", (e) => {
+      if (e.target.id === "qrModal") closeQrModal();
+    });
 
     function showError(msg, type) {
       errorBox.textContent = msg;
@@ -183,10 +264,15 @@
       document.getElementById("username").disabled = false;
       document.getElementById("password").disabled = false;
       otpSection.classList.remove("is-visible");
-      mfaUsername = null;
+      mfaToken = null;
+      mfaSetupToken = null;
+      pendingSession = null;
       localStorage.removeItem(REMEMBER_KEY);
       hideError();
     }
+
+    const loginNotice = sessionStorage.getItem("bayport_login_notice");
+    if (loginNotice) sessionStorage.removeItem("bayport_login_notice");
 
     if (sessionStorage.getItem(LOGIN_RESET_KEY)) {
       sessionStorage.removeItem(LOGIN_RESET_KEY);
@@ -200,6 +286,7 @@
         }
       })();
     }
+    if (loginNotice) showError(loginNotice, "info");
 
     document.getElementById("togglePw").addEventListener("click", () => {
       const p = document.getElementById("password");
@@ -223,7 +310,7 @@
       loginBtn.textContent = "Signing in…";
       hideError();
 
-      if (!mfaUsername) {
+      if (!mfaToken && !mfaSetupToken) {
         if (!u) {
           loginBtn.disabled = false;
           loginBtn.innerHTML = originalText;
@@ -251,7 +338,7 @@
       }
 
       let res;
-      if (otp && mfaUsername) {
+      if ((mfaToken || mfaSetupToken) && otp) {
         if (!document.getElementById("tosCheckbox").checked) {
           loginBtn.disabled = false;
           loginBtn.innerHTML = originalText;
@@ -259,16 +346,16 @@
           return;
         }
         try {
-          const payload = await Api.auth.verifyMfa(mfaUsername, otp);
-          if (payload.status === "TOS_REQUIRED") {
-            res = { ok: false, msg: "TOS_REQUIRED", username: payload.username, currentVersion: payload.currentVersion };
-          } else if (payload.role) {
+          const payload = mfaSetupToken
+            ? await Api.auth.confirmTotp(mfaSetupToken, otp)
+            : await Api.auth.verifyMfa(mfaToken, otp);
+          if (payload && payload.role && payload.token) {
             res = { ok: true, payload: payload };
           } else {
-            res = { ok: false, msg: "Invalid OTP code. Please try again." };
+            res = { ok: false, msg: "Invalid code. Please try again." };
           }
         } catch (err) {
-          res = { ok: false, msg: err.message || "Invalid OTP code. Please try again." };
+          res = { ok: false, msg: err.message || "Invalid code. Please try again." };
         }
       } else {
         res = await window.tryLogin(u, p);
@@ -297,43 +384,57 @@
         if (typeof window.trustCurrentDevice === "function" && !window.isDeviceLockEnabled()) {
           window.trustCurrentDevice("Auto-trusted on login");
         }
+        const codes = res.payload && Array.isArray(res.payload.recoveryCodes) ? res.payload.recoveryCodes : [];
+        if (codes.length) {
+          pendingSession = true;
+          document.getElementById("recoveryCodeList").textContent = codes.join("\n");
+          document.getElementById("recoveryModal").classList.add("is-open");
+          return;
+        }
         location.href = "dashboard.html";
-      } else if (res.msg === "MFA_REQUIRED") {
-        mfaUsername = res.username;
+      } else if (res.msg === "PASSWORD_CHANGE_REQUIRED") {
+        const modal = document.getElementById("passwordChangeModal");
+        const err = document.getElementById("passwordChangeError");
+        if (err) err.textContent = res.message || "";
+        modal.classList.add("is-open");
+        document.getElementById("replaceNewPassword").focus();
+      } else if (res.msg === "MFA_SETUP_REQUIRED") {
+        mfaSetupToken = res.mfaSetupToken || "";
+        mfaToken = null;
         otpSection.classList.add("is-visible");
         document.getElementById("username").disabled = true;
         document.getElementById("password").disabled = true;
+        document.getElementById("otpCodeLabel").textContent = "Google Authenticator code (6 digits)";
+        otpCodeInput.maxLength = 6;
+        otpCodeInput.placeholder = "000000";
+        document.getElementById("viewQrBtn").style.display = "inline";
+        showError(res.message || "Scan the QR code in Google Authenticator, then enter the 6-digit code.", "info");
+        document.getElementById("otpHint").textContent = "This code is required before a session is created. Save the recovery codes shown after it matches.";
+        try {
+          const qr = await Api.auth.totpQr(mfaSetupToken);
+          if (qr && qr.otpauthUri) openQrModal(qr.otpauthUri);
+        } catch (err) {
+          showError(err.message || "Could not open the Google Authenticator QR code.", "error");
+        }
         otpCodeInput.focus();
-        const isTotp = res.mfaType === "TOTP";
-        const otpLabel = document.getElementById("otpCodeLabel");
-        if (otpLabel) {
-          otpLabel.textContent = isTotp ? "Google Authenticator code (6 digits)" : "Email OTP (4 digits)";
-        }
-        otpCodeInput.maxLength = isTotp ? 6 : 4;
-        otpCodeInput.placeholder = isTotp ? "000000" : "0000";
-        const mfaHint = res.mfaMessage || (isTotp
-          ? "Enter the 6-digit code from Google Authenticator."
-          : (res.emailDelivered
-            ? "OTP code has been sent to your email. Please enter the 4-digit code."
-            : "Email could not be sent. Enter the one-time code shown below."));
-        showError(mfaHint, "info");
-        const otpHint = document.getElementById("otpHint");
-        if (otpHint) {
-          if (isTotp) {
-            otpHint.textContent = "Open Google Authenticator and enter the current 6-digit code for this account.";
-          } else if (res.localOtp) {
-            otpHint.textContent = "Email could not be sent. Your 4-digit code is: " + res.localOtp;
-          } else if (res.emailDelivered) {
-            otpHint.textContent = "Check your registered email for the 4-digit code.";
-          } else {
-            otpHint.textContent = "Check admin notifications (bell icon) for the OTP code, or configure email in Settings.";
-          }
-        }
+      } else if (res.msg === "MFA_REQUIRED") {
+        mfaToken = res.mfaToken || "";
+        mfaSetupToken = null;
+        otpSection.classList.add("is-visible");
+        document.getElementById("username").disabled = true;
+        document.getElementById("password").disabled = true;
+        document.getElementById("otpCodeLabel").textContent = "Google Authenticator or recovery code";
+        otpCodeInput.maxLength = 12;
+        otpCodeInput.placeholder = "000000";
+        document.getElementById("viewQrBtn").style.display = "none";
+        showError(res.mfaMessage || "Enter the 6-digit code from Google Authenticator, or a one-time recovery code.", "info");
+        document.getElementById("otpHint").textContent = "Open Google Authenticator, or use one saved recovery code.";
+        otpCodeInput.focus();
       } else if (res.msg === "TOS_REQUIRED") {
         showError("Please accept the Terms and Conditions to continue.", "error");
       } else {
         showError(res.msg, "error");
-        if (!mfaUsername) {
+        if (!mfaToken && !mfaSetupToken) {
           otpSection.classList.remove("is-visible");
           document.getElementById("username").disabled = false;
           document.getElementById("password").disabled = false;
@@ -343,8 +444,44 @@
 
     loginForm.addEventListener("submit", doLogin);
 
+    document.getElementById("replacePasswordBtn").addEventListener("click", async () => {
+      const next = document.getElementById("replaceNewPassword").value;
+      const confirm = document.getElementById("replaceConfirmPassword").value;
+      const err = document.getElementById("passwordChangeError");
+      const show = (text) => { if (err) err.textContent = text || ""; };
+      if (!next || next.length < 10) {
+        show("New password must be at least 10 characters.");
+        return;
+      }
+      if (next !== confirm) {
+        show("Passwords do not match.");
+        return;
+      }
+      const btn = document.getElementById("replacePasswordBtn");
+      btn.disabled = true;
+      try {
+        await Api.auth.replaceDefaultPassword(
+          document.getElementById("username").value.trim(),
+          document.getElementById("password").value,
+          next
+        );
+        document.getElementById("password").value = "";
+        document.getElementById("passwordChangeModal").classList.remove("is-open");
+        showError("Password updated. Sign in with the new password.", "info");
+      } catch (e) {
+        show(e.message || "Could not update the password.");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
     otpCodeInput.addEventListener("input", (e) => {
-      e.target.value = e.target.value.replace(/\D/g, "");
+      e.target.value = e.target.value.toUpperCase().replace(/[^0-9A-Z-]/g, "");
+    });
+
+    document.getElementById("recoverySavedBtn").addEventListener("click", () => {
+      document.getElementById("recoveryModal").classList.remove("is-open");
+      location.href = "dashboard.html";
     });
 
     const tosModal = document.getElementById("tosModal");
@@ -533,11 +670,7 @@ By creating an account or continuing to use the Bayport Veterinary Clinic Manage
         forgotEmailValue = email;
         forgotStepEmail.classList.add("hidden");
         forgotStepReset.classList.remove("hidden");
-        if (result.localOtp) {
-          forgotHint.innerHTML = "A reset code was emailed. If it is not in Inbox or Spam, use this code: <strong>" + result.localOtp + "</strong>";
-        } else {
-          forgotHint.textContent = result.message || "If that email is registered, a reset code has been sent. Check Inbox and Spam.";
-        }
+        forgotHint.textContent = result.message || "If that email is registered, a 6-digit reset code has been sent. Check Inbox and Spam.";
         forgotCode.focus();
       } catch (err) {
         showForgotError(err.message || "Could not send a reset code.");
@@ -551,12 +684,12 @@ By creating an account or continuing to use the Bayport Veterinary Clinic Manage
       const code = forgotCode.value.trim();
       const next = forgotNewPassword.value;
       const confirm = forgotConfirmPassword.value;
-      if (!code || code.length < 4) {
-        showForgotError("Enter the 4-digit reset code.");
+      if (!code || code.length < 6) {
+        showForgotError("Enter the 6-digit reset code.");
         return;
       }
-      if (!next || next.length < 6) {
-        showForgotError("New password must be at least 6 characters.");
+      if (!next || next.length < 10) {
+        showForgotError("New password must be at least 10 characters.");
         return;
       }
       if (next !== confirm) {

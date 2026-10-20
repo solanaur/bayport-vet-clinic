@@ -24,7 +24,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
      */
     @Query("SELECT a FROM Appointment a WHERE a.vet = :vetName " +
            "AND a.date = :date " +
-           "AND a.status != 'Cancelled' " +
+           "AND (a.status IS NULL OR a.status <> 'Cancelled') " +
+           "AND (a.deleted IS NULL OR a.deleted = false) " +
            "AND a.time = :time")
     List<Appointment> findOverlappingAppointments(@Param("vetName") String vetName,
                                                   @Param("date") LocalDate date,
@@ -52,6 +53,8 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
                                               @Param("endDate") LocalDate endDate);
 
     List<Appointment> findByPetId(Long petId);
+
+    List<Appointment> findByDeletedTrue();
 
     void deleteByPetId(Long petId);
 

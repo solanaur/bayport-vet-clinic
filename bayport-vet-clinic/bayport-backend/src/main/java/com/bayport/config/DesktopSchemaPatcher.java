@@ -40,8 +40,26 @@ public class DesktopSchemaPatcher implements ApplicationRunner {
             execQuiet(statement, "UPDATE mfa_code SET attempt_count = 0 WHERE attempt_count IS NULL");
             execQuiet(statement, "ALTER TABLE print_jobs ADD COLUMN IF NOT EXISTS attempt_count INT DEFAULT 0");
             execQuiet(statement, "UPDATE print_jobs SET attempt_count = 0 WHERE attempt_count IS NULL");
-            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(64)");
-            log.info("Desktop schema columns verified (is_read, READ, attempt_count, totp_secret)");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(512)");
+            execQuiet(statement, "ALTER TABLE users ALTER COLUMN totp_secret VARCHAR(512)");
+            execQuiet(statement, "ALTER TABLE users ALTER COLUMN totp_secret TYPE VARCHAR(512)");
+            execQuiet(statement, "ALTER TABLE users MODIFY COLUMN totp_secret VARCHAR(512) NULL");
+            boolean addPrompted = !hasColumn(connection, "USERS", "TOTP_PROMPTED");
+            boolean addConfirmed = !hasColumn(connection, "USERS", "TOTP_CONFIRMED");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_prompted BOOLEAN DEFAULT FALSE");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed BOOLEAN DEFAULT FALSE");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(32)");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_last_step BIGINT");
+            execQuiet(statement, "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT DEFAULT 0");
+            execQuiet(statement, "UPDATE users SET token_version = 0 WHERE token_version IS NULL");
+            execQuiet(statement, "ALTER TABLE users DROP COLUMN IF EXISTS display_password");
+            execQuiet(statement, "ALTER TABLE users DROP COLUMN display_password");
+            if (addPrompted || addConfirmed) {
+                execQuiet(statement, "UPDATE users SET totp_prompted = TRUE, totp_confirmed = TRUE "
+                        + "WHERE totp_secret IS NOT NULL AND CHAR_LENGTH(totp_secret) > 0");
+            }
+            log.info("Desktop schema columns verified (is_read, READ, attempt_count, totp, phone)");
         } catch (Exception e) {
             log.warn("Desktop schema patch skipped: {}", e.getMessage());
         }

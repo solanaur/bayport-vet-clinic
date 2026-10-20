@@ -2,12 +2,12 @@
  * Bayport thermal receipt formatting — edit this file to match your printer workflow.
  *
  * - buildHtml()     → passed to desktop print bridge / browser print (80mm-oriented CSS).
- * - buildPlainText()→ 42-column plain text for raw ESC/POS, email, or a custom agent.
+ * - buildPlainText()→ 40-column plain text for raw ESC/POS, email, or a custom agent.
  *
  * Replace or wrap these functions when integrating a real thermal driver (USB, network, etc.).
  */
 (function (global) {
-  var RECEIPT_CHARS = 42;
+  var RECEIPT_CHARS = 40;
 
   function escapeHtml(str) {
     return String(str ?? "")
@@ -52,24 +52,19 @@
     return lines.length ? lines : [""];
   }
 
-  function padLeft(s, n) {
-    s = String(s);
-    return s.length >= n ? s.slice(-n) : " ".repeat(n - s.length) + s;
-  }
-
-  function lineItemRow(name, qty, lineTotal, width) {
-    var qtyN = Number(qty) || 0;
-    var first = qtyN + " x " + String(name).trim();
-    var lines = wrapWords(first, width);
-    var out = lines.slice(0, 3);
-    var last = out[out.length - 1] || "";
-    var priceStr = "\u20B1" + money(lineTotal);
-    if (last.length + 1 + priceStr.length <= width) {
-      out[out.length - 1] = last + " ".repeat(width - last.length - priceStr.length) + priceStr;
-    } else {
-      out.push(padLeft(priceStr, width));
-    }
-    return out;
+  function itemBlock(row, width) {
+    var name = String((row && row.itemName) || "Item").trim() || "Item";
+    var qty = Number(row && row.quantity) || 0;
+    var lineTotal = Number(row && (row.lineTotal != null ? row.lineTotal : 0)) || 0;
+    var unit =
+      row && row.unitPrice != null && row.unitPrice !== ""
+        ? Number(row.unitPrice)
+        : qty
+          ? lineTotal / qty
+          : lineTotal;
+    var rows = wrapWords(name, width);
+    rows.push(twoCol(qty + " x " + money(unit), "\u20B1" + money(lineTotal), width));
+    return rows;
   }
 
   function twoCol(left, right, width) {
@@ -105,7 +100,7 @@
       try {
         var d = new Date(occurred);
         if (!Number.isNaN(d.getTime())) {
-          out.push(d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }));
+          out.push(String(d.toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })).slice(0, W));
         }
       } catch (e) {
         out.push(String(occurred).slice(0, W));
@@ -113,31 +108,45 @@
     }
     out.push(("Pet: " + String((receipt && receipt.petName) || "Walk-in")).slice(0, W));
     out.push(("Owner: " + String((receipt && (receipt.ownerName || receipt.owner)) || "—")).slice(0, W));
-    out.push("");
     out.push(SEP);
 
     var lines = Array.isArray(receipt && receipt.lines) ? receipt.lines : [];
     for (var i = 0; i < lines.length; i++) {
-      var l = lines[i];
-      var lineName = Number(l.quantity || 0) + " x " + String(l.itemName || "").trim();
-      var amt = "\u20B1" + money(l.lineTotal ?? 0);
-      var rows = wrapWords(lineName, Math.max(8, W - amt.length - 1));
-      if (rows.length) {
-        rows[rows.length - 1] = twoCol(rows[rows.length - 1], amt, W);
-      }
-      for (var r = 0; r < rows.length; r++) out.push(rows[r]);
+      var block = itemBlock(lines[i], W);
+      for (var r = 0; r < block.length; r++) out.push(block[r]);
     }
 
-    out.push(SEP);
-    out.push(twoCol("TOTAL", "\u20B1" + money(receipt && receipt.total), W));
-    out.push(("Paid by: " + String((receipt && receipt.paymentMethod) || "Cash")).slice(0, W));
-    out.push(SEP);
-    var txn = String((receipt && (receipt.transactionCode || receipt.txnCode)) || "");
-    if (!txn) {
-      txn = sid ? "TXN-" + sid : "TXN-NA";
+    var subtotal = 0;
+    for (var s = 0; s < lines.length; s++) subtotal += Number(lines[s].lineTotal) || 0;
+    var discount = Number(receipt && (receipt.discountAmount != null ? receipt.discountAmount : receipt.discount)) || 0;
+    if (!(discount > 0.009) && receipt && receipt.note) {
+      var discountMatch = String(receipt.note).match(/Discount:\s*-?\s*[^\d]*([0-9][0-9,]*(?:\.[0-9]+)?)/i);
+      if (discountMatch) discount = Number(discountMatch[1].replace(/,/g, "")) || 0;
     }
-    out.push(("Transaction Code: " + txn).slice(0, W));
+    var total = Number(receipt && receipt.total) || 0;
+    var paidRaw = receipt && (receipt.amountPaid != null ? receipt.amountPaid : receipt.paidAmount);
     out.push(SEP);
+    if (discount > 0.009) {
+      out.push(twoCol("Subtotal", "\u20B1" + money(subtotal), W));
+      out.push(twoCol("Discount", "-\u20B1" + money(discount), W));
+    }
+    out.push(twoCol("TOTAL", "\u20B1" + money(total), W));
+    if (paidRaw != null && paidRaw !== "" && Number(paidRaw) + 0.009 < total) {
+      var paid = Number(paidRaw) || 0;
+      out.push(twoCol("Paid", "\u20B1" + money(paid), W));
+      out.push(twoCol("Balance", "\u20B1" + money(Math.max(0, total - paid)), W));
+    }
+    var method = String((receipt && receipt.paymentMethod) || "").trim();
+    var reference = String((receipt && (receipt.paymentReference || receipt.reference)) || "").trim();
+    if (method || reference) {
+      var pay = method && reference ? method + " " + reference : method || reference;
+      wrapWords("Paid by " + pay, W).forEach(function (ln) {
+        out.push(ln);
+      });
+    }
+    var code = String((receipt && (receipt.invoiceNo || receipt.transactionCode || receipt.txnCode)) || "").trim();
+    if (!code && sid) code = "INV-" + sid;
+    if (code) out.push(("Code: " + code).slice(0, W));
     out.push("Thank you for your visit!");
 
     return out.join("\n");
@@ -166,9 +175,10 @@
       title +
       "</title>\n<style>\n" +
       "@page { size: 80mm auto; margin: 2mm; }\n" +
-      "body { font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace; font-size: 11px; line-height: 1.35; margin: 0; padding: 4mm; color: #000; max-width: 72mm; }\n" +
-      "pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: inherit; }\n" +
-      ".logo { max-height: 40px; max-width: 120px; display: block; margin: 0 auto 6px; }\n" +
+      "html, body { height: auto; margin: 0; padding: 0; background: #fff; }\n" +
+      "body { font-family: ui-monospace, 'Cascadia Mono', 'Consolas', monospace; font-size: 11px; line-height: 1.25; padding: 1mm 2mm; color: #000; width: 72mm; }\n" +
+      "pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: inherit; page-break-inside: avoid; }\n" +
+      ".logo { max-height: 28px; max-width: 28mm; display: block; margin: 0 auto 2px; page-break-after: avoid; }\n" +
       "</style></head><body>\n" +
       (logo ? '<img class="logo" src="' + escapeHtml(logo) + '" alt=""/>\n' : "") +
       "<pre>" +

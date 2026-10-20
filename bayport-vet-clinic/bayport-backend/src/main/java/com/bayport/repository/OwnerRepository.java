@@ -17,5 +17,9 @@ public interface OwnerRepository extends JpaRepository<Owner, Long> {
         ORDER BY o.fullName
         """)
     List<Owner> search(@Param("pattern") String pattern);
+
+    List<Owner> findByPhone(String phone);
+
+    List<Owner> findByDeletedTrue();
 }
 

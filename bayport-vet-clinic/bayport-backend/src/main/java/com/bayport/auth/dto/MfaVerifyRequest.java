@@ -3,6 +3,7 @@ package com.bayport.auth.dto;
 public class MfaVerifyRequest {
     private String username;
     private String code;
+    private String mfaToken;
 
     public MfaVerifyRequest() {}
 
@@ -25,5 +26,13 @@ public class MfaVerifyRequest {
 
     public void setCode(String code) {
         this.code = code;
+    }
+
+    public String getMfaToken() {
+        return mfaToken;
+    }
+
+    public void setMfaToken(String mfaToken) {
+        this.mfaToken = mfaToken;
     }
 }

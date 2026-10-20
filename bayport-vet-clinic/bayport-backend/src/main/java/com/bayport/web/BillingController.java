@@ -7,6 +7,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/billing")
@@ -43,6 +44,12 @@ public class BillingController {
     @PreAuthorize("hasAnyRole('FRONT_OFFICE','RECEPTIONIST','PHARMACIST','ADMIN')")
     public BillingRecord markPaid(@PathVariable Long id) {
         return billingService.markPaid(id);
+    }
+
+    @PostMapping("/{id}/void")
+    @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE')")
+    public BillingRecord voidInvoice(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return billingService.voidInvoice(id, body == null ? null : body.get("reason"));
     }
 
     @DeleteMapping("/{id}")

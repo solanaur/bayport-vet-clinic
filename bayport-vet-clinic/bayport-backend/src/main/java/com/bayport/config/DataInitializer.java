@@ -4,6 +4,7 @@ import com.bayport.entity.*;
 import com.bayport.repository.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -30,6 +31,14 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired private DoctorRepository doctorRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private com.bayport.repository.RoleRepository roleRepository;
+    @Autowired private com.bayport.security.TemporaryAdminService temporaryAdminService;
+
+    @Value("${bayport.admin.username:}")
+    private String bootstrapAdminUsername;
+    @Value("${bayport.admin.password:}")
+    private String bootstrapAdminPassword;
+    @Value("${bayport.admin.email:}")
+    private String bootstrapAdminEmail;
 
     @Autowired private EmailTemplateRepository templateRepo;
 
@@ -44,10 +53,8 @@ public class DataInitializer implements CommandLineRunner {
         if (doctorRepository.count() == 0) seedDoctors();
         if (petRepository.count() == 0) seedPetsAndAppointments();
         seedInventoryCatalog();
-        if (userRepository.count() == 0) seedUsers();
-        
-        // Always ensure default users exist (create if not present, update if exists)
-        ensureDefaultUsers();
+        ensureFirstAdmin();
+        temporaryAdminService.prepareStartup();
 
         seedEmailTemplates();
         ensureReminderTypeColumn();
@@ -153,110 +160,36 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    // ---------------------- USERS ----------------------
-    private void seedUsers() {
-        // Create users if database is empty
-        com.bayport.entity.Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseThrow();
-        com.bayport.entity.Role vetRole = roleRepository.findByName("ROLE_VET").orElseThrow();
-        com.bayport.entity.Role frontOfficeRole = roleRepository.findByName("ROLE_FRONT_OFFICE").orElseThrow();
-
-        // Admin user
-        String adminPassword = passwordEncoder.encode("admin123");
-        User admin = new User("Admin", "admin", "admin", adminPassword);
-        admin.setFullName("Admin");
-        admin.setEmail("admin@bayportvet.com");
-        admin.setPasswordHash(adminPassword);
-        admin.setPassword(adminPassword);
-        admin.setDisplayPassword("admin123");
+    private void ensureFirstAdmin() {
+        if (userRepository.count() > 0) {
+            return;
+        }
+        String username = bootstrapAdminUsername == null ? "" : bootstrapAdminUsername.trim();
+        String password = bootstrapAdminPassword == null ? "" : bootstrapAdminPassword;
+        if (username.isEmpty() || password.isBlank()) {
+            return;
+        }
+        com.bayport.security.PasswordPolicy.require(password);
+        if (roleRepository.count() == 0) {
+            seedRoles();
+        }
+        com.bayport.entity.Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseGet(() ->
+                roleRepository.save(new com.bayport.entity.Role("ROLE_ADMIN")));
+        String email = bootstrapAdminEmail == null || bootstrapAdminEmail.isBlank()
+                ? username + "@localhost"
+                : bootstrapAdminEmail.trim();
+        String encoded = passwordEncoder.encode(password);
+        User admin = new User("Administrator", "admin", username, encoded);
+        admin.setFullName("Administrator");
+        admin.setEmail(email);
+        admin.setPassword(encoded);
+        admin.setPasswordHash(encoded);
+        admin.setMustChangePassword(true);
+        admin.setMfaEnabled(true);
+        admin.setActive(true);
         admin.getRoles().add(adminRole);
         userRepository.save(admin);
-
-        String vetPassword = passwordEncoder.encode("vet123");
-        User vet = new User("Dr. Arla Hernando", "vet", "vet", vetPassword);
-        vet.setFullName("Dr. Arla Hernando");
-        vet.setEmail("vet@bayportvet.com");
-        vet.setPasswordHash(vetPassword);
-        vet.setPassword(vetPassword);
-        vet.setDisplayPassword("vet123");
-        vet.getRoles().add(vetRole);
-        userRepository.save(vet);
-
-        // Front Office (reception + pharmacy) — single role
-        String foPassword = passwordEncoder.encode("frontdesk123");
-        User frontdesk = new User("Front Desk", "front_office", "frontdesk", foPassword);
-        frontdesk.setFullName("Front Desk");
-        frontdesk.setEmail("frontdesk@bayportvet.com");
-        frontdesk.setPasswordHash(foPassword);
-        frontdesk.setPassword(foPassword);
-        frontdesk.setDisplayPassword("frontdesk123");
-        frontdesk.getRoles().add(frontOfficeRole);
-        userRepository.save(frontdesk);
-    }
-    
-    // Ensure default users always exist (create if missing, update if exists)
-    private void ensureDefaultUsers() {
-        com.bayport.entity.Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseGet(() -> {
-            com.bayport.entity.Role r = new com.bayport.entity.Role("ROLE_ADMIN");
-            return roleRepository.save(r);
-        });
-        com.bayport.entity.Role vetRole = roleRepository.findByName("ROLE_VET").orElseGet(() -> {
-            com.bayport.entity.Role r = new com.bayport.entity.Role("ROLE_VET");
-            return roleRepository.save(r);
-        });
-        com.bayport.entity.Role frontOfficeRole = roleRepository.findByName("ROLE_FRONT_OFFICE").orElseGet(() -> {
-            com.bayport.entity.Role r = new com.bayport.entity.Role("ROLE_FRONT_OFFICE");
-            return roleRepository.save(r);
-        });
-
-        ensureUserExists("admin", "Admin", "admin", passwordEncoder.encode("admin123"), adminRole, "admin@bayportvet.com", "admin123");
-        ensureUserExists("vet", "Dr. Arla Hernando", "vet", passwordEncoder.encode("vet123"), vetRole, "vet@bayportvet.com", "vet123");
-        ensureUserExists("frontdesk", "Front Desk", "front_office", passwordEncoder.encode("frontdesk123"), frontOfficeRole, "frontdesk@bayportvet.com", "frontdesk123");
-        // Migrate legacy receptionist/pharmacist logins to Front Office (same permissions)
-        migrateUserToFrontOffice("recept", "Daisy", frontOfficeRole);
-        migrateUserToFrontOffice("pharm", "Paul", frontOfficeRole);
-    }
-
-    private void migrateUserToFrontOffice(String username, String displayName, com.bayport.entity.Role frontOfficeRole) {
-        userRepository.findByUsername(username).ifPresent(u -> {
-            u.setRole("front_office");
-            u.setFullName(displayName);
-            u.getRoles().clear();
-            u.getRoles().add(frontOfficeRole);
-            userRepository.save(u);
-        });
-    }
-    
-    private void ensureUserExists(String username, String fullName, String roleName, String encodedPassword, 
-                                  com.bayport.entity.Role role, String email, String displayPassword) {
-        java.util.Optional<User> existing = userRepository.findByUsername(username);
-        if (existing.isPresent()) {
-            User user = existing.get();
-            // Update password and display password
-            user.setPasswordHash(encodedPassword);
-            user.setPassword(encodedPassword);
-            user.setDisplayPassword(displayPassword);
-            if (email != null) user.setEmail(email);
-            if (fullName != null) user.setFullName(fullName);
-            user.setRole(roleName);
-            // Ensure role is set
-            if (!user.getRoles().contains(role)) {
-                user.getRoles().clear();
-                user.getRoles().add(role);
-            }
-            user.setActive(true);
-            userRepository.save(user);
-        } else {
-            // Create new user
-            User user = new User(fullName, roleName, username, encodedPassword);
-            user.setFullName(fullName);
-            user.setEmail(email);
-            user.setPasswordHash(encodedPassword);
-            user.setPassword(encodedPassword);
-            user.setDisplayPassword(displayPassword);
-            user.getRoles().add(role);
-            user.setActive(true);
-            userRepository.save(user);
-        }
+        System.out.println("[DataInitializer] Created the first administrator from BAYPORT_ADMIN_USER. Password change is required at first login.");
     }
 
     // ---------------------- EMAIL TEMPLATES ----------------------

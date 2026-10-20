@@ -2,6 +2,123 @@
    Bayport Veterinary Clinic — Main App Script (Frontend)
    =========================================================== */
 
+(function installBayportDialogs() {
+  if (window.bayportConfirm) return;
+  const css = `
+    .bp-dialog-backdrop{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(16,24,40,.45)}
+    .bp-dialog{width:min(440px,100%);background:#fff;color:#101828;border-radius:8px;box-shadow:0 16px 40px rgba(16,24,40,.18);padding:20px}
+    .bp-dialog h3{margin:0 0 8px;font-size:18px;font-weight:600}
+    .bp-dialog p{margin:0;font-size:14px;line-height:1.45;color:#475467;white-space:pre-wrap}
+    .bp-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+    .bp-dialog input{display:block;width:100%;margin-top:12px;border:1px solid #d0d5dd;border-radius:8px;padding:10px;font-size:15px}
+  `;
+  const style = document.createElement("style");
+  style.id = "bayport-dialog-css";
+  style.textContent = css;
+  (document.head || document.documentElement).appendChild(style);
+
+  function openDialog(message, options) {
+    const opts = options || {};
+    return new Promise((resolve) => {
+      const backdrop = document.createElement("div");
+      backdrop.className = "bp-dialog-backdrop";
+      backdrop.setAttribute("role", "dialog");
+      backdrop.setAttribute("aria-modal", "true");
+      const title = opts.title || (opts.confirm ? "Please confirm" : "Bayport");
+      const okLabel = opts.okLabel || (opts.confirm ? "Continue" : "OK");
+      backdrop.innerHTML = `
+        <div class="bp-dialog">
+          <h3></h3>
+          <p></p>
+          <div class="bp-dialog-actions">
+            ${opts.confirm ? '<button type="button" class="bp-btn-secondary" data-act="cancel">Cancel</button>' : ""}
+            <button type="button" class="bp-btn-primary" data-act="ok"></button>
+          </div>
+        </div>`;
+      backdrop.querySelector("h3").textContent = title;
+      backdrop.querySelector("p").textContent = String(message ?? "");
+      backdrop.querySelector("[data-act='ok']").textContent = okLabel;
+      const finish = (value) => {
+        backdrop.remove();
+        resolve(value);
+      };
+      backdrop.querySelector("[data-act='ok']").addEventListener("click", () => finish(true));
+      backdrop.querySelector("[data-act='cancel']")?.addEventListener("click", () => finish(false));
+      backdrop.addEventListener("click", (event) => {
+        if (event.target === backdrop && opts.confirm) finish(false);
+      });
+      (document.body || document.documentElement).appendChild(backdrop);
+      backdrop.querySelector("[data-act='ok']").focus();
+    });
+  }
+
+  window.bayportAlert = function (message, options) {
+    return openDialog(message, options || {});
+  };
+  window.bayportConfirm = function (message, options) {
+    return openDialog(message, Object.assign({ confirm: true }, options || {}));
+  };
+  window.bayportPrompt = function (message, options) {
+    const opts = options || {};
+    return new Promise((resolve) => {
+      const backdrop = document.createElement("div");
+      backdrop.className = "bp-dialog-backdrop";
+      backdrop.setAttribute("role", "dialog");
+      backdrop.setAttribute("aria-modal", "true");
+      backdrop.innerHTML = `
+        <div class="bp-dialog">
+          <h3></h3>
+          <p></p>
+          <input data-act="input" />
+          <div class="bp-dialog-actions">
+            <button type="button" class="bp-btn-secondary" data-act="cancel">Cancel</button>
+            <button type="button" class="bp-btn-primary" data-act="ok">Continue</button>
+          </div>
+        </div>`;
+      backdrop.querySelector("h3").textContent = opts.title || "Bayport";
+      backdrop.querySelector("p").textContent = String(message ?? "");
+      const input = backdrop.querySelector("[data-act='input']");
+      input.type = opts.password ? "password" : "text";
+      const finish = (value) => {
+        backdrop.remove();
+        resolve(value);
+      };
+      backdrop.querySelector("[data-act='ok']").addEventListener("click", () => finish(input.value));
+      backdrop.querySelector("[data-act='cancel']").addEventListener("click", () => finish(null));
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") finish(input.value);
+      });
+      (document.body || document.documentElement).appendChild(backdrop);
+      input.focus();
+    });
+  };
+  window.alert = function (message) {
+    window.bayportAlert(message);
+  };
+})();
+
+/** Size a preview iframe to its document, scrolling only past 85vh. */
+window.bayportFitPreviewFrame = function bayportFitPreviewFrame(frame) {
+  if (!frame) return;
+  const fit = () => {
+    try {
+      const doc = frame.contentDocument;
+      const body = doc && doc.body;
+      const root = doc && doc.documentElement;
+      if (!body || !root) return;
+      const content = Math.max(body.scrollHeight || 0, root.scrollHeight || 0, body.offsetHeight || 0);
+      const max = Math.floor(window.innerHeight * 0.85) - 56;
+      const height = Math.max(80, Math.min(content + 2, Math.max(120, max)));
+      frame.style.height = height + "px";
+      frame.style.maxHeight = "85vh";
+      root.style.overflow = content > height ? "auto" : "hidden";
+    } catch (_) {}
+  };
+  frame.onload = fit;
+  requestAnimationFrame(fit);
+  setTimeout(fit, 50);
+};
+
 (function injectBayportDesign() {
   try {
     if (document.getElementById("bayport-design-css")) return;
@@ -27,6 +144,9 @@
       "manage-users.html": "blue",
       "activity-logs.html": "blue",
       "recycle-bin.html": "blue",
+      "backups.html": "blue",
+      "import-data.html": "blue",
+      "health.html": "blue",
     };
     const accent = accentMap[file] || "blue";
     const apply = () => document.body?.setAttribute("data-bp-page", accent);
@@ -80,16 +200,29 @@ window.tryLogin = async function(username, password, role, otp) {
       }
     }
     if (!payload && lastErr) throw lastErr;
+    if (payload.status === "PASSWORD_CHANGE_REQUIRED") {
+      return {
+        ok: false,
+        msg: "PASSWORD_CHANGE_REQUIRED",
+        username: payload.username,
+        message: payload.message || "Choose a new password of at least 10 characters.",
+      };
+    }
     if (payload.status === "MFA_REQUIRED") {
       return {
         ok: false,
         msg: "MFA_REQUIRED",
-        username: payload.username,
-        emailConfigured: payload.emailConfigured !== false,
-        emailDelivered: payload.emailDelivered === true,
+        mfaToken: payload.mfaToken || "",
+        mfaType: payload.mfaType || "TOTP",
         mfaMessage: payload.message || "",
-        localOtp: payload.localOtp || "",
-        mfaType: payload.mfaType || (payload.localOtp ? "EMAIL" : "EMAIL"),
+      };
+    }
+    if (payload.status === "MFA_SETUP_REQUIRED") {
+      return {
+        ok: false,
+        msg: "MFA_SETUP_REQUIRED",
+        mfaSetupToken: payload.mfaSetupToken || "",
+        message: payload.message || "",
       };
     }
     if (payload.status === "TOS_REQUIRED") {
@@ -117,7 +250,11 @@ window.tryLogin = async function(username, password, role, otp) {
         msg: "Unauthorized device. Ask an administrator to trust this device.",
       };
     }
-    return { ok: true };
+    return {
+      ok: true,
+      totpSetup: false,
+      totpUri: "",
+    };
   } catch (err) {
     const raw = err.message || "Unable to reach the server.";
     let msg = raw;
@@ -175,9 +312,14 @@ window.clearAuthSession = function (options) {
   } catch (_) {}
 };
 
-window.logout = function() {
-  const confirmed = window.confirm("Are you sure you want to log out?");
+window.logout = async function() {
+  const confirmed = await window.bayportConfirm("Are you sure you want to log out?");
   if (!confirmed) return;
+  try {
+    if (window.Api && window.Api.auth && typeof window.Api.auth.logout === "function" && window.Api.token && window.Api.token()) {
+      await window.Api.auth.logout();
+    }
+  } catch (_) {}
   window.clearAuthSession({ clearRememberedUsername: true });
   sessionStorage.setItem("bayport_login_reset", "1");
   location.href = "index.html";
@@ -185,7 +327,7 @@ window.logout = function() {
 
 /* ===== Role & Sidebar ===== */
 const CONFIG = {
-  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","reports","reminders","activity-logs","recycle-bin","manage-users"],
+  admin:        ["dashboard","pet-records","appointments","consultations","inventory","billing","reports","reminders","activity-logs","recycle-bin","backups","import-data","health","manage-users"],
   /** Clinical focus: no billing, inventory, or reports in nav (billing still flows from consultations). */
   vet:          ["dashboard","pet-records","appointments","consultations"],
   // Front Office = reception + pharmacy — no Consultations module (vet/clinical only).
@@ -203,6 +345,9 @@ const LABEL = {
   "billing":"Billing",
   "activity-logs":"Activity Logs",
   "recycle-bin":"Recycle Bin",
+  "backups":"Backups",
+  "import-data":"Import",
+  "health":"System Health",
   "inventory":"Inventory",
   "reports":"Reports",
   "reminders":"Reminders",
@@ -233,6 +378,9 @@ const SIDEBAR_ICONS = {
   "manage-users": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`,
   "activity-logs": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
   "recycle-bin": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>`,
+  "backups": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 1.1.9 2 2 2h12a2 2 0 002-2V7M4 7l8 5 8-5M4 7h16"/></svg>`,
+  "import-data": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3"/></svg>`,
+  "health": `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>`,
   help: `<svg class="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
 };
 
@@ -249,7 +397,10 @@ const NAV_TOOLTIPS = {
   reminders: "Vaccination and pet owner email reminders",
   "manage-users": "Staff accounts and roles",
   "activity-logs": "Who changed what",
-  "recycle-bin": "Restore deleted records"
+  "recycle-bin": "Restore deleted records",
+  backups: "Save and restore clinic records",
+  "import-data": "Load owners, pets, vaccines, and stock from CSV",
+  health: "Database, disk, mail, and backup status"
 };
 
 /**
@@ -264,7 +415,7 @@ const SIDEBAR_GROUPS = {
     { label: "Overview", open: true, keys: ["dashboard"] },
     { label: "Clinic Management", open: true, keys: ["billing", "inventory", "reports"] },
     { label: "System Administration", open: true, keys: ["manage-users"] },
-    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin"] }
+    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin", "backups", "import-data", "health"] }
   ],
   vet: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] }
@@ -807,6 +958,45 @@ window.resolveAssetUrl = function resolveAssetUrl(value){
     : `${API_ORIGIN_FOR_ASSETS}/${value}`;
 };
 
+window.loadProtectedImage = async function loadProtectedImage(img, url) {
+  if (!img || !url) return;
+  const token = localStorage.getItem("jwt") || localStorage.getItem("token");
+  if (!token || !String(url).includes("/uploads/")) {
+    img.src = url;
+    return;
+  }
+  const response = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+  if (!response.ok) {
+    img.dispatchEvent(new Event("error"));
+    return;
+  }
+  const blob = await response.blob();
+  img.src = URL.createObjectURL(blob);
+};
+
+(function installProtectedImages() {
+  function hydrate(img) {
+    if (!img || img.dataset.bpHydrated) return;
+    const url = img.getAttribute("data-protected-src");
+    if (!url) return;
+    img.dataset.bpHydrated = "1";
+    window.loadProtectedImage(img, url).catch(() => img.dispatchEvent(new Event("error")));
+  }
+  function scan(root) {
+    if (!root || root.nodeType !== 1) return;
+    if (root.matches && root.matches("img[data-protected-src]")) hydrate(root);
+    if (root.querySelectorAll) root.querySelectorAll("img[data-protected-src]").forEach(hydrate);
+  }
+  const start = () => {
+    scan(document.body);
+    new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach((node) => scan(node)));
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  };
+  if (document.body) start();
+  else document.addEventListener("DOMContentLoaded", start);
+})();
+
 /**
  * Pet photo slot: solid Bayport blue when missing or on image error (no stock photo).
  * @param {string|null|undefined} photoPath
@@ -823,7 +1013,7 @@ window.renderPetPhotoHtml = function renderPetPhotoHtml(photoPath, wrapClass, im
   }
   const esc = String(url).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
   const fb = `<div data-pet-photo-fallback class="absolute inset-0 hidden bg-[var(--soft-teal)]" aria-hidden="true"></div>`;
-  return `<div class="${wrapClass} relative overflow-hidden bg-[var(--soft-teal)]" data-pet-photo-wrap>${fb}<img src="${esc}" class="absolute inset-0 z-10 ${imgClass || "object-cover w-full h-full"}" alt="" decoding="async" onerror="this.remove();var w=this.closest('[data-pet-photo-wrap]');var f=w&&w.querySelector('[data-pet-photo-fallback]');if(f){f.classList.remove('hidden');}"></div>`;
+  return `<div class="${wrapClass} relative overflow-hidden bg-[var(--soft-teal)]" data-pet-photo-wrap>${fb}<img data-protected-src="${esc}" class="absolute inset-0 z-10 ${imgClass || "object-cover w-full h-full"}" alt="" decoding="async" onerror="this.remove();var w=this.closest('[data-pet-photo-wrap]');var f=w&&w.querySelector('[data-pet-photo-fallback]');if(f){f.classList.remove('hidden');}"></div>`;
 };
 
 /**

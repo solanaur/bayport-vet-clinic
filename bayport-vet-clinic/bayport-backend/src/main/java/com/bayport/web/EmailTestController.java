@@ -4,6 +4,7 @@ import com.bayport.service.EmailService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +18,7 @@ import java.util.Map;
  * Body: { "to": "recipient@example.com", "subject": "Test", "message": "Test message" }
  */
 @RestController
+@Profile("!production")
 @RequestMapping("/api/notifications")
 public class EmailTestController {
 

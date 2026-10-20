@@ -36,6 +36,16 @@ public class InventoryItem {
 
     private LocalDateTime lastUpdated;
 
+    @Column(name = "batch_no", length = 64)
+    private String batchNo;
+
+    @Column(name = "expiry_date")
+    private java.time.LocalDate expiryDate;
+
+    @Version
+    @Column(name = "version")
+    private Long version;
+
     @PrePersist
     @PreUpdate
     public void touch() {
@@ -122,5 +132,10 @@ public class InventoryItem {
     public void setLastUpdated(LocalDateTime lastUpdated) {
         this.lastUpdated = lastUpdated;
     }
+
+    public String getBatchNo() { return batchNo; }
+    public void setBatchNo(String batchNo) { this.batchNo = batchNo; }
+    public java.time.LocalDate getExpiryDate() { return expiryDate; }
+    public void setExpiryDate(java.time.LocalDate expiryDate) { this.expiryDate = expiryDate; }
 }
 

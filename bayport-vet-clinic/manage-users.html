@@ -131,6 +131,7 @@
           <td class="py-3 capitalize">${u.role || ''}</td>
           <td class="py-3 flex gap-2">
             <button class="px-3 py-2 border rounded-md text-green-600 hover:bg-green-50" onclick="editCredentials(${u.id}, '${(u.name || '').replace(/'/g, "\\'")}', '${(u.username || '').replace(/'/g, "\\'")}', '${(u.email || '').replace(/'/g, "\\'")}')">Edit Credentials</button>
+            <button class="px-3 py-2 border rounded-md text-amber-700 hover:bg-amber-50" onclick="resetMfa(${u.id})">Reset MFA</button>
             <button class="px-3 py-2 border rounded-md text-red-600 hover:bg-red-50" onclick="del(${u.id})">Delete</button>
           </td>
         </tr>`;
@@ -145,6 +146,17 @@
       alert('Passwords cannot be viewed. Use Edit Credentials to set a new password.');
     }
     async function del(id){ await repoDeleteUser(id); render(); }
+    async function resetMfa(id){
+      if(!confirm('Reset MFA for this account? They must set up Google Authenticator again on the next sign-in.')) return;
+      const response = await fetch(`${window.API_BASE}/users/${id}/reset-mfa`, { method: 'POST', headers: authJsonHeaders() });
+      const result = await parseJsonResponse(response);
+      if(!response.ok){
+        alert((result && result.error) || 'Could not reset MFA.');
+        return;
+      }
+      alert((result && result.message) || 'MFA reset.');
+      render();
+    }
     
     async function editCredentials(userId, userName, currentUsername, currentEmail){
       let otpSent = false;
@@ -162,7 +174,7 @@
           <div id="editOtpVerificationFields" class="hidden">
             <p class="text-sm text-gray-600 mb-3">OTP has been sent to the user's email</p>
             <label class="text-sm text-gray-600 block mb-3">Enter OTP Code <span class="text-red-500">*</span>
-              <input id="edit_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="4-digit code" maxlength="4" required>
+              <input id="edit_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="6-digit code" maxlength="6" required>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Username
               <input id="edit_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentUsername}" placeholder="Leave empty to keep current">
@@ -171,7 +183,7 @@
               <input id="edit_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" value="${currentEmail}" placeholder="Leave empty to keep current">
             </label>
             <label class="text-sm text-gray-600 block mb-3">Password
-              <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current (min 6 characters)">
+              <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current (min 10 characters)">
             </label>
             <label class="text-sm text-gray-600 block mb-4">Confirm Password
               <input id="edit_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter new password">
@@ -218,8 +230,8 @@
         const password = document.getElementById('edit_password').value;
         const passwordConfirm = document.getElementById('edit_password_confirm').value;
         
-        if(!otp || otp.length !== 4){
-          alert('Please enter the 4-digit OTP code');
+        if(!otp || otp.length !== 6){
+          alert('Please enter the 6-digit OTP code');
           return;
         }
         
@@ -230,7 +242,7 @@
           if(!password){ alert('Please enter a new password.'); return; }
           if(!passwordConfirm){ alert('Please confirm the new password.'); return; }
           if(password !== passwordConfirm){ alert('Passwords do not match.'); return; }
-          if(password.length < 6){ alert('Password must be at least 6 characters.'); return; }
+          if(password.length < 10){ alert('Password must be at least 10 characters.'); return; }
           updateData.password = password;
         }
         
@@ -278,10 +290,14 @@
             </label>
             <label class="text-sm text-gray-600 block mb-3">Email Address <span class="text-red-500">*</span>
               <input id="f_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="user@example.com" required>
-              <p class="text-xs text-gray-500 mt-1">The clinic emails a 4-digit code here to finish creating the account. That user will also need email OTP to sign in.</p>
+              <p class="text-xs text-gray-500 mt-1">A 6-digit code is emailed here to finish creating the account. On their first sign-in they will set up Google Authenticator.</p>
+            </label>
+            <label class="text-sm text-gray-600 block mb-3">Mobile number
+              <input id="f_phone" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="09XXXXXXXXX" inputmode="numeric">
+              <p class="text-xs text-gray-500 mt-1">Optional. Used for SMS verification codes once SMS is configured.</p>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Password <span class="text-red-500">*</span>
-              <input id="f_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Minimum 6 characters" required>
+              <input id="f_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Minimum 10 characters" required>
               <p class="text-xs text-gray-500 mt-1">User will set their own password after first login</p>
             </label>
             <label class="text-sm text-gray-600 block mb-3">Confirm Password <span class="text-red-500">*</span>
@@ -295,7 +311,7 @@
                 <option value="front_office">Front Office (reception + pharmacy)</option>
               </select>
             </label>
-            <p class="text-xs text-gray-500 mb-4">Send OTP emails a verification code to this address. Enter that code to create the account. Built-in admin / vet / frontdesk logins do not use OTP.</p>
+            <p class="text-xs text-gray-500 mb-4">Send OTP emails a verification code to this address. The new user scans their Google Authenticator QR on first sign-in. Built-in admin / vet / frontdesk logins do not use a code.</p>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
               <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendOtpForUser()">Send OTP</button>
@@ -305,7 +321,7 @@
             <p class="text-sm text-gray-600 mb-2">OTP for <strong id="otpEmailDisplay"></strong></p>
             <p id="otpSendNote" class="text-sm text-gray-700 mb-3"></p>
             <label class="text-sm text-gray-600 block mb-3">Enter OTP Code <span class="text-red-500">*</span>
-              <input id="f_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="4-digit code" maxlength="4" required>
+              <input id="f_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="6-digit code" maxlength="6" required>
             </label>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
@@ -314,12 +330,8 @@
             </div>
           </div>
           <div id="totpSetupFields" class="hidden">
-            <h4 class="text-lg font-semibold mb-2">Set up Google Authenticator</h4>
-            <p class="text-sm text-gray-600 mb-3">Scan this QR code in Google Authenticator. The new user will enter the 6-digit code at sign-in.</p>
-            <div id="totpQr" class="flex justify-center mb-3"></div>
-            <p class="text-xs text-gray-500 mb-1">Or enter this key manually:</p>
-            <p id="totpSecret" class="font-mono text-sm break-all bg-gray-50 border rounded-md p-3 mb-3"></p>
-            <p class="text-xs text-gray-500 mb-4">Keep this screen until they have added the account in Authenticator.</p>
+            <h4 class="text-lg font-semibold mb-2">User created</h4>
+            <p class="text-sm text-gray-600 mb-4">Their Google Authenticator QR code will pop up the first time they sign in. After that it stays hidden, and they can open it from the account menu.</p>
             <div class="mt-5 flex justify-end">
               <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="closeModal(); render();">Done</button>
             </div>
@@ -358,15 +370,7 @@
           document.getElementById('otpEmailDisplay').textContent = email;
           const note = document.getElementById('otpSendNote');
           if (note) {
-            const from = result.from ? (' from ' + result.from) : '';
-            if (result.localOtp) {
-              note.innerHTML = (result.emailDelivered
-                ? ('Email was accepted by Gmail' + from + '. Check <strong>Inbox and Spam</strong> for ' + email + '.<br>')
-                : ('Email could not be delivered' + from + '.<br>'))
-                + 'Your 4-digit code is: <strong style="font-size:1.25rem;letter-spacing:0.15em">' + result.localOtp + '</strong>';
-            } else {
-              note.textContent = result.message || ('OTP has been sent to ' + email + '. Check Inbox and Spam.');
-            }
+            note.textContent = result.message || ('A 6-digit code has been sent to ' + email + '. Check Inbox and Spam.');
           }
         } else {
           alert('Failed to send OTP: ' + (result.error || 'Unknown error'));
@@ -385,6 +389,7 @@
       const name=(typeof window.bayportCapWords === 'function' ? window.bayportCapWords : (s)=>s)(document.getElementById('f_name').value.trim());
       const username=document.getElementById('f_username').value.trim();
       const email=document.getElementById('f_email').value.trim();
+      const phone=(document.getElementById('f_phone')?.value || '').trim();
       const password=document.getElementById('f_password').value;
       const passwordConfirm=document.getElementById('f_password_confirm').value;
       const r=document.getElementById('f_role').value;
@@ -393,33 +398,31 @@
       if(!name){alert('Name required');return;}
       if(!username){alert('Username required');return;}
       if(!email){alert('Email required');return;}
-      if(!password || password.length < 6){alert('Password must be at least 6 characters');return;}
+      if(!password || password.length < 10){alert('Password must be at least 10 characters');return;}
       if(!passwordConfirm){alert('Please retype the password to confirm');return;}
       if(password !== passwordConfirm){alert('Passwords do not match. Please re-enter.');return;}
       if(!r){alert('Role required');return;}
-      if(!otp || otp.length !== 4){alert('Please enter the 4-digit OTP code');return;}
+      if(!otp || otp.length !== 6){alert('Please enter the 6-digit OTP code');return;}
       
       try{
         const response = await fetch(`${window.API_BASE}/users/verify-otp-create`, {
           method: 'POST',
           headers: authJsonHeaders(),
-          body: JSON.stringify({name, username, email, password, role: r, otp})
+          body: JSON.stringify({name, username, email, phone, password, role: r, otp})
         });
         const result = await parseJsonResponse(response);
         if(response.ok){
+          if (result.signOutRequired) {
+            sessionStorage.setItem("bayport_login_notice", result.message || "The temporary admin login has been removed. Sign in with the administrator account you just created.");
+            localStorage.removeItem("token");
+            localStorage.removeItem("jwt");
+            localStorage.removeItem("role");
+            location.href = "login.html";
+            return;
+          }
           document.getElementById('otpVerificationFields').classList.add('hidden');
-          if (result.totpSecret && result.totpUri) {
+          if (result.totpSetupOnFirstLogin) {
             document.getElementById('totpSetupFields').classList.remove('hidden');
-            document.getElementById('totpSecret').textContent = result.totpSecret;
-            const qrHost = document.getElementById('totpQr');
-            qrHost.innerHTML = '';
-            const img = document.createElement('img');
-            img.alt = 'Google Authenticator QR code';
-            img.width = 220;
-            img.height = 220;
-            img.className = 'border rounded-md bg-white';
-            img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(result.totpUri);
-            qrHost.appendChild(img);
           } else {
             alert('User created successfully!');
             closeModal();
@@ -467,14 +470,7 @@
       }
     });
     
-    // Initial render on page load
     render();
-    
-    // Also try to render after a short delay in case API isn't ready
-    setTimeout(() => {
-      console.log('Delayed render attempt...');
-      render();
-    }, 1000);
   </script>
 </body>
 </html>

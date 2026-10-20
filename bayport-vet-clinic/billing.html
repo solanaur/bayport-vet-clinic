@@ -99,12 +99,15 @@
   <div id="backdrop" class="fixed inset-0 bg-black/30 z-[110] hidden"></div>
 
   <div id="previewModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-[200]">
-    <div class="bg-white rounded-xl w-full max-w-4xl h-[85vh] flex flex-col shadow-xl">
-      <div class="flex items-center justify-between px-4 py-3 border-b">
-        <h3 class="font-semibold">Receipt preview</h3>
-        <button type="button" id="closePreviewBtn" class="border rounded-md px-3 py-1.5 hover:bg-gray-50">Close</button>
+    <div class="bg-white rounded-xl w-full flex flex-col shadow-xl overflow-hidden" style="max-width:720px;max-height:85vh">
+      <div class="flex items-center justify-between px-4 py-3 border-b shrink-0 bg-white">
+        <h3 class="font-semibold">Invoice preview</h3>
+        <div class="flex items-center gap-2">
+          <button type="button" id="printPreviewBtn" class="border rounded-md px-3 py-1.5 hover:bg-gray-50">Print</button>
+          <button type="button" id="closePreviewBtn" class="border rounded-md px-3 py-1.5 hover:bg-gray-50">Close</button>
+        </div>
       </div>
-      <iframe id="previewFrame" class="w-full flex-1" title="Receipt preview"></iframe>
+      <iframe id="previewFrame" class="w-full border-0 bg-white" style="height:80px" title="Invoice preview"></iframe>
     </div>
   </div>
 
@@ -731,12 +734,16 @@
             img.classList.remove("hidden");
             if (initial) initial.classList.add("hidden");
           };
+          img.onload = showPhoto;
           img.onerror = () => {
             img.classList.add("hidden");
             if (initial) initial.classList.remove("hidden");
           };
-          img.onload = showPhoto;
-          img.src = url;
+          if (typeof window.loadProtectedImage === "function") {
+            window.loadProtectedImage(img, url);
+          } else {
+            img.src = url;
+          }
           if (img.complete && img.naturalWidth > 0) showPhoto();
         } catch (_) {
           /* keep initial */
@@ -802,7 +809,6 @@
       const clinicName = esc(clinic.name || "Bayport Veterinary Clinic");
       const clinicAddress = esc(clinic.address || "");
       const logoSrc = new URL("assets/logo.png", window.location.href).href;
-      const logo = `<img src="${logoSrc}" alt="" style="max-height:58px;max-width:180px;display:block;margin-bottom:8px;" />`;
       const inv = invoiceNo(r);
       const rowLines =
         Array.isArray(lines) && lines.length
@@ -822,30 +828,37 @@
           ? `<tr><td colspan="2" class="right">Discount</td><td class="right">−₱${fmtMoney(discount)}</td></tr>`
           : "";
       return `<!doctype html><html><head><meta charset="utf-8"/><style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:22px;color:#101828}
-        .head{display:flex;justify-content:space-between;gap:20px;border-top:1px solid #EAECF0;padding-top:12px}
-        .invoice{font-size:22px;font-weight:700;color:#101828;margin:0 0 10px 0}
-        .muted{color:#667085;font-size:11px}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        th{font-size:11px;text-transform:uppercase;color:#667085;border-bottom:1px solid #EAECF0;padding:8px 4px;text-align:left;font-weight:600}
-        td{padding:8px 4px;border-bottom:1px solid #EAECF0}
+        body{font-family:Arial,sans-serif;font-size:12px;padding:12px;color:#101828;margin:0}
+        .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+        .brand{display:flex;align-items:center;gap:10px}
+        .brand img{max-height:36px;max-width:72px;display:block;margin:0}
+        .invoice{font-size:16px;font-weight:700;color:#101828;margin:0}
+        .muted{color:#667085;font-size:11px;margin:2px 0 0}
+        .meta{text-align:right;font-size:11px;line-height:1.35}
+        .meta p{margin:0}
+        .who{margin:8px 0 0;font-size:12px}
+        table{width:100%;border-collapse:collapse;margin-top:8px}
+        th{font-size:11px;text-transform:uppercase;color:#667085;border-bottom:1px solid #EAECF0;padding:4px 2px;text-align:left;font-weight:600}
+        td{padding:4px 2px;border-bottom:1px solid #EAECF0}
         .right{text-align:right}
         .totalRow td{font-weight:600;border-top:1px solid #101828}
       </style></head><body>
       <div class="head">
-        <div>
-          <p class="invoice">${inv}</p>
-          ${logo}
-          <p><strong>${clinicName}</strong></p>
-          <p class="muted">${clinicAddress}</p>
+        <div class="brand">
+          <img src="${logoSrc}" alt=""/>
+          <div>
+            <p><strong>${clinicName}</strong></p>
+            <p class="muted">${clinicAddress}</p>
+          </div>
         </div>
-        <div>
+        <div class="meta">
+          <p class="invoice">${inv}</p>
           <p><strong>Issue</strong> ${esc(fmtDateTime(r.issuedAt))}</p>
           <p><strong>Status</strong> ${esc(r.status)}</p>
           <p><strong>Paid</strong> ${esc(fmtDateTime(r.paidAt))}</p>
         </div>
       </div>
-      <p class="mt-4"><strong>Patient</strong> ${esc(r.petName)} · <strong>Owner</strong> ${esc(r.ownerName)}</p>
+      <p class="who"><strong>Patient</strong> ${esc(r.petName)} · <strong>Owner</strong> ${esc(r.ownerName)}</p>
       <table>
         <thead><tr><th>Description</th><th class="right">Qty</th><th class="right">Amount</th></tr></thead>
         <tbody>
@@ -886,6 +899,7 @@
       modal.classList.add("flex");
       const lines = await resolveReceiptLines(row);
       frame.srcdoc = billReceiptHtml(row, lines);
+      if (typeof window.bayportFitPreviewFrame === "function") window.bayportFitPreviewFrame(frame);
     }
 
     function openBillingPayment(id) {
@@ -915,6 +929,13 @@
       }
     }
 
+    document.getElementById("printPreviewBtn").onclick = () => {
+      const frame = document.getElementById("previewFrame");
+      try {
+        frame.contentWindow.focus();
+        frame.contentWindow.print();
+      } catch (_) {}
+    };
     document.getElementById("closePreviewBtn").onclick = () => {
       const modal = document.getElementById("previewModal");
       modal.classList.add("hidden");

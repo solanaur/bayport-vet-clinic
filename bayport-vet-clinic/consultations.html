@@ -920,7 +920,7 @@
       tab.addEventListener('click', () => applyConsultStep(Number(tab.getAttribute('data-consult-step'))));
     });
     prevBtn?.addEventListener('click', () => applyConsultStep(consultStep - 1));
-    nextBtn?.addEventListener('click', () => {
+    nextBtn?.addEventListener('click', async () => {
       if (consultStep === 1) {
         const petId = Number(petSelect.value);
         if (!petId) {
@@ -929,7 +929,7 @@
         }
       }
       if (consultStep === 2 && procedures.length === 0) {
-        if (!confirm('No procedures added yet. Continue to prescriptions anyway?')) return;
+        if (!await window.bayportConfirm('No procedures added yet. Continue to prescriptions anyway?')) return;
       }
       applyConsultStep(consultStep + 1);
     });

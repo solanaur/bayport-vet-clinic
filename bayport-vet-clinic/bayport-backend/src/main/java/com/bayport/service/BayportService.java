@@ -3,6 +3,7 @@ package com.bayport.service;
 import com.bayport.dto.AppointmentRequest;
 import com.bayport.entity.*;
 import com.bayport.exception.ResourceNotFoundException;
+import com.bayport.security.PasswordPolicy;
 import com.bayport.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
@@ -50,6 +51,9 @@ public class BayportService {
 
     @Autowired
     private PrescriptionRepository prescriptionRepository;
+
+    @Autowired
+    private BillingRecordRepository billingRecordRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -296,7 +300,9 @@ public class BayportService {
                 appointment.getPet().getName();
             }
         }
-        return appointments;
+        return appointments.stream()
+                .filter(appointment -> appointment.getDeleted() == null || !appointment.getDeleted())
+                .toList();
     }
 
     /**
@@ -322,7 +328,9 @@ public class BayportService {
                 appointment.getPet().getName();
             }
         }
-        return appointments;
+        return appointments.stream()
+                .filter(appointment -> appointment.getDeleted() == null || !appointment.getDeleted())
+                .toList();
     }
 
     public Optional<Appointment> getAppointmentById(Long id) {
@@ -561,8 +569,13 @@ public class BayportService {
     }
 
     public void deleteAppointment(Long id) {
-        logOperation("APPT_DELETED", "Removed appointment #" + id, null);
-        appointmentRepository.deleteById(id);
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + id));
+        appointment.setDeleted(true);
+        appointment.setDeletedAt(LocalDateTime.now());
+        appointment.setDeletedBy(getCurrentUsernameOrNull());
+        appointmentRepository.save(appointment);
+        logOperation("APPT_DELETED", "Moved appointment #" + id + " to the recycle bin", appointment.getPetId());
     }
 
     public Appointment approveAppointment(Long id) {
@@ -701,8 +714,9 @@ public class BayportService {
 
     // Prescription operations
     public List<Prescription> getAllPrescriptions() {
-        List<Prescription> prescriptions = prescriptionRepository.findAll();
-        return prescriptions != null ? prescriptions : new ArrayList<>();
+        return prescriptionRepository.findAll().stream()
+                .filter(prescription -> prescription.getDeleted() == null || !prescription.getDeleted())
+                .toList();
     }
 
     public Optional<Prescription> getPrescriptionById(Long id) {
@@ -750,7 +764,13 @@ public class BayportService {
     }
 
     public void deletePrescription(Long id) {
-        prescriptionRepository.deleteById(id);
+        Prescription prescription = prescriptionRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription not found with id: " + id));
+        prescription.setDeleted(true);
+        prescription.setDeletedAt(LocalDateTime.now());
+        prescription.setDeletedBy(getCurrentUsernameOrNull());
+        prescriptionRepository.save(prescription);
+        logOperation("RX_DELETED", "Moved prescription #" + id + " to the recycle bin", prescription.getPetId());
     }
 
     public Prescription archivePrescription(Long id, boolean archived) {
@@ -1022,19 +1042,14 @@ public class BayportService {
             throw new IllegalArgumentException("Email address is required for user accounts (needed for MFA/OTP authentication)");
         }
         
-        // Check password from either 'password' or 'plainPassword' field (frontend compatibility)
         String passwordToEncode = user.getPassword();
-        if (passwordToEncode == null || passwordToEncode.isBlank()) {
-            passwordToEncode = user.getPlainPassword();
-        }
         if (passwordToEncode == null || passwordToEncode.isBlank()) {
             throw new IllegalArgumentException("Password is required");
         }
         
-        user.setPasswordHash(passwordEncoder.encode(passwordToEncode));
-        user.setDisplayPassword(null); // Never store plaintext passwords
-        user.setPassword(null);
-        user.setPlainPassword(null); // Clear plain password after encoding
+        String encoded = passwordEncoder.encode(passwordToEncode);
+        user.setPasswordHash(encoded);
+        user.setPassword(encoded);
         
         // Ensure fullName is set from name if not provided
         if (user.getFullName() == null && user.getName() != null) {
@@ -1070,14 +1085,29 @@ public class BayportService {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
         String oldRole = existing.getRole();
+        boolean wasActive = existing.isActive();
         validateUsername(user.getUsername(), id);
         existing.setName(user.getName());
         existing.setRole(normalizeLegacyRoleString(user.getRole()));
         existing.setUsername(user.getUsername());
         existing.setActive(user.isActive());
+        boolean securityChange = false;
         if (user.getPassword() != null && !user.getPassword().isBlank()) {
-            existing.setPasswordHash(passwordEncoder.encode(user.getPassword()));
-            existing.setDisplayPassword(null);
+            String encoded = passwordEncoder.encode(user.getPassword());
+            existing.setPasswordHash(encoded);
+            existing.setPassword(encoded);
+            securityChange = true;
+        }
+        String newRole = existing.getRole();
+        boolean roleChanged = newRole != null && (oldRole == null || !oldRole.equalsIgnoreCase(newRole));
+        if (roleChanged) {
+            securityChange = true;
+        }
+        if (wasActive && !user.isActive()) {
+            securityChange = true;
+        }
+        if (securityChange) {
+            existing.bumpTokenVersion();
         }
         
         User updatedUser = userRepository.save(existing);
@@ -1122,12 +1152,17 @@ public class BayportService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
         
-        if (newPassword == null || newPassword.trim().isEmpty() || newPassword.length() < 6) {
-            throw new IllegalArgumentException("Password must be at least 6 characters");
+        try {
+            PasswordPolicy.require(newPassword);
+        } catch (IllegalArgumentException ex) {
+            throw ex;
         }
         
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        user.setDisplayPassword(null);
+        String encoded = passwordEncoder.encode(newPassword);
+        user.setPasswordHash(encoded);
+        user.setPassword(encoded);
+        user.setMustChangePassword(false);
+        user.bumpTokenVersion();
         userRepository.save(user);
     }
 
@@ -1224,6 +1259,10 @@ public class BayportService {
     private void deletePetCascade(Long petId, boolean logAction) {
         Pet pet = petRepository.findById(petId)
                 .orElseThrow(() -> new ResourceNotFoundException("Pet not found with id: " + petId));
+        DeletionGuard.requireNoInvoiceOrPrescription(
+                prescriptionRepository.countByPetId(petId),
+                billingRecordRepository.countByPetId(petId),
+                "pet");
 
         prescriptionRepository.deleteByPetId(petId);
         appointmentRepository.deleteByPetId(petId);
@@ -1289,8 +1328,8 @@ public class BayportService {
         if (appointment.getDate() != null && appointment.getTime() != null) {
             List<Appointment> overlapping = appointmentRepository.findOverlappingAppointments(
                     appointment.getVet(), appointment.getDate(), appointment.getTime());
-            if (!overlapping.isEmpty() && (appointment.getId() == null ||
-                    overlapping.stream().noneMatch(a -> a.getId().equals(appointment.getId())))) {
+            List<Long> ids = overlapping.stream().map(Appointment::getId).toList();
+            if (AppointmentSlots.takenBySomeoneElse(appointment.getId(), ids)) {
                 throw new IllegalArgumentException("Veterinarian already has an appointment at this time slot");
             }
         }

@@ -55,12 +55,37 @@ CREATE DATABASE IF NOT EXISTS bayport_db
 
 ### 2. Configure credentials
 
-Edit `bayport-backend/src/main/resources/application.properties` (and `application-desktop.properties` if needed):
+Do not put passwords in `application.properties`. Set environment variables, or let the desktop app create `data/local.secrets.env` (that file is gitignored).
 
-```properties
-spring.datasource.username=root
-spring.datasource.password=YOUR_MYSQL_PASSWORD
-```
+Required before the server will start:
+
+| Variable | Purpose |
+|----------|---------|
+| `JWT_SECRET` | Signing key. At least 32 bytes. No default. |
+| `TOTP_ENCRYPTION_KEY` | Encrypts authenticator secrets. At least 32 bytes. |
+| `BAYPORT_DB_PASSWORD` | Desktop H2 password. At least 12 characters. |
+| `SPRING_DATASOURCE_URL` | MySQL JDBC URL when the clinic server is not using H2. Example: `jdbc:mysql://127.0.0.1:3306/bayport_db`. |
+| `SPRING_DATASOURCE_USERNAME` | MySQL user when not using H2. Use a dedicated account, not root. |
+| `SPRING_DATASOURCE_PASSWORD` | MySQL password when not using H2. At least 12 characters. |
+| `SERVER_URL` | Address workstations use to reach the clinic server, such as `http://192.168.1.10:8080`. Placeholder only. |
+| `BAYPORT_ADMIN_USER` | First administrator username. Used only when the database has no staff accounts. |
+| `BAYPORT_ADMIN_PASSWORD` | First administrator password. At least 10 characters. Must be changed at first login. |
+| `BAYPORT_ADMIN_EMAIL` | Email for that first administrator. |
+
+Optional:
+
+| Variable | Purpose |
+|----------|---------|
+| `SPRING_MAIL_HOST`, `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD` | Clinic mailbox. Copy `mail.env.example` to `data/mail.env`. |
+| `BAYPORT_SMS_ENABLED`, `BAYPORT_SMS_PROVIDER`, `BAYPORT_SMS_API_KEY`, `BAYPORT_SMS_API_SECRET`, `BAYPORT_SMS_SENDER`, `BAYPORT_SMS_ACCOUNT_SID`, `BAYPORT_SMS_ENDPOINT` | Text messages. Leave disabled until a provider is chosen. Copy `sms.env.example` to `data/sms.env`. |
+| `JWT_EXPIRATION` | Access-token lifetime in milliseconds. Default 8 hours (`28800000`). |
+| `SPRING_WEB_CORS_ALLOWED_ORIGINS` | Browser origins allowed to call the API. |
+| `BACKUP_ENCRYPTION_KEY` | Optional key for encrypting backup archives. Leave blank to store them unencrypted. |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Optional web-push keys. Unused until notification approval is turned on. |
+
+Names and placeholders are in `.env.example` and `deploy/clinic/bayport.env.example`.
+
+The desktop shell writes `JWT_SECRET`, `BAYPORT_DB_PASSWORD`, and `TOTP_ENCRYPTION_KEY` into `data/local.secrets.env` on first launch. It does not choose the administrator password. For an empty database, set `BAYPORT_ADMIN_USER` and `BAYPORT_ADMIN_PASSWORD` in that file, then start again.
 
 ### 3. Run the app
 
@@ -72,23 +97,9 @@ npm run desktop
 
 ---
 
-## Cloud Deployment
+## Clinic production
 
-Set these environment variables on your cloud host:
-
-| Variable | Example |
-|----------|---------|
-| `SPRING_DATASOURCE_URL` | `jdbc:mysql://your-db-host:3306/bayport_db` |
-| `SPRING_DATASOURCE_USERNAME` | `bayport_user` |
-| `SPRING_DATASOURCE_PASSWORD` | `your_secure_password` |
-| `JWT_SECRET` | `long-random-secret-at-least-32-bytes` |
-| `SPRING_WEB_CORS_ALLOWED_ORIGINS` | `https://desktop-api.example.com,file://` |
-
-Use the production profile when running in cloud:
-
-```bash
-java -jar bayport-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=production
-```
+The clinic runs on one Windows PC with MySQL. Other computers use a browser on the clinic network. The checklist, environment variables, HTTPS, and the start/stop scripts are in `docs/DEPLOYMENT.md`. H2 remains the development database.
 
 ---
 
@@ -122,10 +133,10 @@ For signed macOS releases, set these repository secrets:
 
 ---
 
-## Default Login
+## First administrator
 
-| Username | Password | Role |
-|----------|----------|------|
-| admin | admin123 | Admin |
-| vet | vet123 | Veterinarian |
-| frontdesk | frontdesk123 | Front Office |
+Until a real administrator exists, sign in as `admin` / `admin123`. That account is only for creating the real administrator under Manage Users. As soon as an administrator with a non-default password is saved, `admin` / `admin123` is removed and later startups will not bring it back.
+
+The real administrator is stored in the clinic database (`data/bayport-db` on the desktop). Git does not upload that database. Copy the `data` folder to another computer if that computer should have the same accounts. A git push of the source keeps the rule that real accounts are left in place; it does not copy the accounts themselves.
+
+`BAYPORT_ADMIN_USER` and `BAYPORT_ADMIN_PASSWORD` can still create the first administrator on an empty database. That password must be at least 10 characters and must not be a built-in default. Google Authenticator is required for every account except the temporary `admin` login.

@@ -25,6 +25,7 @@
         <div id="backendAlert" class="adm-alert hidden">
           Cannot connect to the Bayport backend. Please make sure the server is running and reachable.
         </div>
+        <div id="clinicAlerts" class="hidden rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"></div>
 
         <section class="adm-banner" aria-label="Welcome">
           <svg class="adm-banner-art" viewBox="0 0 320 200" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1290,6 +1291,25 @@
     (async function runHealthCheck() {
       const ok = await checkBackendHealth();
       document.getElementById("backendAlert")?.classList.toggle("hidden", !!ok);
+      try {
+        const token = localStorage.getItem("token") || localStorage.getItem("jwt");
+        const response = await fetch(`${window.API_BASE || "http://localhost:8080/api"}/dashboard/alerts`, {
+          headers: { Authorization: token ? `Bearer ${token}` : "" }
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const lines = [];
+        (data.lowStock || []).forEach((item) => lines.push(`${item.name}: ${item.quantity} left`));
+        (data.expiring || []).forEach((item) => lines.push(`${item.name} expires ${item.expiryDate}`));
+        const box = document.getElementById("clinicAlerts");
+        if (!box) return;
+        if (!lines.length) {
+          box.classList.add("hidden");
+          return;
+        }
+        box.classList.remove("hidden");
+        box.textContent = lines.slice(0, 8).join(" · ");
+      } catch (_) {}
     })();
 
     loadDashboard().catch(() => {});
