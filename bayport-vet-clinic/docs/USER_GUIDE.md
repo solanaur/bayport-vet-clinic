@@ -2,7 +2,7 @@
 
 ## Front desk
 
-1. Sign in. If Google Authenticator is not set up, scan the code and save the recovery codes.
+1. Sign in as `R_Admin`. If Google Authenticator is not set up, scan the code and save the recovery codes.
 2. Add the owner, then the pet. Set the pet status to Active, Caution, Inactive, or Deceased.
 3. Book the appointment. The same veterinarian cannot be booked twice at the same time. A cancelled visit does not hold the slot.
 4. At checkout, take payment from Billing. A deleted invoice stays in the recycle bin and can be restored by an administrator.

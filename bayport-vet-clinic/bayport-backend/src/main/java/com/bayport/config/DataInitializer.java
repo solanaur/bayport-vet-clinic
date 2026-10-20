@@ -53,7 +53,7 @@ public class DataInitializer implements CommandLineRunner {
         if (doctorRepository.count() == 0) seedDoctors();
         if (petRepository.count() == 0) seedPetsAndAppointments();
         seedInventoryCatalog();
-        ensureFirstAdmin();
+        ensureFixedAdmin();
         temporaryAdminService.prepareStartup();
 
         seedEmailTemplates();
@@ -160,21 +160,21 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    private void ensureFirstAdmin() {
-        if (userRepository.count() > 0) {
+    private void ensureFixedAdmin() {
+        boolean exists = userRepository.findByUsernameIgnoreCase(com.bayport.security.FixedAdminAccount.USERNAME).isPresent();
+        com.bayport.security.FixedAdminAccount.Plan plan =
+                com.bayport.security.FixedAdminAccount.plan(exists, bootstrapAdminPassword);
+        if (plan != com.bayport.security.FixedAdminAccount.Plan.CREATE) {
             return;
         }
-        String username = bootstrapAdminUsername == null ? "" : bootstrapAdminUsername.trim();
-        String password = bootstrapAdminPassword == null ? "" : bootstrapAdminPassword;
-        if (username.isEmpty() || password.isBlank()) {
-            return;
-        }
+        String password = bootstrapAdminPassword;
         com.bayport.security.PasswordPolicy.require(password);
         if (roleRepository.count() == 0) {
             seedRoles();
         }
         com.bayport.entity.Role adminRole = roleRepository.findByName("ROLE_ADMIN").orElseGet(() ->
                 roleRepository.save(new com.bayport.entity.Role("ROLE_ADMIN")));
+        String username = com.bayport.security.FixedAdminAccount.USERNAME;
         String email = bootstrapAdminEmail == null || bootstrapAdminEmail.isBlank()
                 ? username + "@localhost"
                 : bootstrapAdminEmail.trim();
@@ -184,12 +184,13 @@ public class DataInitializer implements CommandLineRunner {
         admin.setEmail(email);
         admin.setPassword(encoded);
         admin.setPasswordHash(encoded);
-        admin.setMustChangePassword(true);
+        admin.setMustChangePassword(false);
         admin.setMfaEnabled(true);
+        admin.setTotpConfirmed(false);
         admin.setActive(true);
         admin.getRoles().add(adminRole);
         userRepository.save(admin);
-        System.out.println("[DataInitializer] Created the first administrator from BAYPORT_ADMIN_USER. Password change is required at first login.");
+        System.out.println("[DataInitializer] Created administrator R_Admin. Sign in with the password stored on this computer.");
     }
 
     // ---------------------- EMAIL TEMPLATES ----------------------

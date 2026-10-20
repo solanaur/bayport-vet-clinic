@@ -2,7 +2,7 @@
 
 ## Accounts
 
-Create each staff account from Manage Users. The first account comes from `BAYPORT_ADMIN_USER` only when the database is empty. That person must change the password and enroll Google Authenticator.
+The administrator username is `R_Admin` on Windows and Mac. Create other staff accounts from Manage Users. `R_Admin` enrolls Google Authenticator at the first sign-in.
 
 Reset Google Authenticator from Manage Users when a phone is lost. The staff member enrolls again and receives new recovery codes. This is written to the activity log.
 

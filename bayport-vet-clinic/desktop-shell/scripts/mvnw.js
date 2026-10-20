@@ -4,9 +4,10 @@ const path = require('path');
 const args = process.argv.slice(2);
 const backendDir = path.resolve(__dirname, '..', '..', 'bayport-backend');
 const isWin = process.platform === 'win32';
-const executable = isWin ? 'mvnw.cmd' : './mvnw';
+const executable = isWin ? 'mvnw.cmd' : 'sh';
+const commandArgs = isWin ? args : ['mvnw', ...args];
 
-const result = spawnSync(executable, args, {
+const result = spawnSync(executable, commandArgs, {
   cwd: backendDir,
   stdio: 'inherit',
   shell: isWin

@@ -68,8 +68,8 @@ Required before the server will start:
 | `SPRING_DATASOURCE_USERNAME` | MySQL user when not using H2. Use a dedicated account, not root. |
 | `SPRING_DATASOURCE_PASSWORD` | MySQL password when not using H2. At least 12 characters. |
 | `SERVER_URL` | Address workstations use to reach the clinic server, such as `http://192.168.1.10:8080`. Placeholder only. |
-| `BAYPORT_ADMIN_USER` | First administrator username. Used only when the database has no staff accounts. |
-| `BAYPORT_ADMIN_PASSWORD` | First administrator password. At least 10 characters. Must be changed at first login. |
+| `BAYPORT_ADMIN_USER` | Fixed administrator username: `R_Admin`. |
+| `BAYPORT_ADMIN_PASSWORD` | Password for `R_Admin` on this computer. Used only when that account is not already in the database. At least 10 characters. |
 | `BAYPORT_ADMIN_EMAIL` | Email for that first administrator. |
 
 Optional:
@@ -85,7 +85,7 @@ Optional:
 
 Names and placeholders are in `.env.example` and `deploy/clinic/bayport.env.example`.
 
-The desktop shell writes `JWT_SECRET`, `BAYPORT_DB_PASSWORD`, and `TOTP_ENCRYPTION_KEY` into `data/local.secrets.env` on first launch. It does not choose the administrator password. For an empty database, set `BAYPORT_ADMIN_USER` and `BAYPORT_ADMIN_PASSWORD` in that file, then start again.
+The desktop shell writes `JWT_SECRET`, `BAYPORT_DB_PASSWORD`, `TOTP_ENCRYPTION_KEY`, and the `R_Admin` password into `data/local.secrets.env` on first launch. The same steps work on Windows and Mac. Java 17 is found from `JAVA_HOME`, a normal install, or the bundled runtime.
 
 ### 3. Run the app
 
@@ -135,8 +135,6 @@ For signed macOS releases, set these repository secrets:
 
 ## First administrator
 
-Until a real administrator exists, sign in as `admin` / `admin123`. That account is only for creating the real administrator under Manage Users. As soon as an administrator with a non-default password is saved, `admin` / `admin123` is removed and later startups will not bring it back.
+The administrator username is always `R_Admin`. If that account is already in the database, startup leaves its password and authenticator alone. On a new computer, the desktop creates `R_Admin` and writes the password into `data/local.secrets.env`. That file is not committed.
 
-The real administrator is stored in the clinic database (`data/bayport-db` on the desktop). Git does not upload that database. Copy the `data` folder to another computer if that computer should have the same accounts. A git push of the source keeps the rule that real accounts are left in place; it does not copy the accounts themselves.
-
-`BAYPORT_ADMIN_USER` and `BAYPORT_ADMIN_PASSWORD` can still create the first administrator on an empty database. That password must be at least 10 characters and must not be a built-in default. Google Authenticator is required for every account except the temporary `admin` login.
+`admin` / `admin123` is only created when `R_Admin` is missing and no local password was set. It is removed once `R_Admin` exists. Google Authenticator is required for `R_Admin`.

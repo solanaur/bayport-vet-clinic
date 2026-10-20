@@ -45,7 +45,7 @@ mvnw -DskipTests package
 
 The first start creates the tables from `db/baseline/mysql-clinic-schema.sql` and marks Flyway at version 13. Later schema changes are new Flyway files only. Hibernate is set to `validate` and will not change tables.
 
-If the database has no staff accounts, set `BAYPORT_ADMIN_USER` and `BAYPORT_ADMIN_PASSWORD` before that first start. The first sign-in must change that password and enroll Google Authenticator.
+The administrator username is `R_Admin`. Set `BAYPORT_ADMIN_PASSWORD` before the first start of an empty database. Startup does not change `R_Admin` when that account is already saved. The first sign-in enrolls Google Authenticator.
 
 ## HTTPS and the private-network exception
 

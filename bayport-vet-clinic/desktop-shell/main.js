@@ -6,6 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
 const log = require('electron-log');
+const { resolveJavaExecutable: lookupJavaExecutable } = require('./java-lookup');
 
 // Determine if we're in development or production (packaged)
 const isDev = !app.isPackaged;
@@ -293,15 +294,19 @@ function ensureLocalSecrets() {
       'JWT_SECRET=' + crypto.randomBytes(48).toString('base64url'),
       'BAYPORT_DB_PASSWORD=' + crypto.randomBytes(24).toString('base64url'),
       'TOTP_ENCRYPTION_KEY=' + crypto.randomBytes(32).toString('base64url'),
-      '# First administrator. Used only when the database has no staff accounts.',
-      '# Uncomment and set these before the first start of an empty database.',
-      '# BAYPORT_ADMIN_USER=clinicadmin',
-      '# BAYPORT_ADMIN_PASSWORD=replace-with-at-least-10-characters',
-      '# BAYPORT_ADMIN_EMAIL=admin@your-clinic.example',
+      'BAYPORT_ADMIN_USER=R_Admin',
+      'BAYPORT_ADMIN_PASSWORD=' + crypto.randomBytes(18).toString('base64url'),
+      'BAYPORT_ADMIN_EMAIL=R_Admin@localhost',
       '',
     ].join('\n');
     fs.writeFileSync(envPath, body, { encoding: 'utf8', flag: 'wx' });
-    log.info('Created local.secrets.env with random JWT, database, and authenticator keys');
+    log.info('Created local.secrets.env. Administrator username is R_Admin.');
+    dialog.showMessageBoxSync({
+      type: 'info',
+      title: 'Bayport administrator',
+      message: 'The administrator account is R_Admin.',
+      detail: 'The password for this computer is in data/local.secrets.env under BAYPORT_ADMIN_PASSWORD. That file is not stored in git.',
+    });
     return;
   }
   const text = fs.readFileSync(envPath, 'utf8');
@@ -413,57 +418,37 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(path.join(DATA_DIR, 'uploads'), { recursive: true });
 }
 
+function devToolHomes() {
+  if (!isDev) return [];
+  const root = path.resolve(__dirname, '..', '..', '..', '.tools', 'jdk');
+  if (!fs.existsSync(root)) return [];
+  try {
+    return fs.readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(root, entry.name));
+  } catch {
+    return [];
+  }
+}
+
 function resolveJavaExecutable() {
-  const javaCommand = process.platform === 'win32' ? 'java.exe' : 'java';
-
-  // In local/dev, prefer a full JDK (JAVA_HOME / PATH). The bundled jlink runtime
-  // historically omitted jdk.crypto.ec, which breaks Gmail SMTP TLS handshakes.
-  if (isDev) {
-    if (process.env.JAVA_HOME) {
-      const javaHomeExec = path.join(process.env.JAVA_HOME, 'bin', javaCommand);
-      if (fs.existsSync(javaHomeExec)) {
-        log.info('Using JAVA_HOME (dev):', javaHomeExec);
-        return javaHomeExec;
-      }
-    }
-    log.info('Using system Java (dev):', javaCommand);
-    return javaCommand;
-  }
-
-  // Packaged app: prefer embedded runtime (must include jdk.crypto.ec — see build-runtime)
-  const embeddedJava = path.join(EMBEDDED_JAVA_DIR, 'bin', javaCommand);
-  if (fs.existsSync(embeddedJava)) {
-    log.info('Using embedded Java runtime:', embeddedJava);
-    return embeddedJava;
-  }
-
-  log.warn('Embedded Java not found at:', embeddedJava);
-  log.warn('EMBEDDED_JAVA_DIR:', EMBEDDED_JAVA_DIR);
-
-  if (process.platform === 'darwin') {
-    const altPaths = [
-      path.join(process.resourcesPath, 'runtime', 'bin', javaCommand),
-      path.join(path.dirname(process.execPath), '..', 'Resources', 'runtime', 'bin', javaCommand),
-      path.join(path.dirname(process.execPath), '..', '..', 'runtime', 'bin', javaCommand),
-    ];
-    for (const altPath of altPaths) {
-      if (fs.existsSync(altPath)) {
-        log.info('Found Java at alternative location:', altPath);
-        return altPath;
-      }
-    }
-  }
-
-  if (process.env.JAVA_HOME) {
-    const javaHomeExec = path.join(process.env.JAVA_HOME, 'bin', javaCommand);
-    if (fs.existsSync(javaHomeExec)) {
-      log.info('Using JAVA_HOME:', javaHomeExec);
-      return javaHomeExec;
-    }
-  }
-
-  log.warn('Using system Java (may not be available):', javaCommand);
-  return javaCommand;
+  const binary = process.platform === 'win32' ? 'java.exe' : 'java';
+  const embeddedCandidates = [
+    path.join(EMBEDDED_JAVA_DIR, 'bin', binary),
+    process.resourcesPath && path.join(process.resourcesPath, 'runtime', 'bin', binary),
+    path.join(path.dirname(process.execPath), '..', 'Resources', 'runtime', 'bin', binary),
+    path.join(path.dirname(process.execPath), '..', '..', 'runtime', 'bin', binary),
+  ].filter(Boolean);
+  const embeddedJava = embeddedCandidates.find((candidate) => fs.existsSync(candidate)) || embeddedCandidates[0];
+  const found = lookupJavaExecutable({
+    platform: process.platform,
+    env: process.env,
+    embeddedJava,
+    preferEmbedded: !isDev,
+    toolHomes: devToolHomes(),
+  });
+  log.info('Using Java:', found);
+  return found;
 }
 
 function createWindow() {
@@ -684,7 +669,7 @@ function createWindow() {
                   Choose "Temurin 17 LTS" and install it.
                 </li>
                 <li><strong>Check if Java is installed:</strong><br>
-                  Open Command Prompt and type: <code>java -version</code><br>
+                  On Windows, open Command Prompt. On Mac, open Terminal. Type: <code>java -version</code><br>
                   You should see version 17 or higher.
                 </li>
                 <li><strong>Restart the application</strong> after installing Java.</li>
@@ -717,6 +702,7 @@ app.whenReady().then(() => {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
+      shuttingDown = false;
       createWindow();
     }
   });
