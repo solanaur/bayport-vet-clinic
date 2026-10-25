@@ -10,6 +10,7 @@
     body{font-family:'Poppins',sans-serif}
     .shadow-soft{box-shadow:0 4px 16px rgba(0,0,0,.05)}
     :root{--soft-teal:#0057b8}
+    #consult_rx_modal .rx-pad-sheet{min-height:0;padding:16px 18px 20px}
   </style>
   <link rel="stylesheet" href="assets/rx-pad-editor.css">
 </head>
@@ -38,12 +39,11 @@
         <div id="consult_workflow_bar" class="mb-8 rounded-xl border border-gray-200 bg-slate-50 p-4">
           <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
             <span>Progress</span>
-            <span id="consult_step_label">Step 1 of 3</span>
+            <span id="consult_step_label">Step 1 of 2</span>
           </div>
           <div class="flex gap-2">
             <button type="button" data-consult-step="1" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm">1 &middot; Diagnosis</button>
             <button type="button" data-consult-step="2" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">2 &middot; Procedures</button>
-            <button type="button" data-consult-step="3" class="consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700">3 &middot; Prescriptions</button>
           </div>
         </div>
 
@@ -140,12 +140,16 @@
             <span id="procedure_total" class="font-semibold tabular-nums text-gray-900">PHP 0.00</span>
           </div>
         </section>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <button type="button" id="consult_add_rx_btn" class="px-4 py-2.5 rounded-md border border-[var(--soft-teal)] text-[var(--soft-teal)] text-sm font-semibold hover:bg-blue-50">Add prescription</button>
+            <span id="consult_rx_status" class="hidden text-sm text-gray-500"></span>
+          </div>
+          <button type="button" id="consult_save_btn" class="inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-green-700 text-white text-sm font-semibold shadow-sm hover:bg-green-800">
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            Save consultation
+          </button>
         </div>
-
-        <div id="consult_step_3" class="consult-step-panel hidden">
-        <p class="text-sm text-gray-600 mb-3">Type directly on the prescription pad below (same layout as the printed PDF).</p>
-        <div id="consult_rx_pad_mount"></div>
-        <p class="text-xs text-gray-500 mt-2">Clinical record only. Payment and inventory are handled at Point of Sale.</p>
         </div>
 
         <div class="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6">
@@ -153,13 +157,9 @@
             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
             Back to appointments
           </button>
-          <div class="flex flex-wrap gap-2 justify-end">
+          <div class="flex flex-wrap items-center gap-2 justify-end">
             <button type="button" id="consult_prev_btn" class="px-4 py-2 rounded-md border border-gray-300 text-sm text-gray-600 hidden">Previous step</button>
             <button type="button" id="consult_next_btn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm font-semibold shadow-sm">Next step</button>
-            <button type="button" id="save_send_pos_btn" class="hidden inline-flex items-center gap-2 px-6 py-2.5 rounded-md bg-green-700 text-white text-sm font-semibold shadow-md hover:bg-green-800">
-              <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-              Save &amp; send to POS
-            </button>
           </div>
         </div>
         </section>
@@ -213,6 +213,19 @@
         </section>
       </div>
     </main>
+  </div>
+
+  <div id="consult_rx_modal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/40 p-4 sm:p-8">
+    <div class="mx-auto w-full max-w-3xl rounded-2xl bg-white shadow-xl">
+      <div class="flex items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+        <h3 class="text-lg font-semibold text-gray-900">Prescription</h3>
+        <button type="button" id="consult_rx_done" class="px-4 py-2 rounded-md bg-[var(--soft-teal)] text-white text-sm font-semibold">Done</button>
+      </div>
+      <div class="px-4 py-4 sm:px-6">
+        <div id="consult_rx_pad_mount"></div>
+        <p class="text-xs text-gray-500 mt-3">Clinical record only. Payment and inventory are handled at Point of Sale.</p>
+      </div>
+    </div>
   </div>
 
   <div id="rx_modal_root"></div>
@@ -382,7 +395,6 @@
     function ensureConsultPad() {
       if (typeof BayportRxPadEditor === 'undefined' || !consultPadMount) return consultPadApi;
       if (consultPadApi) return consultPadApi;
-      if (consultStep !== 3) return null;
       consultPadApi = BayportRxPadEditor.mount(consultPadMount, {
         showPetPicker: false,
         pets: consultationPets,
@@ -772,7 +784,6 @@
         return;
       }
 
-      ensureConsultPad();
       const padData = consultPadApi?.getData() || { lines: [] };
       const rxLines = padRxLinesForSave(padData);
       const medsSummary = rxLines.map((l) => {
@@ -878,24 +889,50 @@
       }
     }
 
-    document.getElementById('save_send_pos_btn').addEventListener('click', saveConsultationAndSendToPos);
+    document.getElementById('consult_save_btn').addEventListener('click', saveConsultationAndSendToPos);
 
     let consultStep = 1;
     const stepPanels = [
       null,
       document.getElementById('consult_step_1'),
-      document.getElementById('consult_step_2'),
-      document.getElementById('consult_step_3')
+      document.getElementById('consult_step_2')
     ];
     const stepTabs = Array.from(document.querySelectorAll('.consult-step-tab'));
     const stepLabelEl = document.getElementById('consult_step_label');
     const prevBtn = document.getElementById('consult_prev_btn');
     const nextBtn = document.getElementById('consult_next_btn');
-    const saveBtn = document.getElementById('save_send_pos_btn');
+    const addRxBtn = document.getElementById('consult_add_rx_btn');
+    const rxModal = document.getElementById('consult_rx_modal');
+    const rxStatus = document.getElementById('consult_rx_status');
+
+    function refreshRxStatus() {
+      const lines = padRxLinesForSave(consultPadApi?.getData());
+      const ready = lines.length > 0;
+      if (addRxBtn) addRxBtn.textContent = ready ? 'Edit prescription' : 'Add prescription';
+      if (rxStatus) {
+        rxStatus.textContent = ready ? (lines.length === 1 ? '1 medicine added' : `${lines.length} medicines added`) : '';
+        rxStatus.classList.toggle('hidden', !ready);
+      }
+    }
+
+    function openRxPad() {
+      if (!Number(petSelect.value)) {
+        alert('Select a pet first.');
+        return;
+      }
+      rxModal?.classList.remove('hidden');
+      ensureConsultPad();
+      syncConsultPadFromPet();
+    }
+
+    function closeRxPad() {
+      rxModal?.classList.add('hidden');
+      refreshRxStatus();
+    }
 
     function applyConsultStep(n) {
-      consultStep = Math.min(3, Math.max(1, n));
-      for (let s = 1; s <= 3; s++) {
+      consultStep = Math.min(2, Math.max(1, n));
+      for (let s = 1; s <= 2; s++) {
         const el = stepPanels[s];
         if (el) el.classList.toggle('hidden', s !== consultStep);
       }
@@ -906,32 +943,27 @@
           ? 'consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-[var(--soft-teal)] text-white shadow-sm'
           : 'consult-step-tab flex-1 rounded-lg px-3 py-2.5 text-sm font-medium bg-white border border-gray-200 text-gray-700 hover:bg-gray-50';
       });
-      if (stepLabelEl) stepLabelEl.textContent = `Step ${consultStep} of 3`;
+      if (stepLabelEl) stepLabelEl.textContent = `Step ${consultStep} of 2`;
       if (prevBtn) prevBtn.classList.toggle('hidden', consultStep <= 1);
-      if (nextBtn) nextBtn.classList.toggle('hidden', consultStep >= 3);
-      if (saveBtn) saveBtn.classList.toggle('hidden', consultStep < 3);
-      if (consultStep === 3) {
-        ensureConsultPad();
-        syncConsultPadFromPet();
-      }
+      if (nextBtn) nextBtn.classList.toggle('hidden', consultStep !== 1);
     }
 
     stepTabs.forEach((tab) => {
       tab.addEventListener('click', () => applyConsultStep(Number(tab.getAttribute('data-consult-step'))));
     });
     prevBtn?.addEventListener('click', () => applyConsultStep(consultStep - 1));
-    nextBtn?.addEventListener('click', async () => {
-      if (consultStep === 1) {
-        const petId = Number(petSelect.value);
-        if (!petId) {
-          alert('Select a pet first.');
-          return;
-        }
-      }
-      if (consultStep === 2 && procedures.length === 0) {
-        if (!await window.bayportConfirm('No procedures added yet. Continue to prescriptions anyway?')) return;
+    nextBtn?.addEventListener('click', () => {
+      const petId = Number(petSelect.value);
+      if (!petId) {
+        alert('Select a pet first.');
+        return;
       }
       applyConsultStep(consultStep + 1);
+    });
+    addRxBtn?.addEventListener('click', openRxPad);
+    document.getElementById('consult_rx_done')?.addEventListener('click', closeRxPad);
+    rxModal?.addEventListener('click', (event) => {
+      if (event.target === rxModal) closeRxPad();
     });
 
     initData();

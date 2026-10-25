@@ -24,7 +24,7 @@
         </div>
         <div class="bp-table-panel">
         <table class="w-full">
-          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Password</th><th>Role</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
         </div>
@@ -73,9 +73,6 @@
       }
     }
 
-    const passwordVisibility = {}; // Track password visibility per user
-    const passwordCache = {}; // Cache passwords per user
-
     function userCell(text, extraClass) {
       const td = document.createElement("td");
       td.className = "py-3" + (extraClass ? " " + extraClass : "");
@@ -87,7 +84,7 @@
       rows.replaceChildren();
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 6;
+      td.colSpan = 5;
       td.className = className;
       td.textContent = message;
       tr.appendChild(td);
@@ -123,13 +120,6 @@
           tr.appendChild(userCell(u.name || ""));
           tr.appendChild(userCell(u.username || "", "font-mono text-sm"));
           tr.appendChild(userCell(u.email || ""));
-          const pass = document.createElement("td");
-          pass.className = "py-3";
-          const passNote = document.createElement("span");
-          passNote.className = "text-xs text-gray-500";
-          passNote.textContent = "Stored as secure hash only";
-          pass.appendChild(passNote);
-          tr.appendChild(pass);
           const roleName = String(u.role || "").replaceAll("_", " ");
           tr.appendChild(userCell(roleName, "capitalize"));
           const actions = document.createElement("td");
@@ -148,7 +138,7 @@
           remove.type = "button";
           remove.className = "px-3 py-2 border rounded-md text-red-600 hover:bg-red-50";
           remove.textContent = "Delete";
-          remove.addEventListener("click", () => del(u.id));
+          remove.addEventListener("click", () => del(u.id, u.name || u.username || "this user"));
           actions.append(edit, reset, remove);
           tr.appendChild(actions);
           rows.appendChild(tr);
@@ -158,10 +148,16 @@
       }
     }
     
-    async function togglePassword(userId){
-      alert('Passwords cannot be viewed. Use Edit Credentials to set a new password.');
+    async function del(id, label){
+      const who = String(label || "this user").trim() || "this user";
+      if (!confirm("Confirm delete " + who + "?")) return;
+      try {
+        await repoDeleteUser(id);
+        render();
+      } catch (err) {
+        alert(err.message || "Could not delete this user.");
+      }
     }
-    async function del(id){ await repoDeleteUser(id); render(); }
     async function resetMfa(id){
       if(!confirm('Reset MFA for this account? They must set up Google Authenticator again on the next sign-in.')) return;
       const response = await fetch(`${window.API_BASE}/users/${id}/reset-mfa`, { method: 'POST', headers: authJsonHeaders() });

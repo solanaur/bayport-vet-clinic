@@ -6,7 +6,6 @@ import com.lowagie.text.pdf.draw.LineSeparator;
 import com.bayport.dto.ReportDailyPosRow;
 import com.bayport.dto.ReportNewPatient;
 import com.bayport.dto.ReportSummary;
-import com.bayport.dto.ReportTopItemRow;
 import com.bayport.dto.VaccinationScheduleItem;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.MedicalRecordType;
@@ -546,36 +545,6 @@ public class PdfService {
                 document.add(daily);
             }
 
-            Paragraph topTitle = new Paragraph("Top selling items", section);
-            topTitle.setSpacingBefore(4);
-            topTitle.setSpacingAfter(6);
-            document.add(topTitle);
-
-            if (summary.topItems == null || summary.topItems.isEmpty()) {
-                document.add(new Paragraph("No line-level sales data in this period.", value));
-            } else {
-                PdfPTable top = new PdfPTable(4);
-                top.setWidthPercentage(100);
-                top.setWidths(new float[]{2f, 1f, 0.55f, 1f});
-                top.setHeaderRows(1);
-                top.setSpacingAfter(12);
-                top.addCell(summaryTableHeaderCell("Item", label));
-                top.addCell(summaryTableHeaderCell("Category", label));
-                top.addCell(summaryTableHeaderCell("Qty", label));
-                top.addCell(summaryTableHeaderCell("Total", label));
-                int n = 0;
-                for (ReportTopItemRow t : summary.topItems) {
-                    if (++n > 25) {
-                        break;
-                    }
-                    top.addCell(paddedPhraseCell(nullToEmpty(t.name), value));
-                    top.addCell(paddedPhraseCell(nullToEmpty(t.category), value));
-                    top.addCell(paddedPhraseCell(String.valueOf(t.qty), value));
-                    top.addCell(paddedPhraseCell(MoneyUtils.formatPeso(t.total), value));
-                }
-                document.add(top);
-            }
-
             Paragraph metricsTitle = new Paragraph("Clinical & operations metrics", section);
             metricsTitle.setSpacingBefore(6);
             metricsTitle.setSpacingAfter(8);
@@ -598,7 +567,6 @@ public class PdfService {
                     summary.posProcedureLines, summary.posProcedureRevenue);
             addPosSaleLinesSection(document, label, value, "Product line items (POS)",
                     summary.posProductLines, summary.posProductRevenue);
-            addConsultationServiceLinesSection(document, label, value, summary);
 
             if (summary.newPatients != null && !summary.newPatients.isEmpty()) {
                 Paragraph newPatientsTitle = new Paragraph("New patients", label);
@@ -869,52 +837,6 @@ public class PdfService {
             table.addCell(paddedPhraseCell(String.valueOf(r.quantity), value));
             table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.unitPrice), value));
             table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.lineTotal), value));
-        }
-
-        document.add(table);
-        Paragraph sub = new Paragraph("Subtotal: " + MoneyUtils.formatPeso(st), label);
-        sub.setSpacingAfter(10);
-        document.add(sub);
-    }
-
-    private void addConsultationServiceLinesSection(Document document, Font label, Font value,
-                                                    ReportSummary summary) throws DocumentException {
-        Paragraph sectionTitle = new Paragraph("Consultation services (itemized)", label);
-        sectionTitle.setSpacingBefore(10);
-        sectionTitle.setSpacingAfter(8);
-        document.add(sectionTitle);
-
-        List<ReportSummary.ConsultationServiceLine> rows = summary.consultationServiceLines;
-        BigDecimal st = summary.consultationServiceRevenue != null
-                ? summary.consultationServiceRevenue : BigDecimal.ZERO;
-
-        if (rows == null || rows.isEmpty()) {
-            document.add(new Paragraph("No consultation service lines in this period.", value));
-            Paragraph sub = new Paragraph("Subtotal: " + MoneyUtils.formatPeso(st), label);
-            sub.setSpacingAfter(10);
-            document.add(sub);
-            return;
-        }
-
-        PdfPTable table = new PdfPTable(6);
-        table.setWidthPercentage(100);
-        table.setWidths(new float[]{1.3f, 0.9f, 1.6f, 2.2f, 1.4f, 1.1f});
-        table.setSpacingBefore(5);
-        table.setSpacingAfter(8);
-        table.setHeaderRows(1);
-
-        String[] headers = {"Date", "Invoice", "Pet", "Service", "Performed by", "Amount"};
-        for (String h : headers) {
-            table.addCell(summaryTableHeaderCell(h, label));
-        }
-
-        for (ReportSummary.ConsultationServiceLine r : rows) {
-            table.addCell(paddedPhraseCell(nullToEmpty(r.issuedAt), value));
-            table.addCell(paddedPhraseCell(r.invoiceId != null ? "#" + r.invoiceId : "—", value));
-            table.addCell(paddedPhraseCell(nullToEmpty(r.petName), value));
-            table.addCell(paddedPhraseCell(nullToEmpty(r.serviceName), value));
-            table.addCell(paddedPhraseCell(nullToEmpty(r.performedBy), value));
-            table.addCell(paddedPhraseCell(MoneyUtils.formatPeso(r.serviceCost), value));
         }
 
         document.add(table);

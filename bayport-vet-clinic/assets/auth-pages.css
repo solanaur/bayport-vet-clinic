@@ -45,9 +45,9 @@ body.auth-landing-page {
 
 /* ——— Landing header ——— */
 .auth-landing-header {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   column-gap: 1.75rem;
   row-gap: 0.5rem;
   padding: 0.8rem 2rem;
@@ -77,30 +77,6 @@ body.auth-landing-page {
   white-space: nowrap;
 }
 
-.auth-landing-header-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 1.5rem;
-  min-width: 0;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--bp-blue);
-}
-
-.auth-landing-header-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  white-space: nowrap;
-}
-
-.auth-landing-header-meta svg {
-  width: 15px;
-  height: 15px;
-  flex-shrink: 0;
-}
-
 .auth-landing-signin {
   display: inline-flex;
   align-items: center;
@@ -123,12 +99,7 @@ body.auth-landing-page {
 
 @media (max-width: 860px) {
   .auth-landing-header {
-    grid-template-columns: 1fr auto;
     padding: 0.75rem 1.25rem;
-  }
-
-  .auth-landing-header-meta {
-    grid-column: 1 / -1;
   }
 }
 
@@ -162,7 +133,7 @@ body.auth-landing-page {
   width: clamp(92px, 14vw, 124px);
   height: clamp(92px, 14vw, 124px);
   object-fit: contain;
-  margin: 0 auto 1.15rem;
+  margin: 0 auto 1.35rem;
   filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.18));
 }
 

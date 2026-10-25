@@ -60,6 +60,33 @@ body {
 }
 
 /* ——— App shell ——— */
+/* Header and sidebar stay put; only the module content scrolls. */
+html:has(#sidebarNav) {
+  height: 100%;
+  overflow: hidden;
+}
+
+body:has(#sidebarNav) {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+body:has(#sidebarNav) > div:has(#sidebarNav) {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+body:has(#sidebarNav) > div:has(#sidebarNav) > * {
+  min-height: 0;
+}
+
 aside:has(#sidebarNav),
 aside.bp-sidebar {
   width: 15rem !important;
@@ -68,6 +95,50 @@ aside.bp-sidebar {
   border-right: 1px solid var(--bp-border) !important;
   box-shadow: none !important;
   background: var(--bp-sidebar) !important;
+  align-self: stretch;
+  height: auto;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+body:has(#sidebarNav) main {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1.5rem !important;
+}
+
+body:has(#sidebarNav) main:has(> .overflow-y-auto) {
+  padding: 0 !important;
+}
+
+body:has(#sidebarNav) main > .overflow-y-auto {
+  padding: 1.5rem !important;
+}
+
+body:has(#sidebarNav) main > [class*="max-w-"],
+body:has(#sidebarNav) main > .overflow-y-auto > [class*="max-w-"],
+.adm-dash-container {
+  max-width: none !important;
+  width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+@media print {
+  html:has(#sidebarNav),
+  body:has(#sidebarNav) {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  body:has(#sidebarNav) > div:has(#sidebarNav),
+  body:has(#sidebarNav) main {
+    overflow: visible;
+    height: auto;
+    max-height: none;
+  }
 }
 
 aside:has(#sidebarNav) > h2#roleTitle,
@@ -373,6 +444,10 @@ table tbody td {
   color: var(--bp-text-muted) !important;
   letter-spacing: 0.05em !important;
   padding: 4px 8px !important;
+}
+
+details.sidebar-group:not([open]) > :not(summary) {
+  display: none !important;
 }
 
 /* ——— Header ——— */

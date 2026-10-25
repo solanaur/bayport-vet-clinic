@@ -63,7 +63,6 @@
                     <th class="px-4 py-3">Invoice</th>
                     <th class="px-4 py-3">Pet / owner</th>
                     <th class="px-4 py-3 hidden md:table-cell">Date</th>
-                    <th class="px-4 py-3">Services</th>
                     <th class="px-4 py-3 text-right">Amount</th>
                     <th class="px-4 py-3">Status</th>
                   </tr>
@@ -99,7 +98,7 @@
   <div id="backdrop" class="fixed inset-0 bg-black/30 z-[110] hidden"></div>
 
   <div id="previewModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4 z-[200]">
-    <div class="bg-white rounded-xl w-full flex flex-col shadow-xl overflow-hidden" style="max-width:720px;max-height:85vh">
+    <div class="bg-white rounded-xl w-full flex flex-col shadow-xl overflow-hidden" style="width:min(920px, calc(100vw - 2rem));max-height:90vh">
       <div class="flex items-center justify-between px-4 py-3 border-b shrink-0 bg-white">
         <h3 class="font-semibold">Invoice preview</h3>
         <div class="flex items-center gap-2">
@@ -561,33 +560,6 @@
       return typeof bpStatusBadge === "function" ? bpStatusBadge(st) : `<span>${esc(st)}</span>`;
     }
 
-    function invoiceServiceLines(r) {
-      const billed = Array.isArray(r?.lines) ? r.lines.filter((l) => l && (l.serviceName || l.serviceCost != null)) : [];
-      if (billed.length) {
-        return billed.map((l) => ({
-          description: l.serviceName || "Service",
-          qty: 1,
-          amount: Number(l.serviceCost) || 0,
-        }));
-      }
-      const desc = String(r?.description || "").trim();
-      if (desc && !/^pos (checkout|sale)$/i.test(desc) && !/^consultation /i.test(desc)) {
-        return [{ description: desc, qty: 1, amount: Number(r.amount) || 0 }];
-      }
-      return [];
-    }
-
-    function combinedServiceHtml(r) {
-      const lines = invoiceServiceLines(r);
-      if (!lines.length) {
-        const fallback = String(r.description || "").trim();
-        return `<div class="text-slate-500">${esc(fallback || "—")}</div>`;
-      }
-      return lines
-        .map((l) => `<div class="truncate" title="${esc(l.description)}">${esc(l.description)}</div>`)
-        .join("");
-    }
-
     function renderTable() {
       let rows = tabFilter(filteredRows());
       rows.sort((a, b) => String(b.issuedAt || "").localeCompare(String(a.issuedAt || "")));
@@ -605,7 +577,7 @@
 
       const body = document.getElementById("billingRows");
       if (!slice.length) {
-        body.innerHTML = `<tr><td colspan="6">${typeof bpEmptyState === "function" ? bpEmptyState("No invoices match your search.", "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-400">No invoices match your search.</div>`}</td></tr>`;
+        body.innerHTML = `<tr><td colspan="5">${typeof bpEmptyState === "function" ? bpEmptyState("No invoices match your search.", "search", "bp-empty-state--table") : `<div class="px-4 py-12 text-center text-slate-400">No invoices match your search.</div>`}</td></tr>`;
         return;
       }
       body.innerHTML = slice
@@ -618,7 +590,6 @@
               <div class="text-xs text-slate-500">${esc(r.ownerName || "—")}</div>
             </td>
             <td class="px-4 py-3 text-slate-600 hidden md:table-cell whitespace-nowrap">${esc(fmtDateTime(r.issuedAt))}</td>
-            <td class="px-4 py-3 text-slate-700 text-xs leading-5 max-w-[16rem]">${combinedServiceHtml(r)}</td>
             <td class="px-4 py-3 text-right font-semibold tabular-nums">₱${fmtMoney(r.amount)}</td>
             <td class="px-4 py-3">${statusPill(r.status)}</td>
           </tr>`;
@@ -638,9 +609,10 @@
       const netTotal = Number(r.amount) || Math.max(0, subtotal - discount);
       const paidAmt = isPaid ? netTotal : 0;
       document.getElementById("drawerBody").innerHTML = `
-        <div class="mb-4">${statusPill(r.status)}</div>
-        <div class="text-xs text-slate-500 uppercase tracking-wide">Invoice</div>
-        <div class="text-lg font-bold text-slate-900">${esc(invoiceNo(r))}</div>
+        <div class="flex items-center gap-3">
+          <div class="text-lg font-bold text-slate-900">${esc(invoiceNo(r))}</div>
+          ${statusPill(r.status)}
+        </div>
         <div class="text-xs text-slate-500 mt-1">${esc(fmtDateTime(r.issuedAt))}</div>
         <div class="mt-6 flex gap-3 items-center">
           <div class="w-14 h-14 rounded-full bg-slate-200 shrink-0 relative overflow-hidden flex items-center justify-center">
@@ -658,10 +630,7 @@
         <div class="mt-6 space-y-2 border-t border-slate-100 pt-4">
           <div class="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">Services</div>
           <div id="billDrawerLines" class="space-y-2"></div>
-          <div class="flex justify-between pt-3"><span>Subtotal</span><span class="font-medium tabular-nums">₱${fmtMoney(subtotal)}</span></div>
-          <div class="flex justify-between text-slate-500"><span>Discount</span><span class="tabular-nums">₱${fmtMoney(discount)}</span></div>
-          <div class="flex justify-between text-slate-500"><span>Tax</span><span>0%</span></div>
-          <div class="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-100"><span>Total</span><span class="tabular-nums">₱${fmtMoney(netTotal)}</span></div>
+          <div class="flex justify-between text-base font-bold text-slate-900 pt-3 border-t border-slate-100"><span>Total</span><span class="tabular-nums">₱${fmtMoney(netTotal)}</span></div>
           <div class="flex justify-between text-emerald-700 font-semibold"><span>Amount paid</span><span class="tabular-nums">${isPaid ? "₱" + fmtMoney(paidAmt) : "—"}</span></div>
           <div class="flex justify-between"><span>Balance</span><span class="tabular-nums">${isPaid ? "₱0.00" : "₱" + fmtMoney(netTotal)}</span></div>
         </div>
@@ -804,7 +773,8 @@
       return [{ description: "Service", qty: 1, amount: Number(r.amount) || 0 }];
     }
 
-    function billReceiptHtml(r, lines) {
+    function billReceiptHtml(r, lines, opts) {
+      const preview = !!(opts && opts.preview);
       const clinic = typeof getClinicSettings === "function" ? getClinicSettings() : {};
       const clinicName = esc(clinic.name || "Bayport Veterinary Clinic");
       const clinicAddress = esc(clinic.address || "");
@@ -828,18 +798,18 @@
           ? `<tr><td colspan="2" class="right">Discount</td><td class="right">−₱${fmtMoney(discount)}</td></tr>`
           : "";
       return `<!doctype html><html><head><meta charset="utf-8"/><style>
-        body{font-family:Arial,sans-serif;font-size:12px;padding:12px;color:#101828;margin:0}
-        .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-        .brand{display:flex;align-items:center;gap:10px}
-        .brand img{max-height:36px;max-width:72px;display:block;margin:0}
-        .invoice{font-size:16px;font-weight:700;color:#101828;margin:0}
-        .muted{color:#667085;font-size:11px;margin:2px 0 0}
-        .meta{text-align:right;font-size:11px;line-height:1.35}
+        body{font-family:Arial,sans-serif;font-size:${preview ? "16px" : "12px"};padding:${preview ? "28px 32px" : "12px"};color:#101828;margin:0}
+        .head{display:flex;justify-content:space-between;align-items:flex-start;gap:${preview ? "24px" : "12px"}}
+        .brand{display:flex;align-items:center;gap:${preview ? "14px" : "10px"}}
+        .brand img{max-height:${preview ? "56px" : "36px"};max-width:${preview ? "96px" : "72px"};display:block;margin:0}
+        .invoice{font-size:${preview ? "22px" : "16px"};font-weight:700;color:#101828;margin:0}
+        .muted{color:#667085;font-size:${preview ? "14px" : "11px"};margin:2px 0 0}
+        .meta{text-align:right;font-size:${preview ? "14px" : "11px"};line-height:1.45}
         .meta p{margin:0}
-        .who{margin:8px 0 0;font-size:12px}
-        table{width:100%;border-collapse:collapse;margin-top:8px}
-        th{font-size:11px;text-transform:uppercase;color:#667085;border-bottom:1px solid #EAECF0;padding:4px 2px;text-align:left;font-weight:600}
-        td{padding:4px 2px;border-bottom:1px solid #EAECF0}
+        .who{margin:${preview ? "16px" : "8px"} 0 0;font-size:${preview ? "16px" : "12px"}}
+        table{width:100%;border-collapse:collapse;margin-top:${preview ? "16px" : "8px"}}
+        th{font-size:${preview ? "13px" : "11px"};text-transform:uppercase;color:#667085;border-bottom:1px solid #EAECF0;padding:${preview ? "8px 4px" : "4px 2px"};text-align:left;font-weight:600}
+        td{padding:${preview ? "10px 4px" : "4px 2px"};border-bottom:1px solid #EAECF0}
         .right{text-align:right}
         .totalRow td{font-weight:600;border-top:1px solid #101828}
       </style></head><body>
@@ -898,7 +868,7 @@
       modal.classList.remove("hidden");
       modal.classList.add("flex");
       const lines = await resolveReceiptLines(row);
-      frame.srcdoc = billReceiptHtml(row, lines);
+      frame.srcdoc = billReceiptHtml(row, lines, { preview: true });
       if (typeof window.bayportFitPreviewFrame === "function") window.bayportFitPreviewFrame(frame);
     }
 

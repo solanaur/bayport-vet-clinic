@@ -424,7 +424,7 @@ const SIDEBAR_GROUPS = {
     { label: "Overview", open: true, keys: ["dashboard"] },
     { label: "Clinic Management", open: true, keys: ["billing", "inventory", "reports"] },
     { label: "System Administration", open: true, keys: ["manage-users"] },
-    { label: "Records & Audit", open: false, keys: ["activity-logs", "recycle-bin", "backups", "import-data", "health"] }
+    { label: "Records & Audit", open: true, keys: ["activity-logs", "recycle-bin", "backups", "import-data", "health"] }
   ],
   vet: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] }
@@ -827,8 +827,9 @@ window.renderSidebar = function (container, role, activeFile) {
     chev.textContent = "▼";
     sum.appendChild(tit);
     sum.appendChild(chev);
+    if (group.keepClosed) det.dataset.keepClosed = "1";
     det.addEventListener("toggle", () => {
-      if (!det.open && det.querySelector("button[data-sidebar-active='1']")) {
+      if (!group.keepClosed && !det.open && det.querySelector("button[data-sidebar-active='1']")) {
         det.open = true;
         return;
       }
@@ -842,10 +843,91 @@ window.renderSidebar = function (container, role, activeFile) {
 
   // Open the section that contains the current page (so users don't "lose" the highlight)
   container.querySelectorAll("details.sidebar-group").forEach((det) => {
+    if (det.dataset.keepClosed === "1") return;
     if (det.querySelector("button[data-sidebar-active='1']")) det.open = true;
   });
 
   if (typeof window.initBayportSidebar === "function") window.initBayportSidebar();
+  if (typeof window.maybeBayportAutoBackup === "function") window.maybeBayportAutoBackup();
+};
+
+function bayportBackupDayStamp() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+}
+
+function bayportBackupNote(text) {
+  let el = document.getElementById("bpAutoBackupNote");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "bpAutoBackupNote";
+    el.setAttribute("role", "status");
+    el.className = "fixed bottom-5 right-5 z-[80] max-w-sm rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg";
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  clearTimeout(el._hide);
+  el._hide = setTimeout(() => el.remove(), 7000);
+}
+
+async function bayportSaveAndDownloadBackup() {
+  const created = await Api.backups.create();
+  if (!created || !created.id) throw new Error("Backup did not finish.");
+  await Api.backups.download(created.id);
+  localStorage.setItem("bayport_auto_backup_day", bayportBackupDayStamp());
+  localStorage.setItem("bayport_auto_backup_file", created.id);
+  window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
+  return created;
+}
+
+/** One backup per day for an administrator, saved and downloaded. Manual backup stays available. */
+window.maybeBayportAutoBackup = async function maybeBayportAutoBackup() {
+  if (window.__bayportAutoBackupStarted || window.__bayportBackupBusy) return;
+  const role = window.canonicalStaffRole(window.getRole ? window.getRole() : "");
+  if (role !== "admin" || !window.Api || !window.Api.backups) return;
+  const day = bayportBackupDayStamp();
+  if (localStorage.getItem("bayport_auto_backup_day") === day) return;
+  window.__bayportAutoBackupStarted = true;
+  window.__bayportBackupBusy = true;
+  try {
+    bayportBackupNote("Saving today's clinic backup…");
+    const rows = await Api.backups.list();
+    const latest = (Array.isArray(rows) ? rows : [])
+      .map((row) => row && row.id)
+      .filter((id) => String(id || "").startsWith("bayport-" + day))
+      .sort()
+      .pop();
+    if (latest) {
+      if (localStorage.getItem("bayport_auto_backup_file") !== latest) {
+        await Api.backups.download(latest);
+        bayportBackupNote("Today's backup was downloaded.");
+      }
+      localStorage.setItem("bayport_auto_backup_day", day);
+      localStorage.setItem("bayport_auto_backup_file", latest);
+      window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
+      return;
+    }
+    await bayportSaveAndDownloadBackup();
+    bayportBackupNote("Today's backup was saved and downloaded.");
+  } catch (err) {
+    window.__bayportAutoBackupStarted = false;
+    bayportBackupNote(err && err.message ? err.message : "Automatic backup did not finish. Back up now is still available.");
+  } finally {
+    window.__bayportBackupBusy = false;
+  }
+};
+
+window.bayportCreateAndDownloadBackup = async function bayportCreateAndDownloadBackup() {
+  if (window.__bayportBackupBusy) throw new Error("A backup is already running.");
+  window.__bayportBackupBusy = true;
+  try {
+    const created = await bayportSaveAndDownloadBackup();
+    bayportBackupNote("Backup saved and downloaded.");
+    return created;
+  } finally {
+    window.__bayportBackupBusy = false;
+  }
 };
 
 const SIDEBAR_COLLAPSED_KEY = "bayport_sidebar_collapsed";
@@ -883,12 +965,50 @@ window.initBayportSidebar = function initBayportSidebar() {
     heading.textContent = "Menu";
     aside.insertBefore(heading, nav);
   }
-  nav.className = "flex flex-col gap-1 text-sm flex-1 min-h-0 overflow-hidden";
+  nav.className = "flex flex-col gap-1 text-sm flex-1 min-h-0 overflow-y-auto";
 
   if (!document.getElementById("bp-sidebar-styles")) {
     const style = document.createElement("style");
     style.id = "bp-sidebar-styles";
     style.textContent = `
+      html:has(#sidebarNav) { height: 100%; overflow: hidden; }
+      body:has(#sidebarNav) {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100dvh;
+        min-height: 0 !important;
+        overflow: hidden;
+      }
+      body:has(#sidebarNav) > div:has(#sidebarNav) {
+        flex: 1 1 auto;
+        min-height: 0 !important;
+        overflow: hidden;
+        align-items: stretch;
+      }
+      body:has(#sidebarNav) > div:has(#sidebarNav) > * { min-height: 0; }
+      aside:has(#sidebarNav) {
+        align-self: stretch;
+        max-height: 100%;
+        overflow: hidden;
+      }
+      body:has(#sidebarNav) main {
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 1.5rem !important;
+      }
+      body:has(#sidebarNav) main:has(> .overflow-y-auto) { padding: 0 !important; }
+      body:has(#sidebarNav) main > .overflow-y-auto { padding: 1.5rem !important; }
+      body:has(#sidebarNav) main > [class*="max-w-"],
+      body:has(#sidebarNav) main > .overflow-y-auto > [class*="max-w-"],
+      .adm-dash-container {
+        max-width: none !important;
+        width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+      }
       aside.bp-sidebar.bp-sidebar--collapsed {
         width: 0 !important;
         min-width: 0 !important;
@@ -898,6 +1018,7 @@ window.initBayportSidebar = function initBayportSidebar() {
         overflow: hidden;
       }
       aside.bp-sidebar.bp-sidebar--collapsed > * { visibility: hidden; }
+      details.sidebar-group:not([open]) > :not(summary) { display: none !important; }
     `;
     document.head.appendChild(style);
   }

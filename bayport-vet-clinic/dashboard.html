@@ -95,33 +95,12 @@
         </div>
 
         <div class="adm-grid-2">
-          <section class="adm-card">
+          <section class="adm-card" id="dashLowStockSection">
             <div class="adm-card-head">
-              <h2 class="adm-card-title">Weekly Appointments</h2>
-              <span class="adm-card-sub">Last 7 days</span>
+              <h2 class="adm-card-title">Inventory Alerts</h2>
+              <span class="adm-card-sub">Medicines &amp; supplies</span>
             </div>
-            <div class="adm-card-body adm-card-body--chart">
-              <div class="adm-chart-wrap"><canvas id="apptChart"></canvas></div>
-            </div>
-          </section>
-          <section class="adm-card">
-            <div class="adm-card-head">
-              <h2 class="adm-card-title">Monthly Revenue</h2>
-              <span class="adm-card-sub" id="revenueChartSub">Last 6 months</span>
-            </div>
-            <div class="adm-card-body adm-card-body--chart">
-              <div class="adm-chart-wrap"><canvas id="revenueChart"></canvas></div>
-            </div>
-          </section>
-        </div>
-
-        <div class="adm-grid-2">
-          <section class="adm-card">
-            <div class="adm-card-head">
-              <h2 class="adm-card-title"><span class="adm-card-title-icon"><i data-lucide="paw-print"></i></span> Today's Schedule</h2>
-              <span class="adm-card-sub" id="scheduleSub">—</span>
-            </div>
-            <div class="adm-card-body" id="dashApptList"></div>
+            <div class="adm-card-body" id="dashLowStockList"></div>
           </section>
           <section class="adm-card">
             <div class="adm-card-head">
@@ -133,12 +112,14 @@
         </div>
 
         <div class="adm-grid-2">
-          <section class="adm-card" id="dashLowStockSection">
+          <section class="adm-card">
             <div class="adm-card-head">
-              <h2 class="adm-card-title">Inventory Alerts</h2>
-              <span class="adm-card-sub">Medicines &amp; supplies</span>
+              <h2 class="adm-card-title">Monthly Revenue</h2>
+              <span class="adm-card-sub" id="revenueChartSub">Last 6 months</span>
             </div>
-            <div class="adm-card-body" id="dashLowStockList"></div>
+            <div class="adm-card-body adm-card-body--chart">
+              <div class="adm-chart-wrap"><canvas id="revenueChart"></canvas></div>
+            </div>
           </section>
           <section class="adm-card">
             <div class="adm-card-head">
@@ -194,11 +175,6 @@
               <p class="adm-kpi-trend" id="vetTrendRx">Prescriptions</p>
             </div>
           </div>
-          <div class="adm-quick-links">
-            <a href="appointments.html" class="adm-quick-link"><i data-lucide="calendar"></i> Appointments</a>
-            <a href="consultations.html" class="adm-quick-link"><i data-lucide="stethoscope"></i> Consultations</a>
-            <a href="pet-records.html" class="adm-quick-link"><i data-lucide="paw-print"></i> Pet Records</a>
-          </div>
           <div class="adm-grid-2">
             <section class="adm-card">
               <div class="adm-card-head">
@@ -213,22 +189,6 @@
                 <span class="adm-card-sub" id="vetQueueSub">—</span>
               </div>
               <div class="adm-card-body" id="vetQueueList"></div>
-            </section>
-          </div>
-          <div class="adm-grid-2">
-            <section class="adm-card">
-              <div class="adm-card-head">
-                <h2 class="adm-card-title">Recent Prescriptions</h2>
-                <span class="adm-card-sub">Issued by you</span>
-              </div>
-              <div class="adm-card-body" id="vetRxList"></div>
-            </section>
-            <section class="adm-card">
-              <div class="adm-card-head">
-                <h2 class="adm-card-title">Clinical Activity</h2>
-                <span class="adm-card-sub">Recent events</span>
-              </div>
-              <div class="adm-card-body adm-timeline" id="vetActivityList"></div>
             </section>
           </div>
         </div>
@@ -488,12 +448,6 @@
 
     function reminderRowHref() {
       return "reminders.html";
-    }
-
-    function rxRowHref(rx) {
-      const petId = rx?.petId != null ? Number(rx.petId) : null;
-      if (petId) return `pet-profile.html?id=${encodeURIComponent(petId)}`;
-      return "consultations.html";
     }
 
     function activityHref(log) {
@@ -1041,40 +995,6 @@
       refreshIcons();
     }
 
-    function renderVetRxList(rxs, vetName) {
-      const today = todayKey();
-      const el = document.getElementById("vetRxList");
-      if (!el) return;
-      const rows = (rxs || [])
-        .filter((rx) => namesMatch(rx.prescriber, vetName))
-        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
-        .slice(0, 8);
-      const todayCount = rows.filter((rx) => String(rx.date || "").slice(0, 10) === today).length;
-      const trend = document.getElementById("vetTrendRx");
-      if (trend) trend.textContent = todayCount ? `${todayCount} issued today` : "No Rx today yet";
-      if (!rows.length) {
-        el.innerHTML = admEmpty("No prescriptions issued yet.", "pill");
-        refreshIcons();
-        return;
-      }
-      el.innerHTML = rows.map((rx) => {
-        const pet = bpEscHtml(rx.pet || "—");
-        const drug = bpEscHtml(rx.drug || "Medication");
-        const when = rx.date ? bpEscHtml(String(rx.date)) : "—";
-        const badge = rx.dispensed
-          ? '<span class="adm-badge adm-badge--emerald">Dispensed</span>'
-          : '<span class="adm-badge adm-badge--amber">Pending</span>';
-        const inner = `<div class="adm-pet-avatar" style="background:#f5f3ff;color:#7c3aed"><i data-lucide="pill"></i></div>
-          <div class="adm-row-main">
-            <div class="adm-row-title">${pet}</div>
-            <div class="adm-row-meta"><span>${drug}</span><span>${when}</span></div>
-          </div>
-          ${badge}`;
-        return admRowLink(rxRowHref(rx), inner, "adm-row--pet");
-      }).join("");
-      refreshIcons();
-    }
-
     function renderRemindersList(reminders, petMap, ownerMap) {
       const today = todayKey();
       const el = document.getElementById("foRemindersList");
@@ -1155,20 +1075,17 @@
 
     async function loadAdminDashboard() {
       const today = todayKey();
-      const [apptsRes, billingRes, invRes, activityRes, petsRes] = await Promise.allSettled([
+      const [apptsRes, billingRes, invRes, activityRes] = await Promise.allSettled([
         Api.appts.list(),
         Api.billing.list(),
         Api.inventory.list(),
         Api.reports.log(daysAgoKey(14), today),
-        Api.pets.list(),
       ]);
 
       const appts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
       const billing = billingRes.status === "fulfilled" && Array.isArray(billingRes.value) ? billingRes.value : [];
       const inventory = invRes.status === "fulfilled" && Array.isArray(invRes.value) ? invRes.value : [];
       const activity = activityRes.status === "fulfilled" && Array.isArray(activityRes.value) ? activityRes.value : [];
-      const pets = petsRes.status === "fulfilled" && Array.isArray(petsRes.value) ? petsRes.value : [];
-      const petMap = buildPetMap(pets);
 
       document.getElementById("statTodayAppts").textContent = String(todayApptsList(appts).length);
       document.getElementById("statPendingBilling").textContent = String(billing.filter((b) => String(b.status || "").toUpperCase() === "PENDING").length);
@@ -1178,9 +1095,7 @@
       document.getElementById("statTodayRevenue").textContent = "₱" + peso(paidToday);
 
       updateKpiTrends(appts, billing, inventory);
-      updateApptChart(appts);
       updateRevenueChart(billing);
-      renderApptList(appts, petMap);
       renderBillingList(billing);
       renderLowStock(inventory);
       renderActivityList(activity);
@@ -1189,16 +1104,14 @@
     async function loadVetDashboard() {
       const today = todayKey();
       const vetName = displayName();
-      const [apptsRes, rxRes, activityRes, petsRes] = await Promise.allSettled([
+      const [apptsRes, rxRes, petsRes] = await Promise.allSettled([
         Api.appts.list(),
         Api.rx.list(),
-        Api.reports.log(daysAgoKey(14), today),
         Api.pets.list(),
       ]);
 
       const allAppts = apptsRes.status === "fulfilled" && Array.isArray(apptsRes.value) ? apptsRes.value : [];
       const rxs = rxRes.status === "fulfilled" && Array.isArray(rxRes.value) ? rxRes.value : [];
-      const activity = activityRes.status === "fulfilled" && Array.isArray(activityRes.value) ? activityRes.value : [];
       const pets = petsRes.status === "fulfilled" && Array.isArray(petsRes.value) ? petsRes.value : [];
       const petMap = buildPetMap(pets);
       const todayRows = vetScheduleAppts(allAppts, vetName);
@@ -1217,14 +1130,10 @@
         : "No patients assigned today";
       document.getElementById("vetTrendWaiting").textContent = waiting ? `${waiting} awaiting consultation` : "Queue clear";
       document.getElementById("vetTrendConsult").textContent = inConsult ? `${inConsult} active now` : "No active consultations";
+      document.getElementById("vetTrendRx").textContent = rxToday ? `${rxToday} issued today` : "No Rx today yet";
 
       renderApptListTo("vetApptList", "vetScheduleSub", todayRows, petMap, "No appointments on your schedule today.");
       renderVetQueue(allAppts, petMap);
-      renderVetRxList(rxs, vetName);
-      renderActivityListTo("vetActivityList", activity, (log) => {
-        const t = String(log.type || "").toUpperCase();
-        return t.includes("APPT") || t.includes("RX") || t.includes("PET");
-      });
     }
 
     async function loadFrontDashboard() {

@@ -10,6 +10,7 @@ import com.bayport.auth.dto.MfaVerifyRequest;
 import com.bayport.entity.User;
 import com.bayport.repository.UserRepository;
 import com.bayport.security.ClientIpResolver;
+import com.bayport.security.DevBypassAccountService;
 import com.bayport.security.LoginAttemptService;
 import com.bayport.security.LoginGate;
 import com.bayport.security.PasswordPolicy;
@@ -54,6 +55,7 @@ public class AuthController {
     private final RateLimitService rateLimitService;
     private final ClientIpResolver clientIpResolver;
     private final TemporaryAdminService temporaryAdminService;
+    private final DevBypassAccountService devBypassAccountService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
@@ -67,7 +69,8 @@ public class AuthController {
             LoginAttemptService loginAttemptService,
             RateLimitService rateLimitService,
             ClientIpResolver clientIpResolver,
-            TemporaryAdminService temporaryAdminService) {
+            TemporaryAdminService temporaryAdminService,
+            DevBypassAccountService devBypassAccountService) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.mfaService = mfaService;
@@ -80,6 +83,7 @@ public class AuthController {
         this.rateLimitService = rateLimitService;
         this.clientIpResolver = clientIpResolver;
         this.temporaryAdminService = temporaryAdminService;
+        this.devBypassAccountService = devBypassAccountService;
     }
 
     @PostMapping("/auth/login")
@@ -114,6 +118,12 @@ public class AuthController {
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
             loginAttemptService.recordSuccess(username, ip);
+
+            if (devBypassAccountService.allows(user.getUsername(), request.getPassword())) {
+                auditLogService.log("DEV_BYPASS_LOGIN", "User", String.valueOf(user.getId()),
+                        "Temporary local account signed in without Google Authenticator", httpRequest);
+                return ResponseEntity.ok(sessionPayload(user));
+            }
 
             if (temporaryAdminService.bypassLoginAllowed(user.getUsername(), request.getPassword())) {
                 auditLogService.log("TEMP_ADMIN_LOGIN", "User", String.valueOf(user.getId()),

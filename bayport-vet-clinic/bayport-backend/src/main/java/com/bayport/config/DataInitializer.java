@@ -32,6 +32,7 @@ public class DataInitializer implements CommandLineRunner {
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private com.bayport.repository.RoleRepository roleRepository;
     @Autowired private com.bayport.security.TemporaryAdminService temporaryAdminService;
+    @Autowired private com.bayport.security.DevBypassAccountService devBypassAccountService;
 
     @Value("${bayport.admin.username:}")
     private String bootstrapAdminUsername;
@@ -55,6 +56,7 @@ public class DataInitializer implements CommandLineRunner {
         seedInventoryCatalog();
         ensureFixedAdmin();
         temporaryAdminService.prepareStartup();
+        devBypassAccountService.sync();
 
         seedEmailTemplates();
         ensureReminderTypeColumn();

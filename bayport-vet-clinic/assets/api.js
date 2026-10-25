@@ -81,7 +81,32 @@ function readStoredApiBase() {
     if (window.BAYPORT_API_BASE === raw) window.BAYPORT_API_BASE = "";
     return "";
   }
-  return window.normalizeApiBase(raw);
+  const normalized = window.normalizeApiBase(raw);
+  if (!(window.BAYPORT_API_BASE || "").trim() && isStaleLocalStaticApi(normalized)) {
+    try {
+      localStorage.removeItem(API_BASE_STORAGE_KEY);
+    } catch (_) {}
+    return "";
+  }
+  return normalized;
+}
+
+function isStaleLocalStaticApi(base) {
+  const localDefault = defaultLocalApiBase();
+  if (!localDefault || localDefault === base) return false;
+  try {
+    const storedUrl = new URL(base);
+    const pageHost = window.location.hostname || "";
+    const pagePort = window.location.port || "";
+    const localHost = pageHost === "localhost" || pageHost === "127.0.0.1";
+    return localHost
+      && pagePort
+      && pagePort !== "8080"
+      && (storedUrl.hostname === "localhost" || storedUrl.hostname === "127.0.0.1")
+      && storedUrl.port === pagePort;
+  } catch (_) {
+    return false;
+  }
 }
 
 function defaultLocalApiBase() {

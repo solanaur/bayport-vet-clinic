@@ -6,23 +6,6 @@
   <title>Appointment Queue - Bayport</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/main.min.css" rel="stylesheet"/>
-  <script>
-    function loadFullCalendar() {
-      return new Promise((resolve, reject) => {
-        if (typeof FullCalendar !== "undefined" && FullCalendar.Calendar) {
-          resolve();
-          return;
-        }
-        const s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js";
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("FullCalendar failed to load"));
-        document.head.appendChild(s);
-      });
-    }
-    loadFullCalendar().catch(() => {});
-  </script>
   <link rel="stylesheet" href="assets/bayport-design.css">
   <style>
     :root {
@@ -49,16 +32,6 @@
     .status-wait { background: var(--bp-orange-bg); color: var(--bp-orange-text); }
     .status-done { background: var(--bp-gray-pill-bg); color: var(--bp-gray-pill-text); }
     .status-can { background: #fee2e2; color: #991b1b; }
-    .fc { font-family: Inter, sans-serif; font-size: 13px; }
-    .fc-toolbar-title { font-size: 1rem !important; font-weight: 600; }
-    .fc-button { border-radius: 6px !important; }
-    #queueSidebarCalendar .fc { font-size: 11px; }
-    #queueSidebarCalendar .fc-toolbar-title { font-size: 0.8125rem !important; }
-    #queueSidebarCalendar .fc-toolbar { flex-wrap: wrap; gap: 0.25rem; }
-    #queueSidebarCalendar .fc-button { padding: 0.2rem 0.45rem !important; font-size: 0.6875rem !important; }
-    #queueSidebarCalendar .fc-daygrid-day-number { font-size: 0.6875rem; padding: 2px 4px; }
-    #queueSidebarCalendar .fc-col-header-cell-cushion { font-size: 0.625rem; padding: 2px 0; }
-    #queueSidebarCalendar .fc-daygrid-event { font-size: 0.625rem; margin-top: 1px; }
   </style>
 </head>
 <body class="min-h-screen flex flex-col text-gray-800" style="background-color: var(--bp-bg);">
@@ -81,14 +54,8 @@
           <div class="p-5 lg:p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h2 class="bp-page-title tracking-tight">Appointment Queue</h2>
-              <p id="queueScopeHint" class="hidden" aria-hidden="true"></p>
             </div>
             <div class="flex flex-wrap gap-2 shrink-0 items-center">
-              <div class="inline-flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                <button type="button" id="scopeUpcomingBtn" class="px-3 py-2 font-semibold bg-[var(--bp-blue)] text-white">Upcoming</button>
-                <button type="button" id="scopeTodayBtn" class="px-3 py-2 font-semibold bg-white text-gray-700 hover:bg-gray-50">Today only</button>
-              </div>
-              <a href="appointments-calendar.html" class="px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50">Calendar view</a>
               <button type="button" id="walkInBtn" class="hidden px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90" style="background-color: var(--bp-blue);">
                 + Add Walk-in
               </button>
@@ -152,16 +119,6 @@
           </div>
         </section>
 
-        <section class="rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/80">
-            <h3 class="text-sm font-semibold text-gray-800">Calendar</h3>
-            <a href="appointments-calendar.html" class="text-xs font-medium hover:underline" style="color: var(--bp-blue);">Full view</a>
-          </div>
-          <div class="p-2 sm:p-3">
-            <div id="queueSidebarCalendar" class="min-h-[260px] w-full overflow-x-auto"></div>
-          </div>
-        </section>
-
         <section class="rounded-xl border border-gray-200 shadow-sm p-4">
           <h3 class="text-sm font-semibold text-gray-800 mb-3">Queue Summary</h3>
           <div class="grid grid-cols-2 gap-3">
@@ -200,18 +157,6 @@
               </button>
             </li>
             <li>
-              <button type="button" id="qaCalendar" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
-                <span class="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                </span>
-                <span class="flex-1 min-w-0">
-                  <span class="block text-sm font-semibold text-gray-800">View Calendar</span>
-                  <span class="block text-xs text-gray-500">Month view of all scheduled visits</span>
-                </span>
-                <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-              </button>
-            </li>
-            <li>
               <button type="button" id="qaRefresh" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors">
                 <span class="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -230,21 +175,6 @@
   </div>
 
   <div id="modalRoot"></div>
-
-  <!-- Calendar modal -->
-  <div id="calendarModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/45" aria-hidden="true">
-    <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-        <h3 class="text-lg font-semibold text-gray-800">Appointments Calendar</h3>
-        <button type="button" id="calendarModalClose" class="p-2 rounded-lg hover:bg-gray-100 text-gray-500">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-        </button>
-      </div>
-      <div class="p-4 overflow-auto flex-1">
-        <div id="queueCalendarFc" class="min-h-[360px]"></div>
-      </div>
-    </div>
-  </div>
 
   <div id="actionMenuRoot"></div>
 
@@ -385,10 +315,7 @@
     let allToday = [];
     let enriched = [];
     let activeFilter = "queue";
-    let dateScope = localStorage.getItem("apptDateScope") || "upcoming";
     let openMenuId = null;
-    let queueCalendar = null;
-    let sidebarCalendar = null;
     let elapsedTimer = null;
     let currentServing = null;
 
@@ -421,28 +348,9 @@
       const horizonIso = horizon.toISOString().slice(0, 10);
       return appts.filter((a) => {
         const d = String(a.date || "").slice(0, 10);
-        if (!d) return dateScope === "upcoming";
-        if (dateScope === "today") return d === todayIso;
+        if (!d) return true;
         return d >= todayIso && d <= horizonIso;
       });
-    }
-
-    function updateDateScopeUi() {
-      const up = document.getElementById("scopeUpcomingBtn");
-      const td = document.getElementById("scopeTodayBtn");
-      const hint = document.getElementById("queueScopeHint");
-      if (up && td) {
-        const upActive = dateScope === "upcoming";
-        up.className = upActive
-          ? "px-3 py-2 font-semibold bg-[var(--bp-blue)] text-white"
-          : "px-3 py-2 font-semibold bg-white text-gray-700 hover:bg-gray-50";
-        td.className = !upActive
-          ? "px-3 py-2 font-semibold bg-[var(--bp-blue)] text-white"
-          : "px-3 py-2 font-semibold bg-white text-gray-700 hover:bg-gray-50";
-      }
-      if (hint) {
-        hint.textContent = "";
-      }
     }
 
     function petPhotoInner(pet) {
@@ -485,7 +393,6 @@
       renderTable();
       renderServing();
       renderSummary();
-      renderSidebarCalendar().catch((e) => console.warn("Sidebar calendar:", e));
     }
 
     function countsByCategory(rows) {
@@ -513,7 +420,6 @@
         { id: "inConsultation", label: "In Consultation", count: c.inConsultation },
         { id: "completed", label: "Completed", count: c.completed },
         { id: "cancelled", label: "Cancelled", count: c.cancelled },
-        { id: "all", label: "All", count: c.total },
       ];
       document.getElementById("filterTabs").innerHTML = tabs
         .map(
@@ -537,7 +443,6 @@
           return cat === "waiting" || cat === "inConsultation";
         });
       }
-      if (activeFilter === "all") return enriched;
       return enriched.filter((r) => statusCategory(r.status) === activeFilter);
     }
 
@@ -605,7 +510,6 @@
 
       const shown = sorted.length;
       const baseCount = baseRowsForFilter().length;
-      const totalToday = countsByCategory(enriched).total;
       const filterLabel =
         activeFilter === "queue"
           ? "queue"
@@ -615,14 +519,8 @@
               ? "in consultation"
               : activeFilter === "completed"
                 ? "completed"
-                : activeFilter === "cancelled"
-                  ? "cancelled"
-                  : "";
-      if (activeFilter === "all") {
-        document.getElementById("queueFooterLeft").textContent = `Showing ${shown} of ${totalToday} appointment${totalToday === 1 ? "" : "s"}`;
-      } else {
-        document.getElementById("queueFooterLeft").textContent = `Showing ${shown} of ${baseCount} appointment${baseCount === 1 ? "" : "s"} (${filterLabel})`;
-      }
+                : "cancelled";
+      document.getElementById("queueFooterLeft").textContent = `Showing ${shown} of ${baseCount} appointment${baseCount === 1 ? "" : "s"} (${filterLabel})`;
     }
 
     function isAssignedVet(a) {
@@ -1056,123 +954,6 @@
       }
     };
 
-    function getStatusColor(status) {
-      const s = (status || "").toLowerCase();
-      if (s === "done") return "#a7f3d0";
-      if (s === "approved by vet") return "#bfdbfe";
-      if (s === "pending") return "#fde68a";
-      if (s === "cancelled") return "#fecaca";
-      return "#bfdbfe";
-    }
-
-    function buildCalendarEvents(calRows) {
-      return calRows.map((apt) => {
-        const timeDisplay = apt.time ? apt.time.substring(0, 5) : "";
-        const title = timeDisplay ? `${timeDisplay} ${apt.petName}` : apt.petName;
-        const eventColor = getStatusColor(apt.status);
-        return {
-          id: `appt-${apt.id}`,
-          title,
-          start: apt.date,
-          backgroundColor: eventColor,
-          borderColor: eventColor,
-          extendedProps: { appointment: apt },
-        };
-      });
-    }
-
-    async function getCalendarRows() {
-      if (window.USE_API) {
-        try {
-          const u = localStorage.getItem("username");
-          const full = role === "vet" ? (await Api.appts.list(u)) || [] : (await Api.appts.list()) || [];
-          return await Promise.all(
-            full.map(async (apt) => {
-              let name = "Pet";
-              try {
-                name = (typeof window.petName === "function" ? await window.petName(apt.petId) : name) || name;
-              } catch (_) {}
-              return { ...apt, petName: name };
-            }),
-          );
-        } catch (_) {
-          return enriched;
-        }
-      }
-      return enriched;
-    }
-
-    async function renderSidebarCalendar() {
-      const el = document.getElementById("queueSidebarCalendar");
-      if (!el) return;
-      await loadFullCalendar();
-      const FC = typeof FullCalendar !== "undefined" ? FullCalendar : window.FullCalendar;
-      if (!FC?.Calendar) {
-        el.innerHTML = "<p class='text-red-600 text-xs p-2'>Calendar could not load.</p>";
-        return;
-      }
-      const calRows = await getCalendarRows();
-      if (sidebarCalendar) {
-        sidebarCalendar.destroy();
-        sidebarCalendar = null;
-      }
-      el.innerHTML = "";
-      sidebarCalendar = new FC.Calendar(el, {
-        initialView: "dayGridMonth",
-        height: "auto",
-        headerToolbar: { left: "prev", center: "title", right: "next" },
-        events: buildCalendarEvents(calRows),
-        eventClick(info) {
-          const apt = info.event.extendedProps.appointment;
-          alert(
-            `Pet: ${apt.petName}\nOwner: ${apt.owner}\nTime: ${apt.time}\nVet: ${apt.vet}\nStatus: ${apt.status}`,
-          );
-          info.jsEvent.preventDefault();
-        },
-        dateClick(info) {
-          location.href = `appointments-calendar.html?date=${info.dateStr}`;
-        },
-      });
-      sidebarCalendar.render();
-    }
-
-    async function openCalendarModal() {
-      document.getElementById("calendarModal").classList.remove("hidden");
-      document.getElementById("calendarModal").classList.add("flex");
-      await loadFullCalendar();
-      const FC = typeof FullCalendar !== "undefined" ? FullCalendar : window.FullCalendar;
-      const el = document.getElementById("queueCalendarFc");
-      if (!FC?.Calendar) {
-        el.innerHTML = "<p class='text-red-600 text-sm p-4'>Calendar could not load.</p>";
-        return;
-      }
-      let calRows = await getCalendarRows();
-      if (queueCalendar) {
-        queueCalendar.destroy();
-        queueCalendar = null;
-      }
-      el.innerHTML = "";
-      queueCalendar = new FC.Calendar(el, {
-        initialView: "dayGridMonth",
-        height: "auto",
-        headerToolbar: { left: "prev", center: "title", right: "next" },
-        events: buildCalendarEvents(calRows),
-        eventClick(info) {
-          const apt = info.event.extendedProps.appointment;
-          alert(
-            `Pet: ${apt.petName}\nOwner: ${apt.owner}\nTime: ${apt.time}\nVet: ${apt.vet}\nStatus: ${apt.status}`,
-          );
-          info.jsEvent.preventDefault();
-        },
-      });
-      queueCalendar.render();
-    }
-
-    function closeCalendarModal() {
-      document.getElementById("calendarModal").classList.add("hidden");
-      document.getElementById("calendarModal").classList.remove("flex");
-    }
-
     if (canManage) {
       document.getElementById("walkInBtn").classList.remove("hidden");
       document.getElementById("qaWalkIn").classList.remove("hidden");
@@ -1181,27 +962,6 @@
     }
 
     document.getElementById("qaRefresh").addEventListener("click", () => loadQueueData());
-    document.getElementById("qaCalendar").addEventListener("click", () => {
-      location.href = "appointments-calendar.html";
-    });
-    document.getElementById("calendarModalClose").addEventListener("click", closeCalendarModal);
-    document.getElementById("calendarModal").addEventListener("click", (e) => {
-      if (e.target.id === "calendarModal") closeCalendarModal();
-    });
-
-    document.getElementById("scopeUpcomingBtn")?.addEventListener("click", () => {
-      dateScope = "upcoming";
-      localStorage.setItem("apptDateScope", dateScope);
-      updateDateScopeUi();
-      loadQueueData().catch((e) => console.error(e));
-    });
-    document.getElementById("scopeTodayBtn")?.addEventListener("click", () => {
-      dateScope = "today";
-      localStorage.setItem("apptDateScope", dateScope);
-      updateDateScopeUi();
-      loadQueueData().catch((e) => console.error(e));
-    });
-    updateDateScopeUi();
 
     setInterval(() => loadQueueData(), 45000);
 

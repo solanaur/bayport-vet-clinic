@@ -369,7 +369,14 @@ function launchBackendProcess() {
       cwd: FRONTEND_ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
-      env: { ...process.env, ...loadMailEnv(), ...loadNamedEnv('sms.env'), ...loadNamedEnv('local.secrets.env') },
+      env: {
+        ...process.env,
+        ...loadMailEnv(),
+        ...loadNamedEnv('sms.env'),
+        ...loadNamedEnv('local.secrets.env'),
+        // Local Electron only. Packaged clinic installs keep Google Authenticator.
+        ...(isDev ? { BAYPORT_DEV_BYPASS_LOGINS: 'true' } : {}),
+      },
     });
 
     let backendOutput = '';

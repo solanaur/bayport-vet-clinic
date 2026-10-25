@@ -17,24 +17,28 @@
     <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
       <div class="max-w-3xl mx-auto space-y-5">
         <h1 class="bp-page-title">Import records</h1>
-        <p class="text-sm text-gray-600">Download a template, check the file, then save. A file with any error is not saved.</p>
-        <label class="block text-sm">Kind
-          <select id="kind" class="mt-1 w-full border rounded-md px-3 py-2">
+        <p class="text-sm text-gray-600">Bring an existing spreadsheet into the clinic. The CSV is read once and is not stored as a file. Each accepted row is saved in the clinic database and shows up on the page named below.</p>
+        <label class="block text-sm font-medium text-gray-700">What are you importing?
+          <select id="kind" class="mt-1 w-full border rounded-md px-3 py-2 font-normal">
             <option value="owners">Owners</option>
             <option value="pets">Pets</option>
             <option value="vaccinations">Vaccinations</option>
             <option value="inventory">Inventory</option>
           </select>
         </label>
-        <div class="flex gap-2">
+        <div id="destination" class="bg-white border border-gray-200 rounded-lg p-4 text-sm"></div>
+        <div class="flex flex-wrap gap-2">
           <button id="templateBtn" class="bp-btn-primary" type="button">Download template</button>
         </div>
-        <input id="file" type="file" accept=".csv,text/csv" class="text-sm"/>
-        <div class="flex gap-2">
+        <label class="block text-sm font-medium text-gray-700">CSV file
+          <input id="file" type="file" accept=".csv,text/csv" class="mt-1 block w-full text-sm font-normal"/>
+          <span id="fileName" class="mt-1 block text-xs font-normal text-gray-500">No file chosen.</span>
+        </label>
+        <div class="flex flex-wrap gap-2">
           <button id="previewBtn" class="bp-btn-primary" type="button">Preview</button>
           <button id="commitBtn" class="px-3 py-2 bg-green-700 text-white rounded-md text-sm" type="button">Save import</button>
         </div>
-        <pre id="result" class="text-sm whitespace-pre-wrap bg-white border rounded-md p-4"></pre>
+        <div id="result" class="hidden bg-white border border-gray-200 rounded-lg p-4 text-sm space-y-2"></div>
       </div>
     </main>
   </div>
@@ -47,26 +51,134 @@
     if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     renderSidebar(document.getElementById("sidebarNav"), getRole(), "import-data.html");
 
+    const DESTINATIONS = {
+      owners: {
+        label: "owners",
+        page: "Pet Records",
+        href: "pet-records.html",
+        detail: "Saved as clients. They show up when you add or search a pet by owner name or phone."
+      },
+      pets: {
+        label: "pets",
+        page: "Pet Records",
+        href: "pet-records.html",
+        detail: "Each row becomes a pet, linked to the owner who already has that phone number. Import owners first."
+      },
+      vaccinations: {
+        label: "vaccinations",
+        page: "the pet’s record",
+        href: "pet-records.html",
+        detail: "Each row is added to that pet’s medical history as a vaccination. Open the pet from Pet Records to see it."
+      },
+      inventory: {
+        label: "inventory items",
+        page: "Inventory",
+        href: "inventory.html",
+        detail: "Each row becomes a stock item, matched by SKU so the same code is not added twice."
+      }
+    };
+
+    function destination() {
+      return DESTINATIONS[document.getElementById("kind").value] || DESTINATIONS.owners;
+    }
+
+    function showDestination() {
+      const where = destination();
+      const host = document.getElementById("destination");
+      host.replaceChildren();
+      const title = document.createElement("p");
+      title.className = "font-semibold text-gray-900";
+      title.textContent = "These records will appear in " + where.page + ".";
+      const detail = document.createElement("p");
+      detail.className = "mt-1 text-gray-600";
+      detail.textContent = where.detail;
+      const link = document.createElement("a");
+      link.href = where.href;
+      link.className = "mt-2 inline-block font-semibold text-[var(--soft-teal,#0F5CC0)] hover:underline";
+      link.textContent = "Open " + where.page;
+      host.append(title, detail, link);
+    }
+
     function authHeaders() {
       const token = localStorage.getItem("token") || localStorage.getItem("jwt");
       return { Authorization: token ? `Bearer ${token}` : "" };
     }
 
     function parseCsv(text) {
-      const lines = text.replace(/\r/g, "").split("\n").filter((line) => line.trim());
-      if (!lines.length) return [];
-      const headers = lines[0].split(",").map((cell) => cell.trim());
-      return lines.slice(1).map((line) => {
-        const cells = line.split(",");
-        const row = {};
-        headers.forEach((header, index) => { row[header] = (cells[index] || "").trim(); });
-        return row;
+      const rows = [];
+      let row = [];
+      let cell = "";
+      let quoted = false;
+      const src = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+      for (let i = 0; i < src.length; i++) {
+        const ch = src[i];
+        if (quoted) {
+          if (ch === '"' && src[i + 1] === '"') { cell += '"'; i++; }
+          else if (ch === '"') quoted = false;
+          else cell += ch;
+        } else if (ch === '"') quoted = true;
+        else if (ch === ",") { row.push(cell.trim()); cell = ""; }
+        else if (ch === "\n") {
+          row.push(cell.trim());
+          if (row.some((value) => value)) rows.push(row);
+          row = [];
+          cell = "";
+        } else cell += ch;
+      }
+      if (cell || row.length) {
+        row.push(cell.trim());
+        if (row.some((value) => value)) rows.push(row);
+      }
+      if (!rows.length) return [];
+      const headers = rows[0];
+      return rows.slice(1).map((cells) => {
+        const record = {};
+        headers.forEach((header, index) => { record[header] = cells[index] || ""; });
+        return record;
       });
     }
+
+    function showResult(message, errors, href, linkText) {
+      const host = document.getElementById("result");
+      host.classList.remove("hidden");
+      host.replaceChildren();
+      const line = document.createElement("p");
+      line.className = "text-gray-800";
+      line.textContent = message;
+      host.appendChild(line);
+      if (errors && errors.length) {
+        const list = document.createElement("ul");
+        list.className = "list-disc pl-5 text-red-700 space-y-1";
+        errors.forEach((error) => {
+          const item = document.createElement("li");
+          item.textContent = "Row " + (error.row || "?") + ": " + (error.message || "Could not read this row.");
+          list.appendChild(item);
+        });
+        host.appendChild(list);
+      }
+      if (href) {
+        const link = document.createElement("a");
+        link.href = href;
+        link.className = "inline-block font-semibold text-[var(--soft-teal,#0F5CC0)] hover:underline";
+        link.textContent = linkText || "Open the records";
+        host.appendChild(link);
+      }
+    }
+
+    document.getElementById("kind").addEventListener("change", showDestination);
+    document.getElementById("file").addEventListener("change", () => {
+      const file = document.getElementById("file").files[0];
+      document.getElementById("fileName").textContent = file ? file.name : "No file chosen.";
+    });
+    showDestination();
 
     document.getElementById("templateBtn").onclick = async () => {
       const kind = document.getElementById("kind").value;
       const response = await fetch(`${window.API_BASE}/admin/import/${kind}/template`, { headers: authHeaders() });
+      if (!response.ok) {
+        showResult("Could not download the template.");
+        return;
+      }
       const text = await response.text();
       const blob = new Blob([text], { type: "text/csv" });
       const link = document.createElement("a");
@@ -77,19 +189,39 @@
 
     async function send(commit) {
       const file = document.getElementById("file").files[0];
-      const result = document.getElementById("result");
+      const where = destination();
       if (!file) {
-        result.textContent = "Choose a CSV file first.";
+        showResult("Choose a CSV file first.");
         return;
       }
       const rows = parseCsv(await file.text());
+      if (!rows.length) {
+        showResult(file.name + " has no data rows.");
+        return;
+      }
+      if (commit && !confirm("Save " + rows.length + " " + where.label + " into " + where.page + "?")) return;
       const kind = document.getElementById("kind").value;
       const response = await fetch(`${window.API_BASE}/admin/import/${kind}`, {
         method: "POST",
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ commit, rows })
       });
-      result.textContent = await response.text();
+      let body = {};
+      try { body = await response.json(); } catch (_) { body = {}; }
+      if (!response.ok) {
+        showResult(body.error || "Import did not finish.");
+        return;
+      }
+      const errors = Array.isArray(body.errors) ? body.errors : [];
+      if (errors.length) {
+        showResult("Nothing was saved. Fix " + file.name + " and preview it again.", errors);
+        return;
+      }
+      if (commit && body.committed) {
+        showResult("Saved " + (body.count || rows.length) + " " + where.label + " from " + file.name + ". They are now in " + where.page + ".", [], where.href, "Open " + where.page);
+        return;
+      }
+      showResult(rows.length + " " + where.label + " in " + file.name + " are ready. Nothing is saved until you click Save import. They will appear in " + where.page + ".", [], where.href, "Open " + where.page);
     }
 
     document.getElementById("previewBtn").onclick = () => send(false);

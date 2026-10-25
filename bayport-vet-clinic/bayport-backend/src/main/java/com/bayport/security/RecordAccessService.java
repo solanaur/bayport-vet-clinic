@@ -4,7 +4,6 @@ import com.bayport.entity.Appointment;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
 import com.bayport.entity.User;
-import com.bayport.repository.AppointmentRepository;
 import com.bayport.repository.PetRepository;
 import com.bayport.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -15,7 +14,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -26,15 +24,10 @@ public class RecordAccessService {
 
     private final UserRepository userRepository;
     private final PetRepository petRepository;
-    private final AppointmentRepository appointmentRepository;
 
-    public RecordAccessService(
-            UserRepository userRepository,
-            PetRepository petRepository,
-            AppointmentRepository appointmentRepository) {
+    public RecordAccessService(UserRepository userRepository, PetRepository petRepository) {
         this.userRepository = userRepository;
         this.petRepository = petRepository;
-        this.appointmentRepository = appointmentRepository;
     }
 
     public Optional<User> currentUser() {
@@ -96,18 +89,7 @@ public class RecordAccessService {
         if (user == null || pet == null) {
             return false;
         }
-        if (isAdmin(user) || isFrontOffice(user)) {
-            return true;
-        }
-        if (!isVeterinarian(user)) {
-            return false;
-        }
-        Long assignedId = pet.getAssignedVeterinarianId();
-        if (assignedId != null) {
-            return Objects.equals(assignedId, user.getId());
-        }
-        // Legacy/unassigned pets: allow if this vet has any appointment for the pet
-        return hasAppointmentWithVet(pet.getId(), user);
+        return isAdmin(user) || isFrontOffice(user) || isVeterinarian(user);
     }
 
     public void requirePetAccess(Long petId) {
@@ -129,15 +111,7 @@ public class RecordAccessService {
         if (!isVeterinarian(user)) {
             return false;
         }
-        if (isVetAssignedToAppointment(user, appointment.getVet())) {
-            return true;
-        }
-        if (appointment.getPetId() != null) {
-            return petRepository.findById(appointment.getPetId())
-                    .map(p -> canAccessPet(user, p))
-                    .orElse(false);
-        }
-        return false;
+        return isVetAssignedToAppointment(user, appointment.getVet());
     }
 
     public void requireAppointmentAccess(Appointment appointment) {
@@ -206,15 +180,6 @@ public class RecordAccessService {
         return namesMatch(appointmentVet, vetUser.getName())
                 || namesMatch(appointmentVet, vetUser.getFullName())
                 || namesMatch(appointmentVet, vetUser.getUsername());
-    }
-
-    private boolean hasAppointmentWithVet(Long petId, User vet) {
-        if (petId == null || vet == null) {
-            return false;
-        }
-        return appointmentRepository.findAll().stream()
-                .filter(a -> Objects.equals(a.getPetId(), petId))
-                .anyMatch(a -> isVetAssignedToAppointment(vet, a.getVet()));
     }
 
     private static boolean namesMatch(String left, String right) {
