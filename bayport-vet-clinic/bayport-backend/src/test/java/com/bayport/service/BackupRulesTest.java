@@ -49,6 +49,36 @@ class BackupRulesTest {
     }
 
     @Test
+    void dailyWeeklyRetentionPreservesManualBackups() {
+        java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss");
+        java.util.ArrayList<BackupRules.RetentionCandidate> newestFirst = new java.util.ArrayList<>();
+        // 10 automatic daily backups (newest first)
+        for (int day = 20; day >= 11; day--) {
+            String stamp = "202610" + day + "-030000";
+            newestFirst.add(new BackupRules.RetentionCandidate(
+                    "bayport-" + stamp,
+                    java.time.LocalDateTime.parse(stamp, fmt),
+                    false));
+        }
+        // One manual backup older than the daily window — must be kept
+        newestFirst.add(new BackupRules.RetentionCandidate(
+                "bayport-20261001-120000",
+                java.time.LocalDateTime.parse("20261001-120000", fmt),
+                true));
+
+        List<String> remove = BackupRules.retentionIdsToDelete(newestFirst, 7, 4);
+        assertFalse(remove.contains("bayport-20261001-120000"));
+        assertTrue(remove.contains("bayport-20261012-030000"));
+        assertTrue(remove.contains("bayport-20261013-030000"));
+        // Oct 11 is outside the 7-day window but is the first backup of ISO week 41.
+        assertFalse(remove.contains("bayport-20261011-030000"));
+        assertFalse(remove.contains("bayport-20261020-030000"));
+        assertTrue(BackupRules.isPreservedReason("manual"));
+        assertTrue(BackupRules.isPreservedReason("safety-before-restore"));
+        assertFalse(BackupRules.isPreservedReason("scheduled"));
+    }
+
+    @Test
     void archiveChecksumMustMatchTheManifest() throws Exception {
         byte[] database = "CREATE TABLE pets (id INT);".getBytes(StandardCharsets.UTF_8);
         String hash = BackupRules.sha256(database);

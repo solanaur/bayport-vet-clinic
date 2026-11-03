@@ -69,6 +69,84 @@ public final class BackupRules {
         return List.copyOf(newestFirst.subList(retain, newestFirst.size()));
     }
 
+    /**
+     * Retention candidate for pruning. Manual / safety backups are never auto-deleted.
+     */
+    public record RetentionCandidate(String id, java.time.LocalDateTime when, boolean preserve) {}
+
+    /**
+     * Keep the newest {@code keepDaily} distinct calendar days and {@code keepWeekly} distinct ISO weeks
+     * among automatic backups. Preserved (manual/safety) backups are never deleted.
+     */
+    public static List<String> retentionIdsToDelete(List<RetentionCandidate> newestFirst,
+                                                   int keepDaily,
+                                                   int keepWeekly) {
+        int daily = Math.max(keepDaily, 0);
+        int weekly = Math.max(keepWeekly, 0);
+        java.util.LinkedHashSet<String> keep = new java.util.LinkedHashSet<>();
+        java.util.LinkedHashSet<java.time.LocalDate> days = new java.util.LinkedHashSet<>();
+        java.util.LinkedHashSet<String> weeks = new java.util.LinkedHashSet<>();
+
+        for (RetentionCandidate candidate : newestFirst) {
+            if (candidate == null || candidate.id() == null || candidate.id().isBlank()) {
+                continue;
+            }
+            if (candidate.preserve()) {
+                keep.add(candidate.id());
+                continue;
+            }
+            java.time.LocalDateTime when = candidate.when() != null
+                    ? candidate.when()
+                    : parseIdTimestamp(candidate.id());
+            if (when == null) {
+                keep.add(candidate.id());
+                continue;
+            }
+            java.time.LocalDate day = when.toLocalDate();
+            if (days.size() < daily && days.add(day)) {
+                keep.add(candidate.id());
+            }
+            int week = when.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear());
+            int weekYear = when.get(java.time.temporal.WeekFields.ISO.weekBasedYear());
+            String weekKey = weekYear + "-W" + week;
+            if (weeks.size() < weekly && weeks.add(weekKey)) {
+                keep.add(candidate.id());
+            }
+        }
+
+        java.util.ArrayList<String> remove = new java.util.ArrayList<>();
+        for (RetentionCandidate candidate : newestFirst) {
+            if (candidate == null || candidate.id() == null) {
+                continue;
+            }
+            if (!keep.contains(candidate.id())) {
+                remove.add(candidate.id());
+            }
+        }
+        return List.copyOf(remove);
+    }
+
+    public static boolean isPreservedReason(String reason) {
+        String text = reason == null ? "" : reason.trim().toLowerCase(Locale.ROOT);
+        return text.equals("manual")
+                || text.startsWith("manual")
+                || text.equals("safety-before-restore")
+                || text.startsWith("safety-before-restore");
+    }
+
+    public static java.time.LocalDateTime parseIdTimestamp(String backupId) {
+        if (backupId == null || !BACKUP_ID.matcher(backupId).matches()) {
+            return null;
+        }
+        try {
+            return java.time.LocalDateTime.parse(
+                    backupId.substring("bayport-".length()),
+                    java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
     public static String sha256(InputStream input) throws IOException {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

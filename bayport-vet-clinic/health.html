@@ -17,10 +17,14 @@
     <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
       <div class="max-w-3xl mx-auto space-y-5">
         <div class="flex items-center justify-between gap-4">
-          <h1 class="bp-page-title">System health</h1>
+          <div>
+            <h1 class="bp-page-title">System Health</h1>
+            <p class="bp-page-desc">Live operational status for administrators.</p>
+          </div>
           <button id="refreshBtn" class="bp-btn-primary" type="button">Refresh</button>
         </div>
-        <dl id="health" class="bg-white border rounded-xl p-5 text-sm space-y-3"></dl>
+        <dl id="health" class="bp-card p-5 text-sm space-y-3"></dl>
+        <p id="healthError" class="hidden text-sm text-rose-600"></p>
       </div>
     </main>
   </div>
@@ -33,30 +37,107 @@
     if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     renderSidebar(document.getElementById("sidebarNav"), getRole(), "health.html");
 
-    function row(label, value) {
-      return `<div class="flex justify-between gap-4 border-b border-gray-100 pb-2"><dt class="text-gray-500">${label}</dt><dd class="font-medium text-right">${value}</dd></div>`;
+    function esc(v) {
+      return String(v ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function statusDot(tone) {
+      return `<span class="bp-status-dot bp-status-dot--${tone}" aria-hidden="true"></span>`;
+    }
+
+    function row(label, value, hint, tone) {
+      const extra = hint
+        ? `<div class="text-xs font-normal text-slate-400 mt-0.5">${esc(hint)}</div>`
+        : "";
+      const prefix = tone ? statusDot(tone) : "";
+      return `<div class="flex justify-between gap-4 border-b border-gray-100 pb-2.5 last:border-0 last:pb-0">
+        <dt class="text-[13px] text-[#667085]">${esc(label)}</dt>
+        <dd class="text-sm font-semibold text-right text-slate-900">${prefix}${value}${extra}</dd>
+      </div>`;
+    }
+
+    function emailLabel(email) {
+      if (!email || !email.configured) {
+        return { value: "Not configured", hint: "" };
+      }
+      if (email.verified) {
+        return { value: "Configured · Verified", hint: email.detail || "" };
+      }
+      return { value: "Configured · Not verified", hint: email.detail || "" };
+    }
+
+    function backupLabel(backup) {
+      if (!backup || !backup.found || !backup.fileValid) {
+        return {
+          value: "No successful backup found.",
+          hint: backup && backup.message && backup.message !== "No successful backup found."
+            ? esc(backup.message)
+            : "",
+        };
+      }
+      const when = backup.finishedAtDisplay || backup.finishedAt || "—";
+      const hint = backup.ok
+        ? (backup.message === "Backups are up to date." ? "Verified and on schedule" : esc(backup.message || ""))
+        : esc(backup.message || "Backup schedule not met.");
+      return { value: esc(when), hint };
+    }
+
+    function storageLabel(storage) {
+      if (!storage || storage.available === false || storage.freeBytes == null || Number(storage.freeBytes) < 0) {
+        return { value: "Unavailable", hint: "" };
+      }
+      return {
+        value: esc(storage.freeDisplay || storage.status || "—"),
+        hint: storage.totalDisplay ? "of " + storage.totalDisplay + " total" : "",
+      };
+    }
+
+    function setLoading(on) {
+      const btn = document.getElementById("refreshBtn");
+      if (!btn) return;
+      btn.disabled = !!on;
+      btn.textContent = on ? "Checking…" : "Refresh";
+      btn.classList.toggle("opacity-60", !!on);
     }
 
     async function loadHealth() {
-      const token = localStorage.getItem("token") || localStorage.getItem("jwt");
-      const response = await fetch(`${window.API_BASE}/admin/health`, {
-        headers: { Authorization: token ? `Bearer ${token}` : "" }
-      });
       const box = document.getElementById("health");
-      if (!response.ok) {
-        box.innerHTML = row("Status", "Could not read health details");
-        return;
+      const err = document.getElementById("healthError");
+      err.classList.add("hidden");
+      err.textContent = "";
+      setLoading(true);
+      box.innerHTML = row("Status", "Running health checks…");
+      try {
+        const data = await Api.admin.health();
+        const db = data.database || {};
+        const email = emailLabel(data.email);
+        const storage = storageLabel(data.storage);
+        const backup = backupLabel(data.backup);
+        const dbOk = !!(db.connected || String(db.status || "").toLowerCase() === "connected");
+        const dbStatus = db.status || (db.connected ? "Connected" : "Disconnected");
+        const emailTone = !data.email || !data.email.configured ? "amber" : data.email.verified ? "green" : "amber";
+        const storageTone =
+          data.storage && data.storage.available !== false && Number(data.storage.freeBytes) >= 0 ? "green" : "red";
+        const backupTone = data.backup && data.backup.ok ? "green" : data.backup && data.backup.found ? "amber" : "red";
+        box.innerHTML = [
+          row("Application Version", esc(data.version || "unknown"), "", "gray"),
+          row("Database Connection", esc(dbStatus), "", dbOk ? "green" : "red"),
+          row("Email Service", esc(email.value), email.hint, emailTone),
+          row("Available Storage", storage.value, storage.hint, storageTone),
+          row("Last Successful Backup", backup.value, backup.hint, backupTone),
+          row("Last System Check", esc(data.checkedAtDisplay || data.checkedAt || "—"), "", "gray"),
+        ].join("");
+      } catch (e) {
+        box.innerHTML = row("Status", "Could not complete health check");
+        err.textContent = (e && e.message ? e.message : "Unexpected error").slice(0, 180);
+        err.classList.remove("hidden");
+      } finally {
+        setLoading(false);
       }
-      const data = await response.json();
-      const backup = data.backup || {};
-      const freeMb = Number(data.diskFreeBytes) > 0 ? Math.round(Number(data.diskFreeBytes) / 1048576) + " MB" : "Unknown";
-      box.innerHTML = [
-        row("Version", data.version || "—"),
-        row("Database", data.database || "—"),
-        row("Mail", data.mailConfigured ? "Configured" : "Not configured"),
-        row("Free disk", freeMb),
-        row("Last backup", backup.message || (backup.ok ? "Up to date" : "Needs attention"))
-      ].join("");
     }
 
     document.getElementById("refreshBtn").onclick = () => loadHealth();

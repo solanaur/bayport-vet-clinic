@@ -16,12 +16,14 @@
     </aside>
     <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
       <div class="max-w-4xl mx-auto space-y-5">
-        <div class="flex items-center justify-between gap-4">
-          <h1 class="bp-page-title">Backups</h1>
-          <button id="backupNow" class="bp-btn-primary" type="button">Back up now</button>
+        <div class="flex items-start justify-between gap-4">
+          <div class="min-w-0">
+            <h1 class="bp-page-title">Backups</h1>
+            <p class="bp-page-desc">Automatic daily backups run on the server and are stored securely. Download a backup only when you need a local copy. Restoring may replace current database records.</p>
+          </div>
+          <button id="backupNow" class="bp-btn-primary shrink-0" type="button">Back up now</button>
         </div>
-        <p class="text-sm text-gray-600">A backup is saved and downloaded once a day while an administrator is signed in. Back up now still creates and downloads one right away.</p>
-        <p id="statusLine" class="text-sm text-gray-700"></p>
+        <p id="statusLine" class="text-sm text-slate-700"></p>
         <div id="backupList" class="space-y-3"></div>
       </div>
     </main>
@@ -35,12 +37,23 @@
     if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
     renderSidebar(document.getElementById("sidebarNav"), getRole(), "backups.html");
 
+    let backupBusy = false;
+
     function esc(value) {
       return String(value ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
     }
 
-    function backupWhen(id) {
-      const match = String(id || "").match(/^bayport-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
+    function formatSize(bytes) {
+      const n = Number(bytes);
+      if (!Number.isFinite(n) || n < 0) return "—";
+      if (n < 1024) return n + " B";
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
+      return (n / (1024 * 1024)).toFixed(1) + " MB";
+    }
+
+    function formatWhen(row) {
+      if (row && row.finishedAtDisplay) return row.finishedAtDisplay;
+      const match = String(row && row.id || "").match(/^bayport-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})$/);
       if (!match) return "";
       const when = new Date(
         Number(match[1]),
@@ -60,6 +73,25 @@
       });
     }
 
+    function statusBadgeHtml(row) {
+      const status = String(row && row.status || "").toUpperCase();
+      if (typeof window.bpStatusBadge === "function") {
+        if (status === "RUNNING") return '<span class="bp-badge bp-badge--pending">Running</span>';
+        if (status === "UNREADABLE") return '<span class="bp-badge bp-badge--danger">Unreadable</span>';
+        return window.bpStatusBadge(status || "Unknown");
+      }
+      return esc(status || "Unknown");
+    }
+
+    function setBusy(on) {
+      backupBusy = !!on;
+      const button = document.getElementById("backupNow");
+      if (!button) return;
+      button.disabled = backupBusy;
+      button.textContent = backupBusy ? "Backing up…" : "Back up now";
+      button.classList.toggle("opacity-60", backupBusy);
+    }
+
     async function refresh() {
       const status = await Api.backups.status();
       document.getElementById("statusLine").textContent = status.message || "";
@@ -72,29 +104,46 @@
       }
       for (const row of rows) {
         const card = document.createElement("div");
-        card.className = "bg-white border border-gray-200 rounded-lg p-4 flex flex-wrap items-center justify-between gap-3";
-        const when = backupWhen(row.id);
-        card.innerHTML = `<div><p class="font-semibold">${esc(when || row.id)}</p><p class="text-xs text-gray-500">${when ? esc(row.id) + " · " : ""}${esc(row.sizeBytes)} bytes</p></div>
-          <div class="flex gap-2">
-            <button type="button" class="bp-btn-primary" data-download="${esc(row.id)}">Download</button>
-            <button type="button" class="bp-btn-primary" data-restore="${esc(row.id)}" data-confirm="${esc(row.confirm)}">Restore</button>
+        card.className = "bp-card p-4 flex flex-wrap items-center justify-between gap-3";
+        const when = formatWhen(row);
+        const filename = row.filename || (row.id + ".zip");
+        card.innerHTML = `<div class="min-w-0">
+            <p class="text-sm font-semibold text-slate-900">${esc(when || row.id)}</p>
+            <p class="text-[13px] text-[#667085] mt-0.5">${esc(filename)} · ${esc(formatSize(row.sizeBytes))}${row.manual ? " · Manual" : ""}</p>
+            <div class="mt-2">${statusBadgeHtml(row)}</div>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <button type="button" class="bp-btn-secondary" data-download="${esc(row.id)}">Download</button>
+            <button type="button" class="bp-btn-primary" data-restore="${esc(row.id)}" data-confirm="${esc(row.confirm)}" data-label="${esc(when || row.id)}">Restore</button>
           </div>`;
         host.appendChild(card);
       }
     }
 
     document.getElementById("backupNow").addEventListener("click", async () => {
-      const button = document.getElementById("backupNow");
-      button.disabled = true;
+      if (backupBusy || window.__bayportBackupBusy) {
+        alert("A backup is already running.");
+        return;
+      }
+      setBusy(true);
+      window.__bayportBackupBusy = true;
       try {
-        await window.bayportCreateAndDownloadBackup();
+        const created = typeof window.bayportCreateBackup === "function"
+          ? await window.bayportCreateBackup()
+          : await Api.backups.create();
+        if (!created || !created.ok) {
+          throw new Error((created && created.message) || "Backup did not finish.");
+        }
         await refresh();
+        alert(created.message || ("Backup saved as " + (created.filename || (created.id + ".zip"))));
       } catch (err) {
         alert(err.message || "Backup did not finish.");
       } finally {
-        button.disabled = false;
+        window.__bayportBackupBusy = false;
+        setBusy(false);
       }
     });
+
     window.addEventListener("bayport-backup-ready", () => {
       refresh().catch(() => {});
     });
@@ -103,19 +152,41 @@
       const download = event.target.getAttribute("data-download");
       const restore = event.target.getAttribute("data-restore");
       if (download) {
-        await Api.backups.download(download);
+        try {
+          await Api.backups.download(download);
+        } catch (err) {
+          alert(err.message || "Download did not finish.");
+        }
         return;
       }
       if (!restore) return;
+      if (backupBusy || window.__bayportBackupBusy) {
+        alert("Wait for the current backup to finish before restoring.");
+        return;
+      }
       const phrase = event.target.getAttribute("data-confirm");
+      const label = event.target.getAttribute("data-label") || restore;
       const ask = window.bayportPrompt || window.prompt;
-      const typed = await ask("This replaces the live database. A safety backup is taken first. Type " + phrase + " to continue.", { title: "Restore backup" });
+      const typed = await ask(
+        "You selected backup:\n" + label + " (" + restore + ")\n\n"
+          + "Restoring may replace current database records with data from this backup.\n"
+          + "A safety backup of the current database is created first, and the selected backup is verified before restore continues.\n\n"
+          + "Type " + phrase + " to continue.",
+        { title: "Restore backup" }
+      );
       if (typed !== phrase) return;
+      setBusy(true);
+      window.__bayportBackupBusy = true;
       try {
         const result = await Api.backups.restore(restore, typed);
-        alert(result.message || "Restore finished.");
+        await refresh();
+        alert(result.message || (result.ok ? "Restore finished." : "Restore did not finish."));
       } catch (err) {
+        await refresh().catch(() => {});
         alert(err.message || "Restore did not finish.");
+      } finally {
+        window.__bayportBackupBusy = false;
+        setBusy(false);
       }
     });
 

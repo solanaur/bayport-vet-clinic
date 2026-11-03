@@ -115,7 +115,7 @@ public class InventoryController {
     }
 
     private static boolean isServiceItem(InventoryItem item) {
-        return item.getCategory() != null && "SERVICE".equalsIgnoreCase(item.getCategory().trim());
+        return com.bayport.service.InventoryRules.isService(item);
     }
 
     private static boolean matchesSearch(InventoryItem item, String q) {

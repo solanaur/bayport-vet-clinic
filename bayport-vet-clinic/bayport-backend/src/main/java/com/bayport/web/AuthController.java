@@ -85,7 +85,6 @@ public class AuthController {
         this.temporaryAdminService = temporaryAdminService;
         this.devBypassAccountService = devBypassAccountService;
     }
-
     @PostMapping("/auth/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request, HttpServletRequest httpRequest) {
         String username = request.getUsername() == null ? "" : request.getUsername().trim();

@@ -27,10 +27,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -137,7 +140,16 @@ public class ReportService {
             posSaleLineBackfillService.backfillMissingLines();
             LocalDateTime rangeStart = start.atStartOfDay();
             LocalDateTime rangeEndEx = end.plusDays(1).atStartOfDay();
-            BigDecimal posSales = saleRepository.sumAmountBySourceBetween("POS", rangeStart, rangeEndEx);
+            java.util.Set<Long> voidedBillingIds = voidedBillingIds();
+            BigDecimal posSales = BigDecimal.ZERO;
+            for (Sale s : saleRepository.findPosSalesOccurredBetween(rangeStart, rangeEndEx)) {
+                if (s == null || isSaleLinkedToVoidedInvoice(s, voidedBillingIds)) {
+                    continue;
+                }
+                if (s.getAmount() != null) {
+                    posSales = posSales.add(s.getAmount());
+                }
+            }
             summary.posSales = MoneyUtils.normalize(posSales);
             summary.totalProfit = summary.posSales;
 
@@ -147,13 +159,21 @@ public class ReportService {
                     SaleLine.KIND_PRODUCT, rangeStart, rangeEndEx);
 
             for (SaleLine sl : procLines) {
+                if (sl != null && sl.getSale() != null
+                        && isSaleLinkedToVoidedInvoice(sl.getSale(), voidedBillingIds)) {
+                    continue;
+                }
                 summary.posProcedureLines.add(mapPosLine(sl));
             }
             for (SaleLine sl : prodLines) {
+                if (sl != null && sl.getSale() != null
+                        && isSaleLinkedToVoidedInvoice(sl.getSale(), voidedBillingIds)) {
+                    continue;
+                }
                 summary.posProductLines.add(mapPosLine(sl));
             }
 
-            appendVirtualLinesFromPosSalesWithoutRows(rangeStart, rangeEndEx, summary);
+            appendVirtualLinesFromPosSalesWithoutRows(rangeStart, rangeEndEx, summary, voidedBillingIds);
 
             summary.posProcedureRevenue = MoneyUtils.normalize(summary.posProcedureLines.stream()
                     .map(r -> r.lineTotal)
@@ -205,7 +225,18 @@ public class ReportService {
                     .filter(Objects::nonNull)
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
             summary.pendingBilling = MoneyUtils.normalize(pending);
-            summary.voidedAmount = MoneyUtils.normalize(BigDecimal.ZERO);
+            BigDecimal voided = billingRecordRepository.findAll().stream()
+                    .filter(b -> b != null && b.getStatus() == BillingRecord.Status.VOID)
+                    .filter(b -> {
+                        LocalDateTime when = b.getVoidedAt() != null ? b.getVoidedAt() : b.getIssuedAt();
+                        return when != null
+                                && !when.isBefore(rangeStart)
+                                && when.isBefore(rangeEndEx);
+                    })
+                    .map(BillingRecord::getAmount)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            summary.voidedAmount = MoneyUtils.normalize(voided);
 
             BigDecimal cash = BigDecimal.ZERO;
             BigDecimal card = BigDecimal.ZERO;
@@ -213,9 +244,10 @@ public class ReportService {
             Map<LocalDate, BigDecimal> dayTotals = new TreeMap<>();
             Map<LocalDate, Integer> dayCounts = new TreeMap<>();
 
+            Set<Long> voidedBillingIds = voidedBillingIds();
             List<Sale> posSales = saleRepository.findPosSalesOccurredBetween(rangeStart, rangeEndEx);
             for (Sale s : posSales) {
-                if (s == null) {
+                if (s == null || isSaleLinkedToVoidedInvoice(s, voidedBillingIds)) {
                     continue;
                 }
                 BigDecimal amt = s.getAmount() != null ? MoneyUtils.normalize(s.getAmount()) : BigDecimal.ZERO;
@@ -322,12 +354,35 @@ public class ReportService {
      * When a POS {@link Sale} has no {@link SaleLine} rows (legacy DB, failed backfill, etc.),
      * still show item names on the report by parsing {@link Sale#getNote()}.
      */
+    private Set<Long> voidedBillingIds() {
+        try {
+            return billingRecordRepository.findAll().stream()
+                    .filter(b -> b != null && b.getStatus() == BillingRecord.Status.VOID && b.getId() != null)
+                    .map(BillingRecord::getId)
+                    .collect(Collectors.toCollection(HashSet::new));
+        } catch (Exception e) {
+            return Set.of();
+        }
+    }
+
+    private static boolean isSaleLinkedToVoidedInvoice(Sale sale, Set<Long> voidedBillingIds) {
+        if (sale == null || voidedBillingIds == null || voidedBillingIds.isEmpty()) {
+            return false;
+        }
+        Long billingId = sale.getBillingId();
+        return billingId != null && voidedBillingIds.contains(billingId);
+    }
+
     private void appendVirtualLinesFromPosSalesWithoutRows(LocalDateTime rangeStart,
                                                            LocalDateTime rangeEndEx,
-                                                           ReportSummary summary) {
+                                                           ReportSummary summary,
+                                                           Set<Long> voidedBillingIds) {
         List<Sale> sales = saleRepository.findPosSalesOccurredBetween(rangeStart, rangeEndEx);
         for (Sale sale : sales) {
             if (sale == null || sale.getId() == null) {
+                continue;
+            }
+            if (isSaleLinkedToVoidedInvoice(sale, voidedBillingIds)) {
                 continue;
             }
             if (saleLineRepository.countBySale_Id(sale.getId()) > 0) {
@@ -360,13 +415,7 @@ public class ReportService {
 
     private String resolvePosLineKind(String itemName) {
         return inventoryItemRepository.findFirstByNameIgnoreCase(itemName)
-                .map(item -> {
-                    String c = item.getCategory();
-                    if (c != null && "SERVICE".equalsIgnoreCase(c.trim())) {
-                        return SaleLine.KIND_PROCEDURE;
-                    }
-                    return SaleLine.KIND_PRODUCT;
-                })
+                .map(item -> InventoryRules.isService(item) ? SaleLine.KIND_PROCEDURE : SaleLine.KIND_PRODUCT)
                 .orElse(SaleLine.KIND_PRODUCT);
     }
 

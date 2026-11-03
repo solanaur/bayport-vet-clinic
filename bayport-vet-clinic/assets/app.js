@@ -236,6 +236,7 @@ window.tryLogin = async function(username, password, role, otp) {
     localStorage.setItem("userRecordName", payload.recordName || payload.name || "");
     localStorage.setItem("username", payload.username);
     localStorage.setItem("userId", payload.id);
+    localStorage.removeItem("modules");
     if (payload.token) {
       localStorage.setItem("token", payload.token);
       localStorage.setItem("jwt", payload.token);
@@ -422,9 +423,10 @@ const _SIDEBAR_FRONT_OFFICE = [
 const SIDEBAR_GROUPS = {
   admin: [
     { label: "Overview", open: true, keys: ["dashboard"] },
-    { label: "Clinic Management", open: true, keys: ["billing", "inventory", "reports"] },
-    { label: "System Administration", open: true, keys: ["manage-users"] },
-    { label: "Records & Audit", open: true, keys: ["activity-logs", "recycle-bin", "backups", "import-data", "health"] }
+    { label: "Clinic Management", open: true, keys: ["billing", "inventory"] },
+    { label: "Administration", open: true, keys: ["manage-users", "reports"] },
+    { label: "Records & Audit", open: true, keys: ["activity-logs", "recycle-bin"] },
+    { label: "System Management", open: true, keys: ["backups", "import-data", "health"] }
   ],
   vet: [
     { label: "Core workflow", open: true, keys: ["dashboard", "pet-records", "appointments", "consultations"] }
@@ -497,11 +499,19 @@ window.bpStatusBadge = function (status) {
   const u = String(status || "").toUpperCase();
   if (u === "PAID") return '<span class="bp-badge bp-badge--paid">Paid</span>';
   if (u === "PENDING") return '<span class="bp-badge bp-badge--pending">Pending</span>';
+  if (u === "VOID" || u === "VOIDED") return '<span class="bp-badge bp-badge--danger">Voided</span>';
   if (u === "COMPLETED" || u === "DONE") return '<span class="bp-badge bp-badge--completed">Completed</span>';
   if (u === "CANCELLED" || u === "CANCELED") return '<span class="bp-badge bp-badge--cancelled">Cancelled</span>';
   if (u === "DRAFT") return '<span class="bp-badge bp-badge--draft">Draft</span>';
   if (u === "OUT OF STOCK" || u === "OUT") return '<span class="bp-badge bp-badge--danger">Out of stock</span>';
-  return `<span class="bp-badge bp-badge--muted">${window.bpEscHtml(u)}</span>`;
+  if (u === "SUCCESS") return '<span class="bp-badge bp-badge--paid">Success</span>';
+  if (u === "FAILED") return '<span class="bp-badge bp-badge--danger">Failed</span>';
+  if (u === "ADMIN" || u === "ADMINISTRATOR") return '<span class="bp-badge bp-chip--blue">Admin</span>';
+  if (u === "VET" || u === "VETERINARIAN") return '<span class="bp-badge bp-chip--teal">Vet</span>';
+  if (u === "FRONT_OFFICE" || u === "RECEPTIONIST" || u === "PHARMACIST" || u === "STAFF") {
+    return '<span class="bp-badge bp-chip--purple">Front Office</span>';
+  }
+  return `<span class="bp-badge bp-badge--muted">${window.bpEscHtml(String(status || u))}</span>`;
 };
 
 const BP_EMPTY_ICONS = {
@@ -755,6 +765,7 @@ function normalizeActiveFile(activeFile) {
 }
 
 window.renderSidebar = function (container, role, activeFile) {
+  if (!container) return;
   container.innerHTML = "";
   activeFile = normalizeActiveFile(activeFile);
   role = window.canonicalStaffRole(role);
@@ -848,14 +859,7 @@ window.renderSidebar = function (container, role, activeFile) {
   });
 
   if (typeof window.initBayportSidebar === "function") window.initBayportSidebar();
-  if (typeof window.maybeBayportAutoBackup === "function") window.maybeBayportAutoBackup();
 };
-
-function bayportBackupDayStamp() {
-  const d = new Date();
-  const p = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
-}
 
 function bayportBackupNote(text) {
   let el = document.getElementById("bpAutoBackupNote");
@@ -871,63 +875,33 @@ function bayportBackupNote(text) {
   el._hide = setTimeout(() => el.remove(), 7000);
 }
 
-async function bayportSaveAndDownloadBackup() {
-  const created = await Api.backups.create();
-  if (!created || !created.id) throw new Error("Backup did not finish.");
-  await Api.backups.download(created.id);
-  localStorage.setItem("bayport_auto_backup_day", bayportBackupDayStamp());
-  localStorage.setItem("bayport_auto_backup_file", created.id);
-  window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
-  return created;
-}
-
-/** One backup per day for an administrator, saved and downloaded. Manual backup stays available. */
+/** Daily backups run on the backend schedule. Client no longer auto-creates or auto-downloads. */
 window.maybeBayportAutoBackup = async function maybeBayportAutoBackup() {
-  if (window.__bayportAutoBackupStarted || window.__bayportBackupBusy) return;
-  const role = window.canonicalStaffRole(window.getRole ? window.getRole() : "");
-  if (role !== "admin" || !window.Api || !window.Api.backups) return;
-  const day = bayportBackupDayStamp();
-  if (localStorage.getItem("bayport_auto_backup_day") === day) return;
-  window.__bayportAutoBackupStarted = true;
+  return;
+};
+
+/** Create a server-side backup without downloading it. */
+window.bayportCreateBackup = async function bayportCreateBackup() {
+  if (window.__bayportBackupBusy) throw new Error("A backup is already running.");
   window.__bayportBackupBusy = true;
   try {
-    bayportBackupNote("Saving today's clinic backup…");
-    const rows = await Api.backups.list();
-    const latest = (Array.isArray(rows) ? rows : [])
-      .map((row) => row && row.id)
-      .filter((id) => String(id || "").startsWith("bayport-" + day))
-      .sort()
-      .pop();
-    if (latest) {
-      if (localStorage.getItem("bayport_auto_backup_file") !== latest) {
-        await Api.backups.download(latest);
-        bayportBackupNote("Today's backup was downloaded.");
-      }
-      localStorage.setItem("bayport_auto_backup_day", day);
-      localStorage.setItem("bayport_auto_backup_file", latest);
-      window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
-      return;
+    const created = await Api.backups.create();
+    if (!created || !created.ok || !created.id) {
+      throw new Error((created && created.message) || "Backup did not finish.");
     }
-    await bayportSaveAndDownloadBackup();
-    bayportBackupNote("Today's backup was saved and downloaded.");
-  } catch (err) {
-    window.__bayportAutoBackupStarted = false;
-    bayportBackupNote(err && err.message ? err.message : "Automatic backup did not finish. Back up now is still available.");
+    window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
+    return created;
   } finally {
     window.__bayportBackupBusy = false;
   }
 };
 
+/** Manual create + optional download kept for callers that still need a local copy. */
 window.bayportCreateAndDownloadBackup = async function bayportCreateAndDownloadBackup() {
-  if (window.__bayportBackupBusy) throw new Error("A backup is already running.");
-  window.__bayportBackupBusy = true;
-  try {
-    const created = await bayportSaveAndDownloadBackup();
-    bayportBackupNote("Backup saved and downloaded.");
-    return created;
-  } finally {
-    window.__bayportBackupBusy = false;
-  }
+  const created = await window.bayportCreateBackup();
+  await Api.backups.download(created.id);
+  bayportBackupNote("Backup saved and downloaded.");
+  return created;
 };
 
 const SIDEBAR_COLLAPSED_KEY = "bayport_sidebar_collapsed";
@@ -943,7 +917,7 @@ window.initBayportSidebar = function initBayportSidebar() {
 
   aside.classList.add(
     "bp-sidebar",
-    "w-72",
+    "w-[248px]",
     "shrink-0",
     "bg-white",
     "border-r",
@@ -1437,6 +1411,30 @@ window.ownerForPet = async function(id) {
     const s = String(str);
     if (!s.trim()) return s;
     return s.split("\n").map(capLine).join("\n");
+  };
+
+  /** Shared inventory service detection (SVC-* SKUs and meaningful service categories). */
+  window.bayportIsInventoryService = function bayportIsInventoryService(item) {
+    if (!item) return false;
+    const sku = String(item.sku || "").trim().toUpperCase();
+    if (sku.startsWith("SVC-")) return true;
+    const cat = String(item.category || "").trim().toUpperCase();
+    if (!cat) return false;
+    if (cat === "SERVICE") return true;
+    return [
+      "CONSULTATION",
+      "VACCINATION",
+      "LABORATORY TESTS",
+      "GROOMING",
+      "SURGERY",
+      "TREATMENT",
+      "DEWORMING",
+      "RAPID TESTS",
+      "SPAYING & CASTRATION",
+      "SURGICAL SERVICE",
+      "VACCINE & DEWORMING",
+      "CONSULTATION & CHECK-UP",
+    ].includes(cat);
   };
 
   function shouldCapitalize(el) {

@@ -445,6 +445,10 @@ window.Api = {
     download: (id) => window.downloadBayportPdf(`/admin/backups/${encodeURIComponent(id)}/download`, `${id}.zip`),
   },
 
+  admin: {
+    health: () => ApiHttp("/admin/health", { token: Api.token() }),
+  },
+
   auth: {
     login: (username, password, otp) => ApiHttp("/auth/login", {
       method: "POST",
@@ -707,6 +711,9 @@ window.Api = {
     get: (id) => ApiHttp(`/users/${id}`, { token: Api.token() }),
     create: (user) => ApiHttp("/users", { method: "POST", body: user, token: Api.token() }),
     update: (user) => ApiHttp(`/users/${user.id}`, { method: "PUT", body: user, token: Api.token() }),
+    deactivate: (id) => ApiHttp(`/users/${id}/deactivate`, { method: "POST", token: Api.token() }),
+    activate: (id) => ApiHttp(`/users/${id}/activate`, { method: "POST", token: Api.token() }),
+    resetMfa: (id) => ApiHttp(`/users/${id}/reset-mfa`, { method: "POST", token: Api.token() }),
     remove: (id) => ApiHttp(`/users/${id}`, { method: "DELETE", token: Api.token() }),
   },
 
@@ -769,7 +776,15 @@ window.Api = {
     list: () => ApiHttp("/billing", { token: Api.token() }),
     get: (id) => ApiHttp(`/billing/${id}`, { token: Api.token() }),
     create: (record) => ApiHttp("/billing", { method: "POST", body: record, token: Api.token() }),
+    savePendingCart: (body) =>
+      ApiHttp("/billing/pending-cart", { method: "POST", body, token: Api.token() }),
     pay: (id) => ApiHttp(`/billing/${id}/pay`, { method: "POST", token: Api.token() }),
+    voidInvoice: (id, reason) =>
+      ApiHttp(`/billing/${id}/void`, {
+        method: "POST",
+        body: { reason: reason || "" },
+        token: Api.token(),
+      }),
     remove: (id) => ApiHttp(`/billing/${id}`, { method: "DELETE", token: Api.token() }),
   },
 

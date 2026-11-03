@@ -1,16 +1,20 @@
 package com.bayport.service;
 
+import com.bayport.dto.PendingCartRequest;
 import com.bayport.dto.PosCheckoutRequest;
 import com.bayport.dto.PosCheckoutResponse;
 import com.bayport.dto.PosLineRequest;
 import com.bayport.dto.PosReceiptDto;
 import com.bayport.entity.Appointment;
+import com.bayport.entity.BillingLine;
 import com.bayport.entity.InventoryItem;
 import com.bayport.entity.BillingRecord;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Prescription;
 import com.bayport.entity.Sale;
 import com.bayport.entity.SaleLine;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.bayport.config.InventoryCatalogImporter;
 import com.bayport.repository.BillingRecordRepository;
 import com.bayport.repository.PetRepository;
@@ -90,6 +94,107 @@ public class PosService {
         return appointmentId;
     }
 
+    /**
+     * Saves cart lines as a Pending invoice. Does not create a Sale, does not count as
+     * collected revenue, and does not deduct inventory stock.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public BillingRecord savePending(PendingCartRequest request) {
+        if (request.getPetId() == null) {
+            throw new IllegalArgumentException("Select a registered pet to save a pending invoice");
+        }
+        if (request.getLines() == null || request.getLines().isEmpty()) {
+            throw new IllegalArgumentException("Cart is empty");
+        }
+        Pet pet = petRepository.findById(request.getPetId())
+                .orElseThrow(() -> new IllegalArgumentException("Pet not found"));
+
+        BillingRecord invoice = new BillingRecord();
+        invoice.setPetId(pet.getId());
+        invoice.setPetName(pet.getName());
+        invoice.setOwnerId(pet.getOwnerId());
+        invoice.setOwnerName(pet.getOwner());
+        invoice.setStatus(BillingRecord.Status.PENDING);
+        invoice.setPaidAt(null);
+        invoice.setIssuedAt(java.time.LocalDateTime.now());
+        invoice.setCreatedBy(currentUsername());
+        invoice.setReferenceType("POS_PENDING");
+        invoice.setDiscountAmount(BigDecimal.ZERO);
+
+        int order = 0;
+        List<String> descParts = new ArrayList<>();
+        for (PosLineRequest line : request.getLines()) {
+            if (line.getBillingRecordId() != null) {
+                throw new IllegalArgumentException(
+                        "Remove existing pending invoices from the cart before saving a new pending bill");
+            }
+            int q = line.getQuantity() != null ? line.getQuantity() : 1;
+            if (q < 1) {
+                throw new IllegalArgumentException("Quantity must be at least 1");
+            }
+
+            BillingLine bl = new BillingLine();
+            bl.setLineOrder(order++);
+            bl.setQuantity(q);
+
+            if (line.getCustomAmount() != null && line.getCustomName() != null && !line.getCustomName().isBlank()) {
+                BigDecimal unit = MoneyUtils.normalize(line.getCustomAmount());
+                if (unit.signum() <= 0) {
+                    throw new IllegalArgumentException("Missing or invalid price for: " + line.getCustomName());
+                }
+                bl.setServiceName(line.getCustomName().trim());
+                bl.setServiceCost(MoneyUtils.normalize(unit.multiply(BigDecimal.valueOf(q))));
+            } else {
+                InventoryItem item = resolveLineItem(line);
+                BigDecimal unit = line.getUnitPriceOverride() != null
+                        ? MoneyUtils.normalize(line.getUnitPriceOverride())
+                        : (item.getUnitPrice() != null ? MoneyUtils.normalize(item.getUnitPrice()) : BigDecimal.ZERO);
+                if (unit.signum() <= 0) {
+                    throw new IllegalArgumentException("Missing or invalid price for: " + item.getName());
+                }
+                bl.setServiceName(item.getName() != null ? item.getName() : "Item");
+                bl.setServiceCost(MoneyUtils.normalize(unit.multiply(BigDecimal.valueOf(q))));
+                bl.setInventoryItemId(item.getId());
+            }
+            invoice.addLine(bl);
+            descParts.add(bl.getServiceName() + (q > 1 ? " ×" + q : ""));
+        }
+
+        BigDecimal discount = request.getDiscountAmount() != null
+                ? MoneyUtils.normalize(request.getDiscountAmount())
+                : BigDecimal.ZERO;
+        if (discount.signum() < 0) {
+            throw new IllegalArgumentException("Discount cannot be negative");
+        }
+        invoice.setDiscountAmount(discount);
+        invoice.refreshTotalFromLines();
+        if (discount.compareTo(invoice.getSubtotalAmount()) > 0) {
+            throw new IllegalArgumentException("Discount cannot exceed the invoice amount");
+        }
+        invoice.setDescription(summarizePendingDescription(descParts));
+        return billingRecordRepository.save(invoice);
+    }
+
+    private static String summarizePendingDescription(List<String> parts) {
+        if (parts == null || parts.isEmpty()) {
+            return "Pending charges";
+        }
+        String joined = String.join(", ", parts);
+        if (joined.length() > 240) {
+            return joined.substring(0, 237) + "...";
+        }
+        return joined;
+    }
+
+    private static String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()
+                || "anonymousUser".equalsIgnoreCase(auth.getName())) {
+            return null;
+        }
+        return auth.getName();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     public PosCheckoutResponse checkout(PosCheckoutRequest request) {
         if (request.getLines() == null || request.getLines().isEmpty()) {
@@ -105,6 +210,7 @@ public class PosService {
         List<String> parts = new ArrayList<>();
         List<SaleLine> lineEntities = new ArrayList<>();
         Set<Long> billingIdsToSettle = new LinkedHashSet<>();
+        Set<Long> stockAlreadyDeducted = new LinkedHashSet<>();
 
         for (PosLineRequest line : request.getLines()) {
             int q = line.getQuantity();
@@ -142,11 +248,11 @@ public class PosService {
             }
             BigDecimal lineTotal = unit.multiply(BigDecimal.valueOf(q));
             total = total.add(lineTotal);
-            inventoryService.decreaseQuantityForSale(item.getId(), q);
+            inventoryService.applySaleStock(item, q, stockAlreadyDeducted);
             parts.add(item.getName() + " ×" + q + " @ " + MoneyUtils.formatPeso(unit));
 
             SaleLine sl = new SaleLine();
-            sl.setLineKind(isProcedureLine(item) ? SaleLine.KIND_PROCEDURE : SaleLine.KIND_PRODUCT);
+            sl.setLineKind(InventoryRules.isService(item) ? SaleLine.KIND_PROCEDURE : SaleLine.KIND_PRODUCT);
             sl.setItemName(item.getName() != null ? item.getName() : "");
             sl.setSku(item.getSku());
             sl.setQuantity(q);
@@ -205,6 +311,12 @@ public class PosService {
             for (Long billingId : billingIdsToSettle) {
                 BillingRecord record = billingRecordRepository.findById(billingId)
                         .orElseThrow(() -> new IllegalArgumentException("Billing record not found: " + billingId));
+                if (record.getStatus() == BillingRecord.Status.VOID) {
+                    throw new IllegalArgumentException("Cannot collect payment on a void invoice: " + billingId);
+                }
+                if (record.getStatus() == BillingRecord.Status.PAID) {
+                    throw new IllegalArgumentException("Invoice " + billingId + " is already paid");
+                }
                 if (record.getPetId() != null && request.getPetId() != null && !record.getPetId().equals(request.getPetId())) {
                     throw new IllegalArgumentException("Billing record " + billingId + " does not belong to selected pet");
                 }
@@ -214,13 +326,20 @@ public class PosService {
                 if (lineSubtotal == null) {
                     lineSubtotal = subtotalBeforeDiscount;
                 }
-                record.setSubtotalAmount(lineSubtotal);
-                record.setDiscountAmount(discount);
-                record.setAmount(MoneyUtils.normalize(lineSubtotal.subtract(discount)));
-                if (record.getStatus() != BillingRecord.Status.PAID) {
-                    record.setStatus(BillingRecord.Status.PAID);
-                    record.setPaidAt(java.time.LocalDateTime.now());
+                BigDecimal invoiceDiscount = record.getDiscountAmount() != null
+                        ? record.getDiscountAmount()
+                        : BigDecimal.ZERO;
+                // Preserve the invoice's original discount unless checkout applies an additional one.
+                BigDecimal appliedDiscount = discount.signum() > 0 ? discount : invoiceDiscount;
+                if (appliedDiscount.compareTo(lineSubtotal) > 0) {
+                    appliedDiscount = lineSubtotal;
                 }
+                record.setSubtotalAmount(lineSubtotal);
+                record.setDiscountAmount(appliedDiscount);
+                record.setAmount(MoneyUtils.normalize(lineSubtotal.subtract(appliedDiscount)));
+                record.setStatus(BillingRecord.Status.PAID);
+                record.setPaidAt(java.time.LocalDateTime.now());
+                deductStockForPendingInventoryLines(record, stockAlreadyDeducted);
                 billingRecordRepository.save(record);
                 if (primaryBillingId == null) {
                     primaryBillingId = billingId;
@@ -375,6 +494,25 @@ public class PosService {
         return joined;
     }
 
+    /**
+     * When a previously saved pending invoice (with inventory refs) is paid via custom cart lines,
+     * deduct stock now — it was intentionally skipped at Save as Pending.
+     * Shares {@code alreadyDeducted} with cart product lines so the same vial is not deducted twice.
+     */
+    private void deductStockForPendingInventoryLines(BillingRecord record, Set<Long> alreadyDeducted) {
+        if (record == null || record.getLines() == null) {
+            return;
+        }
+        for (BillingLine line : record.getLines()) {
+            if (line == null || line.getInventoryItemId() == null) {
+                continue;
+            }
+            int q = line.getQuantity() != null && line.getQuantity() > 0 ? line.getQuantity() : 1;
+            InventoryItem item = inventoryService.get(line.getInventoryItemId());
+            inventoryService.applySaleStock(item, q, alreadyDeducted);
+        }
+    }
+
     private InventoryItem resolveLineItem(PosLineRequest line) {
         if (line.getInventoryItemId() != null) {
             return inventoryService.get(line.getInventoryItemId());
@@ -383,10 +521,5 @@ public class PosService {
             return inventoryCatalogImporter.ensureSkuInInventory(line.getSku().trim());
         }
         throw new IllegalArgumentException("Each line needs inventoryItemId (products) or sku (clinic fees)");
-    }
-
-    private static boolean isProcedureLine(InventoryItem item) {
-        String c = item.getCategory();
-        return c != null && "SERVICE".equalsIgnoreCase(c.trim());
     }
 }

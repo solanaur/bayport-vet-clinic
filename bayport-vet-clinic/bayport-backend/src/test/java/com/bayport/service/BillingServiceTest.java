@@ -5,6 +5,7 @@ import com.bayport.entity.Consultation;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Procedure;
 import com.bayport.repository.BillingRecordRepository;
+import com.bayport.repository.PetRepository;
 import com.bayport.util.MoneyUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,8 @@ class BillingServiceTest {
     @Mock
     private BillingRecordRepository billingRecordRepository;
     @Mock
+    private PetRepository petRepository;
+    @Mock
     private SalesService salesService;
     @Mock
     private AuditLogService auditLogService;
@@ -38,6 +41,58 @@ class BillingServiceTest {
     void get_throwsWhenInvoiceIsMissing() {
         when(billingRecordRepository.findById(99L)).thenReturn(Optional.empty());
         assertThrows(IllegalArgumentException.class, () -> billingService.get(99L));
+    }
+
+    @Test
+    void create_forcesPendingAndEnrichesPetOwner() {
+        Pet pet = new Pet();
+        pet.setId(7L);
+        pet.setName("Choco");
+        pet.setOwnerId(3L);
+        pet.setOwner("Maria Santos");
+        when(petRepository.findById(7L)).thenReturn(Optional.of(pet));
+        when(billingRecordRepository.save(any(BillingRecord.class))).thenAnswer(i -> i.getArgument(0));
+
+        BillingRecord input = new BillingRecord();
+        input.setPetId(7L);
+        input.setSubtotalAmount(new BigDecimal("200.00"));
+        input.setDiscountAmount(new BigDecimal("20.00"));
+        input.setStatus(BillingRecord.Status.PAID);
+
+        BillingRecord saved = billingService.create(input);
+
+        assertEquals(BillingRecord.Status.PENDING, saved.getStatus());
+        assertNull(saved.getPaidAt());
+        assertEquals("Choco", saved.getPetName());
+        assertEquals(3L, saved.getOwnerId());
+        assertEquals("Maria Santos", saved.getOwnerName());
+        assertEquals(MoneyUtils.normalize(new BigDecimal("180.00")), saved.getAmount());
+    }
+
+    @Test
+    void voidInvoice_rejectsPaidInvoices() {
+        BillingRecord paid = new BillingRecord();
+        paid.setId(12L);
+        paid.setStatus(BillingRecord.Status.PAID);
+        when(billingRecordRepository.findById(12L)).thenReturn(Optional.of(paid));
+
+        assertThrows(IllegalArgumentException.class, () -> billingService.voidInvoice(12L, "mistake"));
+        verify(billingRecordRepository, never()).save(any());
+    }
+
+    @Test
+    void voidInvoice_voidsPendingWithReason() {
+        BillingRecord pending = new BillingRecord();
+        pending.setId(13L);
+        pending.setStatus(BillingRecord.Status.PENDING);
+        when(billingRecordRepository.findById(13L)).thenReturn(Optional.of(pending));
+        when(billingRecordRepository.save(any(BillingRecord.class))).thenAnswer(i -> i.getArgument(0));
+
+        BillingRecord saved = billingService.voidInvoice(13L, "Duplicate charge");
+
+        assertEquals(BillingRecord.Status.VOID, saved.getStatus());
+        assertEquals("Duplicate charge", saved.getVoidReason());
+        verify(auditLogService).log(eq("VOID"), eq("Invoice"), eq("13"), eq("Duplicate charge"));
     }
 
     @Test

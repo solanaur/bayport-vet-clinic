@@ -114,7 +114,7 @@ public class PosSaleLineBackfillService {
 
     private String lineKindForItem(InventoryItem item) {
         String c = item.getCategory();
-        if (c != null && "SERVICE".equalsIgnoreCase(c.trim())) {
+        if (InventoryRules.isService(item.getSku(), c)) {
             return SaleLine.KIND_PROCEDURE;
         }
         return SaleLine.KIND_PRODUCT;

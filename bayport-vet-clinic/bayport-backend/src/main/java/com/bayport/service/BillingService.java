@@ -6,7 +6,10 @@ import com.bayport.entity.Consultation;
 import com.bayport.entity.Pet;
 import com.bayport.entity.Procedure;
 import com.bayport.repository.BillingRecordRepository;
+import com.bayport.repository.PetRepository;
 import com.bayport.util.MoneyUtils;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -25,13 +28,16 @@ public class BillingService {
     private static final DateTimeFormatter CONSULT_DATE = DateTimeFormatter.ofPattern("M/d/yy");
 
     private final BillingRecordRepository billingRecordRepository;
+    private final PetRepository petRepository;
     private final SalesService salesService;
     private final AuditLogService auditLogService;
 
     public BillingService(BillingRecordRepository billingRecordRepository,
+                          PetRepository petRepository,
                           SalesService salesService,
                           AuditLogService auditLogService) {
         this.billingRecordRepository = billingRecordRepository;
+        this.petRepository = petRepository;
         this.salesService = salesService;
         this.auditLogService = auditLogService;
     }
@@ -54,11 +60,53 @@ public class BillingService {
         if (record.getDiscountAmount() == null) {
             record.setDiscountAmount(java.math.BigDecimal.ZERO);
         }
-        BillingRecord saved = billingRecordRepository.save(record);
-        if (saved.getStatus() == BillingRecord.Status.PAID) {
-            salesService.recordSale(saved, "Manual", "Manual payment");
+        // New invoices start as Pending — creating an invoice is not collected revenue.
+        record.setStatus(BillingRecord.Status.PENDING);
+        record.setPaidAt(null);
+        if (record.getIssuedAt() == null) {
+            record.setIssuedAt(LocalDateTime.now());
         }
-        return saved;
+        if (!StringUtils.hasText(record.getCreatedBy())) {
+            record.setCreatedBy(currentUsername());
+        }
+        enrichFromPet(record);
+        BigDecimal subtotal = record.getSubtotalAmount() != null ? record.getSubtotalAmount() : BigDecimal.ZERO;
+        BigDecimal discount = record.getDiscountAmount() != null ? record.getDiscountAmount() : BigDecimal.ZERO;
+        if (discount.signum() < 0) {
+            throw new IllegalArgumentException("Discount cannot be negative");
+        }
+        if (discount.compareTo(subtotal) > 0) {
+            throw new IllegalArgumentException("Discount cannot exceed the invoice amount");
+        }
+        record.setAmount(MoneyUtils.normalize(subtotal.subtract(discount)));
+        return billingRecordRepository.save(record);
+    }
+
+    /** Fill pet/owner fields from the pet's owner relationship when a petId is present. */
+    private void enrichFromPet(BillingRecord record) {
+        if (record.getPetId() == null) {
+            return;
+        }
+        petRepository.findById(record.getPetId()).ifPresent(pet -> {
+            if (!StringUtils.hasText(record.getPetName())) {
+                record.setPetName(pet.getName());
+            }
+            if (record.getOwnerId() == null) {
+                record.setOwnerId(pet.getOwnerId());
+            }
+            if (!StringUtils.hasText(record.getOwnerName())) {
+                record.setOwnerName(pet.getOwner());
+            }
+        });
+    }
+
+    private static String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getName() == null || auth.getName().isBlank()
+                || "anonymousUser".equalsIgnoreCase(auth.getName())) {
+            return null;
+        }
+        return auth.getName();
     }
 
     public BillingRecord markPaid(Long id) {

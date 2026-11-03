@@ -54,6 +54,10 @@ public class BillingRecord {
     private LocalDateTime issuedAt = LocalDateTime.now();
     private LocalDateTime paidAt;
 
+    /** Username of the staff member who created the invoice. */
+    @Column(name = "created_by", length = 120)
+    private String createdBy;
+
     @Column(name = "void_reason", length = 255)
     private String voidReason;
 
@@ -145,6 +149,10 @@ public class BillingRecord {
 
     public LocalDateTime getPaidAt() { return paidAt; }
     public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
+
+    public String getCreatedBy() { return createdBy; }
+    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+
     public String getVoidReason() { return voidReason; }
     public void setVoidReason(String voidReason) { this.voidReason = voidReason; }
     public LocalDateTime getVoidedAt() { return voidedAt; }

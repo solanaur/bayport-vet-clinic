@@ -231,7 +231,7 @@ public class ApiControllers {
     public ResponseEntity<Map<String, String>> uploadInventoryPhoto(@PathVariable long id,
                                                                     @RequestPart("file") MultipartFile file) throws IOException {
         InventoryItem item = inventoryService.get(id);
-        if (item.getCategory() != null && "SERVICE".equalsIgnoreCase(item.getCategory().trim())) {
+        if (com.bayport.service.InventoryRules.isService(item)) {
             return ResponseEntity.badRequest().body(Map.of("error", "Photos are not used for service items"));
         }
         String photoUrl = fileStorageService.store(file);
@@ -499,6 +499,7 @@ public class ApiControllers {
     }
 
     @GetMapping("/reports/summary")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> summary(
             @RequestParam(name = "period", defaultValue = "day") String period,
             @RequestParam(name = "from", required = false) String from,
@@ -694,6 +695,7 @@ public class ApiControllers {
     }
 
     @GetMapping(value = "/reports/summary/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<byte[]> downloadReportPdf(
             @RequestParam(name = "period", defaultValue = "day") String period,
             @RequestParam(name = "from", required = false) String from,

@@ -15,8 +15,9 @@ public final class BillingVoidRules {
         if ("VOID".equals(current)) {
             return "This invoice is already void.";
         }
-        if (!"PAID".equals(current) && !"PENDING".equals(current)) {
-            return "This invoice cannot be voided.";
+        // Only unpaid invoices may be voided — paid revenue stays tied to the POS sale.
+        if (!"PENDING".equals(current)) {
+            return "Only pending invoices can be voided.";
         }
         return null;
     }

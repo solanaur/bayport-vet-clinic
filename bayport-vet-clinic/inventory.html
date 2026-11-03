@@ -28,44 +28,47 @@
             <h1 class="bp-page-title tracking-tight">Inventory</h1>
           </div>
           <div class="flex flex-wrap items-center gap-2 shrink-0">
-            <button type="button" id="exportCsvBtn" class="bp-btn-secondary px-4 py-2 text-sm font-semibold">Export CSV</button>
-            <button type="button" id="exportPdfBtn" class="bp-btn-secondary px-4 py-2 text-sm font-semibold">Export PDF</button>
-            <button type="button" id="addBtn" class="bp-btn-primary px-4 py-2 text-sm font-semibold">Add item</button>
+            <button type="button" id="exportCsvBtn" class="bp-btn-secondary">Export CSV</button>
+            <button type="button" id="exportPdfBtn" class="bp-btn-secondary">Export PDF</button>
+            <button type="button" id="addBtn" class="bp-btn-primary">Add item</button>
           </div>
         </div>
 
-        <div id="lowStockPanel" class="hidden rounded-lg border bp-panel-tint-yellow overflow-hidden">
-          <button type="button" id="lowStockToggle" class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#f9fafb] transition-colors">
-            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-700" aria-hidden="true">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+        <div id="lowStockPanel" class="hidden rounded-xl border border-amber-200 bg-amber-50/40 overflow-hidden">
+          <button type="button" id="lowStockToggle" class="w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-amber-50/80">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-700" aria-hidden="true">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
             </span>
             <span class="flex-1 min-w-0">
-              <span id="lowStockTitle" class="block font-medium text-[#101828]">Items running low</span>
-              <span id="lowStockSubtitle" class="block text-xs text-[#667085] mt-0.5">Stock at or below reorder level</span>
+              <span id="lowStockTitle" class="block text-sm font-medium text-slate-800">Items running low</span>
+              <span id="lowStockSubtitle" class="block text-[12px] text-[#667085]">Stock at or below reorder level</span>
             </span>
-            <svg id="lowStockChevron" class="w-4 h-4 shrink-0 text-[#667085] transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+            <svg id="lowStockChevron" class="w-4 h-4 shrink-0 text-[#667085]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </button>
-          <div id="lowStockList" class="border-t border-[#EAECF0] px-3 py-2 max-h-56 overflow-y-auto space-y-1"></div>
+          <div id="lowStockList" class="border-t border-amber-100/80 px-2.5 py-1.5 max-h-44 overflow-y-auto space-y-0.5"></div>
         </div>
 
         <div class="bp-table-panel overflow-hidden">
           <div class="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div class="inline-flex rounded-lg bg-slate-100 p-1" role="tablist">
-              <button type="button" id="invTabProducts" class="inv-tab px-4 py-1.5 rounded-md text-sm font-medium transition-colors">Products</button>
-              <button type="button" id="invTabServices" class="inv-tab px-4 py-1.5 rounded-md text-sm font-medium transition-colors">Services</button>
+            <div class="bp-seg" role="tablist">
+              <button type="button" id="invTabProducts" class="bp-seg-btn is-active">Products</button>
+              <button type="button" id="invTabServices" class="bp-seg-btn">Services</button>
             </div>
-            <input id="invSearch" type="search" class="w-full sm:max-w-xs border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none" placeholder="Search…"/>
+            <div class="bp-search w-full sm:max-w-xs">
+              <svg class="bp-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/></svg>
+              <input id="invSearch" type="search" class="bp-search-input" placeholder="Search…"/>
+            </div>
           </div>
 
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead class="bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide border-b border-slate-200">
+              <thead>
                 <tr>
-                  <th class="px-4 py-3 w-14"></th>
-                  <th id="invColItem" class="px-4 py-3">Item</th>
-                  <th class="px-4 py-3 hidden sm:table-cell">Category</th>
-                  <th id="invColStock" class="px-4 py-3">Stock</th>
-                  <th class="px-4 py-3 text-right">Price</th>
+                  <th class="w-14"></th>
+                  <th id="invColItem">Item</th>
+                  <th class="hidden sm:table-cell">Category</th>
+                  <th id="invColStock">Stock</th>
+                  <th class="text-right">Price</th>
                 </tr>
               </thead>
               <tbody id="tbody"></tbody>
@@ -110,8 +113,24 @@
       return window.formatPrice ? window.formatPrice(n) : Number(n || 0).toFixed(2);
     }
 
+    const SERVICE_CATEGORIES = [
+      "Consultation",
+      "Vaccination",
+      "Laboratory Tests",
+      "Grooming",
+      "Surgery",
+      "Treatment",
+      "Deworming",
+    ];
+
     function isService(i) {
-      return (i.category || '').toUpperCase() === 'SERVICE';
+      if (typeof window.bayportIsInventoryService === "function") {
+        return window.bayportIsInventoryService(i);
+      }
+      const sku = String(i?.sku || "").toUpperCase();
+      if (sku.startsWith("SVC-")) return true;
+      const c = String(i?.category || "").trim().toUpperCase();
+      return c === "SERVICE" || SERVICE_CATEGORIES.some((x) => x.toUpperCase() === c);
     }
 
     function escapeHtml(s) {
@@ -164,7 +183,7 @@
       ];
 
       if (invTab === "services") {
-        rows.push(["SKU", "Name", "Category", "Unit Price (PHP)"]);
+        rows.push(["Service Code", "Service Name", "Category", "Unit Price (PHP)"]);
         items.forEach((i) => {
           rows.push([i.sku || "", i.name || "", i.category || "", money(i.unitPrice)]);
         });
@@ -272,13 +291,11 @@
 
     function setInvTab(tab) {
       invTab = tab;
-      const on = 'inv-tab px-4 py-1.5 rounded-md text-sm font-medium bg-white text-slate-900 shadow-sm';
-      const off = 'inv-tab px-4 py-1.5 rounded-md text-sm font-medium text-slate-600 hover:text-slate-900';
-      document.getElementById('invTabProducts').className = tab === 'products' ? on : off;
-      document.getElementById('invTabServices').className = tab === 'services' ? on : off;
+      document.getElementById('invTabProducts').className = 'bp-seg-btn' + (tab === 'products' ? ' is-active' : '');
+      document.getElementById('invTabServices').className = 'bp-seg-btn' + (tab === 'services' ? ' is-active' : '');
       const itemHead = document.getElementById("invColItem");
       const stockHead = document.getElementById("invColStock");
-      if (itemHead) itemHead.textContent = tab === "services" ? "Service" : "Item";
+      if (itemHead) itemHead.textContent = tab === "services" ? "Service Name" : "Item";
       if (stockHead) stockHead.classList.toggle("hidden", tab === "services");
       render();
     }
@@ -316,6 +333,11 @@
     }
 
     function updateLowStockPanel() {
+      if (invTab !== "products") {
+        lowStockPanel.classList.add("hidden");
+        return;
+      }
+
       const low = lowStockItems().sort((a, b) => (Number(a.quantity) || 0) - (Number(b.quantity) || 0));
       const outCount = low.filter((i) => Number(i.quantity) <= 0).length;
 
@@ -390,20 +412,22 @@
         const st = stockLabel(i);
         const stockCell = servicesView
           ? ""
-          : `<td class="px-4 py-3 align-middle ${st.cls}">
-            <div>${st.html}</div>
-            ${stockHealthBar(i)}
+          : `<td class="align-middle ${st.cls}">
+            <div class="flex flex-col items-start gap-1">
+              <div>${st.html}</div>
+              ${stockHealthBar(i)}
+            </div>
           </td>`;
         return `
-        <tr class="border-t border-slate-100 cursor-pointer inv-row ${!servicesView && lowIds.has(i.id) ? "bg-[#fffbeb]" : ""}" data-id="${i.id}">
-          <td class="px-4 py-3 align-middle">${itemPhotoHtml(i)}</td>
-          <td class="px-4 py-3 align-middle">
+        <tr class="cursor-pointer inv-row ${!servicesView && lowIds.has(i.id) ? "bg-[#fffbeb]" : ""}" data-id="${i.id}">
+          <td class="align-middle">${itemPhotoHtml(i)}</td>
+          <td class="align-middle">
             <div class="font-medium text-slate-900">${escapeHtml(i.name || '')}</div>
-            <div class="text-xs text-slate-400 font-mono mt-0.5">${escapeHtml(i.sku || '')}</div>
+            <div class="text-[13px] text-[#667085] font-mono mt-0.5">${escapeHtml(i.sku || '')}</div>
           </td>
-          <td class="px-4 py-3 align-middle text-slate-600 hidden sm:table-cell">${escapeHtml(i.category || '—')}</td>
+          <td class="align-middle text-slate-600 hidden sm:table-cell">${escapeHtml(i.category || '—')}</td>
           ${stockCell}
-          <td class="px-4 py-3 align-middle text-right tabular-nums font-medium whitespace-nowrap">₱${money(i.unitPrice)}</td>
+          <td class="align-middle text-right tabular-nums font-semibold text-slate-900 whitespace-nowrap">₱${money(i.unitPrice)}</td>
         </tr>`;
       }).join('');
 
@@ -423,31 +447,52 @@
     }
 
     async function openForm(id) {
-      let item = { name: '', sku: '', category: '', unit: 'pc', quantity: 0, reorderLevel: 5, unitPrice: 0 };
+      let item = {
+        name: '',
+        sku: invTab === 'services' ? 'SVC-' : '',
+        category: invTab === 'services' ? 'Consultation' : '',
+        unit: invTab === 'services' ? 'ea' : 'pc',
+        quantity: 0,
+        reorderLevel: 5,
+        unitPrice: 0,
+      };
       if (id) {
         try { item = await Api.inventory.get(id); } catch (e) { alert(e.message); return; }
       }
+      const editingService = id ? isService(item) : invTab === 'services';
+      const catOptions = SERVICE_CATEGORIES.map((c) => {
+        const selected = String(item.category || '').toLowerCase() === c.toLowerCase() ? ' selected' : '';
+        return `<option value="${escapeHtml(c)}"${selected}>${escapeHtml(c)}</option>`;
+      }).join('');
+      const categoryField = editingService
+        ? `<label class="block text-sm text-slate-600">Category
+            <select id="inv_cat" class="w-full border border-slate-200 rounded-lg p-2 mt-1 bg-white">${catOptions}</select>
+          </label>`
+        : `<label class="block text-sm text-slate-600">Category<input id="inv_cat" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${escapeHtml(item.category || '')}" placeholder="e.g. Medicine, Vaccines"></label>`;
+      const stockFields = editingService
+        ? ''
+        : `<div class="grid grid-cols-2 gap-3">
+            <label class="block text-sm text-slate-600">Quantity<input id="inv_qty" type="number" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${item.quantity ?? 0}"></label>
+            <label class="block text-sm text-slate-600">Reorder at<input id="inv_reorder" type="number" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${item.reorderLevel ?? 5}"></label>
+          </div>`;
       modalRoot.innerHTML = `
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onclick="if(event.target===this)window.closeModal()">
           <div class="bg-white rounded-xl w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-            <h3 class="text-lg font-bold text-slate-900 mb-4">${id ? 'Edit' : 'Add'} item</h3>
+            <h3 class="text-lg font-bold text-slate-900 mb-4">${id ? 'Edit' : 'Add'} ${editingService ? 'service' : 'item'}</h3>
             <div class="space-y-3">
-              <label class="block text-sm text-slate-600">Name *<input id="inv_name" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${escapeHtml(item.name || '')}"></label>
-              <label class="block text-sm text-slate-600">SKU *<input id="inv_sku" class="w-full border border-slate-200 rounded-lg p-2 mt-1 font-mono text-sm" value="${escapeHtml(item.sku || '')}"></label>
-              <label class="block text-sm text-slate-600">Category<input id="inv_cat" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${escapeHtml(item.category || '')}" placeholder="e.g. Medicine, or SERVICE"></label>
-              <div class="grid grid-cols-2 gap-3">
-                <label class="block text-sm text-slate-600">Quantity<input id="inv_qty" type="number" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${item.quantity ?? 0}"></label>
-                <label class="block text-sm text-slate-600">Reorder at<input id="inv_reorder" type="number" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${item.reorderLevel ?? 5}"></label>
-              </div>
+              <label class="block text-sm text-slate-600">${editingService ? 'Service name' : 'Name'} *<input id="inv_name" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${escapeHtml(item.name || '')}"></label>
+              <label class="block text-sm text-slate-600">${editingService ? 'Service code' : 'SKU'} *<input id="inv_sku" class="w-full border border-slate-200 rounded-lg p-2 mt-1 font-mono text-sm" value="${escapeHtml(item.sku || '')}"></label>
+              ${categoryField}
+              ${stockFields}
               <label class="block text-sm text-slate-600">Unit price (₱)<input id="inv_price" type="number" step="0.01" class="w-full border border-slate-200 rounded-lg p-2 mt-1" value="${item.unitPrice ?? 0}"></label>
-              <div id="inv_photo_block" class="space-y-2">
+              <div id="inv_photo_block" class="space-y-2 ${editingService ? 'hidden' : ''}">
                 <label class="block text-sm text-slate-600">Product photo
                   <input id="inv_photo_file" type="file" accept="image/*" class="w-full border border-slate-200 rounded-lg p-2 mt-1 text-sm bg-white"/>
                 </label>
                 <p class="text-xs text-slate-400">Shown in inventory and billing checkout.</p>
                 <div id="inv_photo_preview" class="flex items-center gap-3">
                   ${
-                    item.photo && !isService(item)
+                    item.photo && !editingService
                       ? itemPhotoHtml(item, "w-16 h-16")
                       : `<div class="w-16 h-16 rounded-lg border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-xs">No photo</div>`
                   }
@@ -463,14 +508,6 @@
             </div>
           </div>
         </div>`;
-      const photoBlock = document.getElementById('inv_photo_block');
-      const catInp = document.getElementById('inv_cat');
-      function syncPhotoVisibility() {
-        const svc = (catInp.value || '').trim().toUpperCase() === 'SERVICE';
-        if (photoBlock) photoBlock.classList.toggle('hidden', svc);
-      }
-      catInp.addEventListener('input', syncPhotoVisibility);
-      syncPhotoVisibility();
 
       const fileInp = document.getElementById('inv_photo_file');
       const previewEl = document.getElementById('inv_photo_preview');
@@ -495,18 +532,19 @@
       }
 
       document.getElementById('inv_save').onclick = async () => {
+        const isSvc = editingService;
         const body = {
           id: item.id,
           sku: document.getElementById('inv_sku').value.trim(),
           name: (typeof window.bayportCapWords === 'function' ? window.bayportCapWords : (s)=>s)(document.getElementById('inv_name').value.trim()),
           category: document.getElementById('inv_cat').value.trim(),
-          unit: item.unit || 'pc',
-          quantity: parseInt(document.getElementById('inv_qty').value, 10) || 0,
-          reorderLevel: parseInt(document.getElementById('inv_reorder').value, 10) || 0,
+          unit: isSvc ? (item.unit || 'ea') : (item.unit || 'pc'),
+          quantity: isSvc ? null : (parseInt(document.getElementById('inv_qty').value, 10) || 0),
+          reorderLevel: isSvc ? null : (parseInt(document.getElementById('inv_reorder').value, 10) || 0),
           unitPrice: parseFloat(document.getElementById('inv_price').value) || 0,
+          consumableSku: item.consumableSku || null,
         };
         if (!body.sku || !body.name) { alert('Name and SKU are required'); return; }
-        const isSvc = (body.category || '').toUpperCase() === 'SERVICE';
         try {
           let savedId;
           if (id) {
@@ -516,8 +554,8 @@
             const created = await Api.inventory.create(body);
             savedId = created.id;
           }
-          const fileInp = document.getElementById('inv_photo_file');
-          const file = fileInp && fileInp.files && fileInp.files[0];
+          const photoInp = document.getElementById('inv_photo_file');
+          const file = photoInp && photoInp.files && photoInp.files[0];
           if (file && savedId && !isSvc) {
             try { await Api.inventory.uploadPhoto(savedId, file); } catch (up) { alert(up.message || 'Photo upload failed'); }
           }

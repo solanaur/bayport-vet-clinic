@@ -267,8 +267,9 @@ body.auth-landing-page {
   color: #fff;
   background-color: var(--bp-blue-hero);
   background-image:
-    linear-gradient(180deg, rgba(13, 77, 158, 0.9) 0%, rgba(15, 92, 192, 0.85) 100%),
+    linear-gradient(180deg, rgba(13, 77, 158, 0.55) 0%, rgba(15, 92, 192, 0.48) 100%),
     url("bg-signin.jpg?v=2");
+  text-shadow: 0 1px 12px rgba(8, 35, 75, 0.45);
   background-size: cover;
   background-position: center;
 }

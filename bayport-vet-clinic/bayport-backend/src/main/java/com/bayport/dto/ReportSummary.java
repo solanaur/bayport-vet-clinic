@@ -37,7 +37,7 @@ public class ReportSummary {
 
     /** Pending clinic invoices in range (by {@code issuedAt}), matching the Reports KPI. */
     public BigDecimal pendingBilling = BigDecimal.ZERO;
-    /** Reserved for future voided-invoice tracking; UI currently shows none. */
+    /** Sum of voided invoices in the report period. */
     public BigDecimal voidedAmount = BigDecimal.ZERO;
     /** POS totals in period by payment method (from sale notes). */
     public BigDecimal posCash = BigDecimal.ZERO;

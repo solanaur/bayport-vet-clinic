@@ -6,6 +6,7 @@
   let pets = [];
   let cart = [];
   let lastCheckout = null;
+  let checkoutInFlight = false;
   let deps = { toast: () => {}, onComplete: async () => {} };
   const WALK_IN_PET_VALUE = "walkin";
 
@@ -56,6 +57,11 @@
   }
 
   function isService(item) {
+    if (typeof window.bayportIsInventoryService === "function") {
+      return window.bayportIsInventoryService(item);
+    }
+    const sku = String(item?.sku || "").toUpperCase();
+    if (sku.startsWith("SVC-")) return true;
     return String(item?.category || "").toUpperCase() === "SERVICE";
   }
 
@@ -68,8 +74,22 @@
     return cart.reduce((sum, l) => sum + (Number(l.unitPrice) || 0) * (Number(l.qty) || 1), 0);
   }
 
+  function cartInvoiceDiscount() {
+    return cart
+      .filter((l) => l.kind === "billing")
+      .reduce((sum, l) => sum + (Number(l.invoiceDiscount) || 0), 0);
+  }
+
   function cartTotal() {
-    return cartSubtotal();
+    return Math.max(0, cartSubtotal() - cartInvoiceDiscount());
+  }
+
+  function cartHasBillingLines() {
+    return cart.some((l) => l.kind === "billing");
+  }
+
+  function cartHasFreshItems() {
+    return cart.some((l) => l.kind !== "billing");
   }
 
   function selectedPet() {
@@ -85,6 +105,8 @@
   function updateCartQty(idx, delta) {
     const line = cart[idx];
     if (!line) return;
+    // Invoice settlement lines stay at the original quantity so the balance matches the invoice.
+    if (line.kind === "billing") return;
     const next = (Number(line.qty) || 1) + delta;
     if (next <= 0) {
       cart.splice(idx, 1);
@@ -96,7 +118,7 @@
 
   function setCartQty(idx, qty) {
     const line = cart[idx];
-    if (!line) return;
+    if (!line || line.kind === "billing") return;
     const q = Math.max(1, parseInt(qty, 10) || 1);
     line.qty = q;
     renderCart();
@@ -116,16 +138,18 @@
           const unit = Number(l.unitPrice) || 0;
           const qty = Number(l.qty) || 1;
           const lineTotal = unit * qty;
-          return `<div class="pay-cart-line flex gap-3 py-3 border-b border-slate-100 text-sm">
-            <div class="min-w-0 flex-1">
-              <div class="font-medium text-slate-900 truncate">${esc(l.name)}</div>
-              <div class="flex items-center mt-1.5">
-                <div class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
+          const qtyControls =
+            l.kind === "billing"
+              ? `<span class="px-2 py-1 min-w-[2rem] text-center tabular-nums font-semibold text-slate-800">×${qty}</span>`
+              : `<div class="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 overflow-hidden">
                   <button type="button" class="pay-cart-qty px-2 py-1 text-slate-600 hover:bg-slate-100" data-idx="${i}" data-d="-1" aria-label="Decrease">−</button>
                   <span class="px-2 py-1 min-w-[2rem] text-center tabular-nums font-semibold text-slate-800">${qty}</span>
                   <button type="button" class="pay-cart-qty px-2 py-1 text-slate-600 hover:bg-slate-100" data-idx="${i}" data-d="1" aria-label="Increase">+</button>
-                </div>
-              </div>
+                </div>`;
+          return `<div class="pay-cart-line flex gap-3 py-3 border-b border-slate-100 text-sm">
+            <div class="min-w-0 flex-1">
+              <div class="font-medium text-slate-900 truncate">${esc(l.name)}</div>
+              <div class="flex items-center mt-1.5">${qtyControls}</div>
             </div>
             <div class="flex flex-col items-end justify-between shrink-0">
               <button type="button" class="pay-cart-rm text-slate-400 hover:text-red-600 text-lg leading-none" data-idx="${i}" aria-label="Remove">&times;</button>
@@ -149,7 +173,17 @@
     }
 
     if (totEl) totEl.textContent = peso(cartTotal());
+    updatePendingSaveVisibility();
     updatePaymentFields();
+  }
+
+  function updatePendingSaveVisibility() {
+    const btn = document.getElementById("paySavePendingBtn");
+    if (!btn) return;
+    // Pending save is for new cart charges on a registered pet — not walk-in or settling an existing invoice.
+    const show = cartHasFreshItems() && !cartHasBillingLines() && !isWalkInCustomer() && customerSelected();
+    btn.classList.toggle("hidden", !show);
+    btn.disabled = !show || !cart.length || checkoutInFlight;
   }
 
   function updatePaymentFields() {
@@ -217,10 +251,11 @@
       const ref = (document.getElementById("payRefNo")?.value || "").trim();
       cashOk = ref.length > 0;
     }
-    const disabled = !petOk || !cartOk || !methodOk || !cashOk || cashInsufficient;
+    const disabled = !petOk || !cartOk || !methodOk || !cashOk || cashInsufficient || checkoutInFlight;
     btn.disabled = disabled;
     btn.classList.toggle("opacity-50", disabled);
     btn.classList.toggle("cursor-not-allowed", disabled);
+    updatePendingSaveVisibility();
   }
 
   async function loadInventory() {
@@ -322,6 +357,14 @@
 
   function addBillingLine(bill) {
     if (!bill) return;
+    if (String(bill.status || "").toUpperCase() === "VOID") {
+      deps.toast("This invoice was voided and cannot be paid.", true);
+      return;
+    }
+    if (String(bill.status || "").toUpperCase() === "PAID") {
+      deps.toast("This invoice is already paid.", true);
+      return;
+    }
     if (isWalkInCustomer()) {
       deps.toast("Walk-in customers cannot pay clinic invoices. Select a registered pet instead.", true);
       return;
@@ -329,24 +372,37 @@
     const existing = cart.find((l) => l.kind === "billing" && l.billingId === bill.id);
     if (existing) return;
     const itemized = Array.isArray(bill.lines) ? bill.lines.filter((l) => l && (l.serviceName || l.serviceCost != null)) : [];
+    const invoiceDiscount = Math.max(0, Number(bill.discountAmount) || 0);
     if (itemized.length) {
       itemized.forEach((line, idx) => {
+        const qty = Math.max(1, Number(line.quantity) || 1);
+        const lineTotal = Number(line.serviceCost) || 0;
+        // serviceCost is stored as the line total; keep qty for display, charge the full line once.
         cart.push({
           kind: "billing",
           billingId: bill.id,
           name: line.serviceName || `Service ${idx + 1}`,
-          unitPrice: Number(line.serviceCost) || 0,
+          unitPrice: lineTotal,
           qty: 1,
+          displayQty: qty,
+          invoiceDiscount: 0,
         });
       });
+      // Keep the original invoice discount on the first cart line so checkout can send it once.
+      if (invoiceDiscount > 0 && cart.length) {
+        const first = cart.find((l) => l.kind === "billing" && l.billingId === bill.id);
+        if (first) first.invoiceDiscount = invoiceDiscount;
+      }
     } else {
-      const subtotal = Number(bill.subtotalAmount != null ? bill.subtotalAmount : bill.amount) || 0;
+      // Charge the outstanding balance (amount due after discount), not the raw subtotal.
+      const due = Number(bill.amount != null ? bill.amount : bill.subtotalAmount) || 0;
       cart.push({
         kind: "billing",
         billingId: bill.id,
         name: bill.description || `Invoice #${bill.id}`,
-        unitPrice: subtotal,
+        unitPrice: due,
         qty: 1,
+        invoiceDiscount: 0,
       });
     }
     if (bill.petId && document.getElementById("payPetSel")) {
@@ -483,6 +539,7 @@
   }
 
   async function submitCheckout() {
+    if (checkoutInFlight) return;
     if (!cart.length) {
       deps.toast("Add at least one line to the cart.", true);
       return;
@@ -519,6 +576,7 @@
       }
     }
     const btn = document.getElementById("paySubmitBtn");
+    checkoutInFlight = true;
     if (btn) btn.disabled = true;
     try {
       const refNo = (document.getElementById("payRefNo")?.value || "").trim();
@@ -526,10 +584,11 @@
       if ((payMethod === "GCash" || payMethod === "Card") && refNo) {
         methodForApi = `${payMethod} · Ref ${refNo}`;
       }
+      const invoiceDiscount = cartInvoiceDiscount();
       const res = await Api.pos.checkout({
         petId: isWalkInCustomer() ? null : Number(sel),
         paymentMethod: methodForApi,
-        discountAmount: 0,
+        discountAmount: invoiceDiscount > 0 ? invoiceDiscount : 0,
         lines: linesForCheckout(),
         fulfillPrescriptionIds: [],
       });
@@ -553,7 +612,58 @@
     } catch (e) {
       deps.toast((e.message || "Payment failed").slice(0, 180), true);
     } finally {
+      checkoutInFlight = false;
       if (btn) updateSubmitState(false);
+    }
+  }
+
+  async function submitSavePending() {
+    if (checkoutInFlight) return;
+    if (!cart.length) {
+      deps.toast("Add at least one line to the cart.", true);
+      return;
+    }
+    if (isWalkInCustomer()) {
+      deps.toast("Select a registered pet to save a pending invoice.", true);
+      return;
+    }
+    if (cartHasBillingLines()) {
+      deps.toast("Clear existing pending invoices from the cart before saving a new pending bill.", true);
+      return;
+    }
+    if (!cartHasFreshItems()) {
+      deps.toast("Add services or products to save as pending.", true);
+      return;
+    }
+    const sel = document.getElementById("payPetSel")?.value;
+    if (!sel || isWalkInCustomer()) {
+      deps.toast("Select a customer for this pending invoice.", true);
+      return;
+    }
+    const btn = document.getElementById("paySavePendingBtn");
+    const payBtn = document.getElementById("paySubmitBtn");
+    checkoutInFlight = true;
+    if (btn) btn.disabled = true;
+    if (payBtn) payBtn.disabled = true;
+    try {
+      const saved = await Api.billing.savePendingCart({
+        petId: Number(sel),
+        discountAmount: 0,
+        lines: linesForCheckout(),
+      });
+      closeModal(true);
+      deps.toast(
+        `Saved as pending invoice${saved?.id ? " #" + saved.id : ""}. Collect payment when ready.`,
+        false,
+      );
+      if (typeof deps.onComplete === "function") {
+        await deps.onComplete();
+      }
+    } catch (e) {
+      deps.toast((e.message || "Could not save pending invoice").slice(0, 180), true);
+    } finally {
+      checkoutInFlight = false;
+      updateSubmitState(false);
     }
   }
 
@@ -729,7 +839,11 @@
               <input id="payRefNo" type="text" class="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm" placeholder="Transaction / reference no."/>
             </label>
           </div>
-          <button type="button" id="paySubmitBtn" class="w-full py-3.5 rounded-lg bg-[#0F5CC0] text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed mt-auto">Complete payment</button>
+          <div class="mt-auto space-y-2 pt-1">
+            <button type="button" id="paySubmitBtn" class="w-full py-3.5 rounded-lg bg-[#0F5CC0] text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed">Complete payment</button>
+            <button type="button" id="paySavePendingBtn" class="hidden w-full py-3 rounded-lg border border-[#0F5CC0] text-[#0F5CC0] font-semibold text-sm hover:bg-[#0F5CC0]/5 disabled:opacity-50 disabled:cursor-not-allowed">Save as pending</button>
+            <p class="text-[11px] text-slate-400 text-center leading-relaxed">Save as pending creates an unpaid invoice without collecting revenue or deducting stock.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -775,6 +889,7 @@
     document.getElementById("payRefNo").addEventListener("input", () => updateSubmitState(false));
     document.getElementById("payPetSel").addEventListener("change", onCustomerChange);
     document.getElementById("paySubmitBtn").onclick = submitCheckout;
+    document.getElementById("paySavePendingBtn").onclick = submitSavePending;
 
     document.getElementById("paySuccessDone").onclick = hideSuccessModal;
     document.getElementById("paySuccessPrint").onclick = () => {

@@ -24,7 +24,10 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -43,6 +46,8 @@ public class ClinicBackupService {
     private final String backupDir;
     private final String externalDir;
     private final int keep;
+    private final int keepDaily;
+    private final int keepWeekly;
     private final String jdbcUrl;
     private final String dbUser;
     private final String dbPassword;
@@ -51,6 +56,8 @@ public class ClinicBackupService {
     private final String uploadDir;
     private final String verifyDatabase;
     private Instant lastStaleAlert = Instant.EPOCH;
+    private final Object backupLock = new Object();
+    private volatile boolean backupRunning;
 
     public ClinicBackupService(DataSource dataSource,
                                BackupRunRepository backupRunRepository,
@@ -59,6 +66,8 @@ public class ClinicBackupService {
                                @Value("${bayport.backup.dir:}") String backupDir,
                                @Value("${bayport.backup.external-dir:}") String externalDir,
                                @Value("${bayport.backup.keep:14}") int keep,
+                               @Value("${bayport.backup.keep-daily:7}") int keepDaily,
+                               @Value("${bayport.backup.keep-weekly:4}") int keepWeekly,
                                @Value("${spring.datasource.url:}") String jdbcUrl,
                                @Value("${spring.datasource.username:}") String dbUser,
                                @Value("${spring.datasource.password:}") String dbPassword,
@@ -73,6 +82,8 @@ public class ClinicBackupService {
         this.backupDir = backupDir;
         this.externalDir = externalDir;
         this.keep = keep;
+        this.keepDaily = keepDaily;
+        this.keepWeekly = keepWeekly;
         this.jdbcUrl = jdbcUrl == null ? "" : jdbcUrl;
         this.dbUser = dbUser == null ? "" : dbUser;
         this.dbPassword = dbPassword == null ? "" : dbPassword;
@@ -84,7 +95,11 @@ public class ClinicBackupService {
 
     @Scheduled(cron = "${bayport.backup.cron:0 15 2 * * *}")
     public void scheduledBackup() {
-        createBackup("scheduled");
+        try {
+            createBackup("scheduled");
+        } catch (IllegalStateException ex) {
+            log.warn("Scheduled backup skipped: {}", ex.getMessage());
+        }
     }
 
     @Scheduled(cron = "0 5 * * * *")
@@ -101,7 +116,20 @@ public class ClinicBackupService {
         notifyAdmins("Bayport backup needs attention", String.valueOf(status.get("message")));
     }
 
-    public synchronized BackupRun createBackup(String reason) {
+    public boolean isBackupRunning() {
+        return backupRunning;
+    }
+
+    public BackupRun createBackup(String reason) {
+        beginBackupWork();
+        try {
+            return createBackupUnlocked(reason);
+        } finally {
+            endBackupWork();
+        }
+    }
+
+    private BackupRun createBackupUnlocked(String reason) {
         BackupRun run = new BackupRun();
         run.setStartedAt(LocalDateTime.now());
         run.setStatus("RUNNING");
@@ -124,6 +152,9 @@ public class ClinicBackupService {
                     "databaseEntry=" + entry + "\ndatabaseSha256=" + hash + "\n");
             Path zip = dir.resolve(id + ".zip");
             zipDirectory(temp, zip);
+            if (!Files.isRegularFile(zip) || !Files.isReadable(zip)) {
+                throw new IOException("Backup file was not created or is not readable.");
+            }
             BackupRules.verifyArchive(zip);
             String verify = testRestore(temp.resolve(entry), entry);
             run.setStatus("SUCCESS");
@@ -165,6 +196,20 @@ public class ClinicBackupService {
         if (!Files.isDirectory(dir)) {
             return List.of();
         }
+
+        Map<String, BackupRun> runsByLocation = new HashMap<>();
+        for (BackupRun run : backupRunRepository.findAll()) {
+            if (run.getLocation() == null || run.getLocation().isBlank()) {
+                continue;
+            }
+            BackupRun existing = runsByLocation.get(run.getLocation());
+            if (existing == null
+                    || (run.getFinishedAt() != null
+                    && (existing.getFinishedAt() == null || run.getFinishedAt().isAfter(existing.getFinishedAt())))) {
+                runsByLocation.put(run.getLocation(), run);
+            }
+        }
+
         try (Stream<Path> files = Files.list(dir)) {
             List<Map<String, Object>> rows = new ArrayList<>();
             for (Path file : files.filter(path -> path.getFileName().toString().endsWith(".zip")).toList()) {
@@ -173,11 +218,39 @@ public class ClinicBackupService {
                 if (!BackupRules.BACKUP_ID.matcher(id).matches()) {
                     continue;
                 }
-                rows.add(Map.of(
-                        "id", id,
-                        "sizeBytes", Files.size(file),
-                        "confirm", BackupRules.confirmPhrase(id)
-                ));
+                BackupRun run = runsByLocation.get(id);
+                LocalDateTime when = run != null && run.getFinishedAt() != null
+                        ? run.getFinishedAt()
+                        : BackupRules.parseIdTimestamp(id);
+                long size = Files.size(file);
+                String status = "SUCCESS";
+                String reason = "scheduled";
+                String verifyStatus = null;
+                if (run != null) {
+                    status = run.getStatus() == null ? "SUCCESS" : run.getStatus();
+                    reason = run.getMessage() == null ? "" : run.getMessage();
+                    verifyStatus = run.getVerifyStatus();
+                    if (run.getSizeBytes() != null && run.getSizeBytes() > 0) {
+                        size = run.getSizeBytes();
+                    }
+                }
+                boolean readable = Files.isRegularFile(file) && Files.isReadable(file);
+                if (!readable) {
+                    status = "UNREADABLE";
+                }
+
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", id);
+                row.put("filename", name);
+                row.put("sizeBytes", size);
+                row.put("status", status);
+                row.put("reason", reason);
+                row.put("manual", BackupRules.isPreservedReason(reason));
+                row.put("verifyStatus", verifyStatus);
+                row.put("finishedAt", when == null ? null : when.toString());
+                row.put("finishedAtDisplay", formatBackupTime(when));
+                row.put("confirm", BackupRules.confirmPhrase(id));
+                rows.add(row);
             }
             rows.sort(Comparator.comparing((Map<String, Object> row) -> String.valueOf(row.get("id"))).reversed());
             return rows;
@@ -193,45 +266,174 @@ public class ClinicBackupService {
         return zip;
     }
 
-    public synchronized void restore(String backupId, String confirm) throws Exception {
+    public Map<String, Object> restore(String backupId, String confirm) throws Exception {
         BackupRules.requireConfirm(backupId, confirm);
-        if (!jdbcUrl.startsWith("jdbc:mysql:")) {
-            throw new IllegalStateException(
-                    "Stop the server before restoring the desktop database, then replace the database file from the backup zip.");
-        }
-        createBackup("safety-before-restore");
         Path zip = zipFor(backupId);
-        BackupRules.verifyArchive(zip);
-        Path sql = extractDatabaseSql(zip);
-        Path defaults = null;
+
+        beginBackupWork();
         try {
-            BackupRules.MysqlTarget target = BackupRules.parseMysqlUrl(jdbcUrl);
-            defaults = writeDefaults(target);
-            runMysql(mysqlBinary(), defaults, target.database(), sql);
+            BackupRules.verifyArchive(zip);
+
+            BackupRun safety = createBackupUnlocked("safety-before-restore");
+            if (!"SUCCESS".equals(safety.getStatus()) || safety.getLocation() == null) {
+                throw new IllegalStateException(
+                        "Could not create a safety backup of the current database. Restore was cancelled.");
+            }
+
+            BackupRules.verifyArchive(zip);
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("ok", false);
+            result.put("backupId", backupId);
+            result.put("safetyBackupId", safety.getLocation());
+
+            if (jdbcUrl.startsWith("jdbc:mysql:")) {
+                Path sql = extractDatabaseSql(zip);
+                Path defaults = null;
+                try {
+                    BackupRules.MysqlTarget target = BackupRules.parseMysqlUrl(jdbcUrl);
+                    defaults = writeDefaults(target);
+                    runMysql(mysqlBinary(), defaults, target.database(), sql);
+                } finally {
+                    deleteFile(sql);
+                    deleteFile(defaults);
+                }
+                verifyLiveConnectivity();
+                log.info("Clinic database restored from {}", backupId);
+                result.put("ok", true);
+                result.put("connectivityVerified", true);
+                result.put("message",
+                        "Restore finished from " + backupId
+                                + ". A safety backup was saved as " + safety.getLocation()
+                                + ". Database connectivity was verified. Sign in again and check a few records.");
+                return result;
+            }
+
+            if (jdbcUrl.startsWith("jdbc:h2:")) {
+                result.put("connectivityVerified", false);
+                result.put("message",
+                        "Safety backup " + safety.getLocation()
+                                + " was created and backup " + backupId
+                                + " passed integrity checks. Stop Bayport, then replace the desktop database file from "
+                                + backupId + ".zip before starting again. Current records were not overwritten.");
+                throw new IllegalStateException(String.valueOf(result.get("message")));
+            }
+
+            throw new IllegalStateException("This database type cannot be restored automatically.");
         } finally {
-            deleteFile(sql);
-            deleteFile(defaults);
+            endBackupWork();
         }
-        log.info("Clinic database restored from {}", backupId);
     }
 
     public Map<String, Object> status() {
+        Map<String, Object> detail = healthStatus();
+        boolean ok = Boolean.TRUE.equals(detail.get("ok"));
+        String message = ok
+                ? "Backups are up to date."
+                : String.valueOf(detail.getOrDefault("message", "No successful backup found."));
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("ok", ok);
+        body.put("message", message);
+        body.put("finishedAt", detail.get("finishedAt"));
+        body.put("finishedAtDisplay", detail.get("finishedAtDisplay"));
+        return body;
+    }
+
+    /**
+     * Health-screen detail: requires a SUCCESS run whose zip still exists and passes archive checks.
+     */
+    public Map<String, Object> healthStatus() {
+        Map<String, Object> body = new LinkedHashMap<>();
         BackupRun latest = backupRunRepository.findFirstByStatusOrderByFinishedAtDesc("SUCCESS");
-        Instant finished = latest == null || latest.getFinishedAt() == null
+        if (latest == null || latest.getLocation() == null || latest.getLocation().isBlank()) {
+            body.put("ok", false);
+            body.put("found", false);
+            body.put("fileValid", false);
+            body.put("finishedAt", null);
+            body.put("finishedAtDisplay", null);
+            body.put("message", "No successful backup found.");
+            return body;
+        }
+
+        Instant finished = latest.getFinishedAt() == null
                 ? null
                 : latest.getFinishedAt().atZone(ZoneId.systemDefault()).toInstant();
         boolean fresh = !BackupRules.stale(finished, Instant.now());
-        boolean verified = latest != null && "PASSED".equals(latest.getVerifyStatus());
-        boolean ok = fresh && verified;
-        String message = "Backups are up to date.";
-        if (latest == null) {
-            message = "No successful backup has finished yet.";
+        boolean restorePassed = "PASSED".equals(latest.getVerifyStatus());
+
+        Path zip;
+        try {
+            zip = zipFor(latest.getLocation());
+        } catch (Exception ex) {
+            body.put("ok", false);
+            body.put("found", false);
+            body.put("fileValid", false);
+            body.put("finishedAt", finished == null ? null : finished.toString());
+            body.put("finishedAtDisplay", formatBackupTime(latest.getFinishedAt()));
+            body.put("message", "No successful backup found.");
+            return body;
+        }
+
+        boolean fileValid = false;
+        try {
+            BackupRules.verifyArchive(zip);
+            fileValid = true;
+        } catch (Exception ex) {
+            log.warn("Latest backup archive failed validation: {}", ex.getMessage());
+        }
+
+        boolean ok = fileValid && fresh && restorePassed;
+        String message;
+        if (!fileValid) {
+            message = "No successful backup found.";
+            ok = false;
         } else if (!fresh) {
             message = "The last successful backup is older than 24 hours.";
-        } else if (!verified) {
-            message = "The last backup was saved, but the restore test has not passed.";
+        } else if (!restorePassed) {
+            message = "The last backup file is present, but the restore test has not passed.";
+        } else {
+            message = "Backups are up to date.";
         }
-        return Map.of("ok", ok, "message", message);
+
+        body.put("ok", ok);
+        body.put("found", fileValid);
+        body.put("fileValid", fileValid);
+        body.put("restoreVerified", restorePassed);
+        body.put("finishedAt", finished == null ? null : finished.toString());
+        body.put("finishedAtDisplay", formatBackupTime(latest.getFinishedAt()));
+        body.put("location", latest.getLocation());
+        body.put("sizeBytes", latest.getSizeBytes());
+        body.put("message", message);
+        return body;
+    }
+
+    private void beginBackupWork() {
+        synchronized (backupLock) {
+            if (backupRunning) {
+                throw new IllegalStateException("A backup is already running.");
+            }
+            backupRunning = true;
+        }
+    }
+
+    private void endBackupWork() {
+        synchronized (backupLock) {
+            backupRunning = false;
+        }
+    }
+
+    private void verifyLiveConnectivity() throws Exception {
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("SELECT 1");
+        }
+    }
+
+    private static String formatBackupTime(LocalDateTime when) {
+        if (when == null) {
+            return null;
+        }
+        return when.format(DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a").withLocale(Locale.US));
     }
 
     private String dumpDatabase(Path temp) throws Exception {
@@ -375,8 +577,44 @@ public class ClinicBackupService {
                     .sorted(Comparator.reverseOrder())
                     .toList();
         }
-        for (String id : BackupRules.idsToDelete(ids, keep)) {
-            Files.deleteIfExists(dir.resolve(id + ".zip"));
+        if (ids.isEmpty()) {
+            return;
+        }
+
+        Map<String, String> reasonById = new HashMap<>();
+        for (BackupRun run : backupRunRepository.findAll()) {
+            if (run.getLocation() == null || run.getLocation().isBlank()) {
+                continue;
+            }
+            if (!"SUCCESS".equalsIgnoreCase(run.getStatus())) {
+                continue;
+            }
+            reasonById.putIfAbsent(run.getLocation(), run.getMessage());
+        }
+
+        List<BackupRules.RetentionCandidate> candidates = new ArrayList<>();
+        for (String id : ids) {
+            candidates.add(new BackupRules.RetentionCandidate(
+                    id,
+                    BackupRules.parseIdTimestamp(id),
+                    BackupRules.isPreservedReason(reasonById.get(id))
+            ));
+        }
+
+        List<String> toDelete;
+        if (keepDaily > 0 || keepWeekly > 0) {
+            toDelete = BackupRules.retentionIdsToDelete(candidates, keepDaily, keepWeekly);
+            log.info("Backup retention (daily={}, weekly={}) would remove {} of {} files",
+                    keepDaily, keepWeekly, toDelete.size(), ids.size());
+        } else {
+            toDelete = BackupRules.idsToDelete(ids, keep);
+        }
+
+        for (String id : toDelete) {
+            boolean removed = Files.deleteIfExists(dir.resolve(id + ".zip"));
+            if (removed) {
+                log.info("Pruned backup {}", id);
+            }
         }
     }
 

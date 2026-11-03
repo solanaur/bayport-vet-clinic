@@ -42,6 +42,13 @@ public class BillingLine {
     @Column(name = "line_order", nullable = false)
     private int lineOrder;
 
+    /** Optional inventory item reserved on this pending line (stock deducted only when paid). */
+    @Column(name = "inventory_item_id")
+    private Long inventoryItemId;
+
+    @Column(name = "quantity")
+    private Integer quantity = 1;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -65,4 +72,10 @@ public class BillingLine {
 
     public int getLineOrder() { return lineOrder; }
     public void setLineOrder(int lineOrder) { this.lineOrder = lineOrder; }
+
+    public Long getInventoryItemId() { return inventoryItemId; }
+    public void setInventoryItemId(Long inventoryItemId) { this.inventoryItemId = inventoryItemId; }
+
+    public Integer getQuantity() { return quantity; }
+    public void setQuantity(Integer quantity) { this.quantity = quantity != null && quantity > 0 ? quantity : 1; }
 }

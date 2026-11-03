@@ -1,7 +1,9 @@
 package com.bayport.web;
 
+import com.bayport.dto.PendingCartRequest;
 import com.bayport.entity.BillingRecord;
 import com.bayport.service.BillingService;
+import com.bayport.service.PosService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +16,11 @@ import java.util.Map;
 public class BillingController {
 
     private final BillingService billingService;
+    private final PosService posService;
 
-    public BillingController(BillingService billingService) {
+    public BillingController(BillingService billingService, PosService posService) {
         this.billingService = billingService;
+        this.posService = posService;
     }
 
     @GetMapping
@@ -40,6 +44,16 @@ public class BillingController {
         return billingService.create(record);
     }
 
+    /**
+     * Save cart as a Pending invoice (no payment recorded, no inventory deducted).
+     * Must be declared before {@code /{id}} routes that accept path variables.
+     */
+    @PostMapping("/pending-cart")
+    @PreAuthorize("hasAnyRole('FRONT_OFFICE','RECEPTIONIST','PHARMACIST','ADMIN')")
+    public BillingRecord savePendingCart(@RequestBody PendingCartRequest body) {
+        return posService.savePending(body);
+    }
+
     @PostMapping("/{id}/pay")
     @PreAuthorize("hasAnyRole('FRONT_OFFICE','RECEPTIONIST','PHARMACIST','ADMIN')")
     public BillingRecord markPaid(@PathVariable Long id) {
@@ -48,7 +62,8 @@ public class BillingController {
 
     @PostMapping("/{id}/void")
     @PreAuthorize("hasAnyRole('ADMIN','FRONT_OFFICE')")
-    public BillingRecord voidInvoice(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public BillingRecord voidInvoice(@PathVariable Long id,
+                                     @RequestBody(required = false) Map<String, String> body) {
         return billingService.voidInvoice(id, body == null ? null : body.get("reason"));
     }
 

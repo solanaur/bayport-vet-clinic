@@ -44,13 +44,14 @@
     <main class="flex-1 min-w-0 p-5 lg:p-8 overflow-y-auto">
       <div class="max-w-7xl mx-auto space-y-6">
         <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          <div>
+          <div class="min-w-0 space-y-6">
             <h1 class="bp-page-title tracking-tight">Reports</h1>
+            <h2 class="bp-section-title">Financial Summary</h2>
           </div>
-          <div class="flex flex-wrap items-end gap-2 shrink-0">
+          <div class="bp-toolbar shrink-0">
             <div>
-              <label class="text-xs font-medium text-slate-500">Period</label>
-              <select id="period" class="mt-1 block w-44 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:ring-2 focus:ring-[var(--soft-teal)]/25 focus:border-[var(--soft-teal)] outline-none">
+              <label for="period">Filter by Date</label>
+              <select id="period" class="block w-44">
                 <option value="day">Today</option>
                 <option value="week">This week</option>
                 <option value="month" selected>This month</option>
@@ -58,27 +59,31 @@
               </select>
             </div>
             <div id="customDates" class="hidden flex flex-wrap items-end gap-2">
-              <label class="text-xs text-slate-600">
+              <label class="bp-support-text">
                 From
-                <input id="from" type="date" class="mt-1 block border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <input id="from" type="date" class="mt-1 block" />
               </label>
-              <label class="text-xs text-slate-600">
+              <label class="bp-support-text">
                 To
-                <input id="to" type="date" class="mt-1 block border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <input id="to" type="date" class="mt-1 block" />
               </label>
             </div>
-            <button type="button" id="runBtn" class="bp-btn-primary mt-5 lg:mt-6 px-5 py-2.5 text-sm font-semibold">Run</button>
-            <button type="button" id="printBtn" class="bp-btn-secondary mt-5 lg:mt-6 px-4 py-2.5 text-sm font-semibold">Print PDF</button>
-            <button type="button" id="excelBtn" class="bp-btn-secondary mt-5 lg:mt-6 px-4 py-2.5 text-sm font-semibold">Export Excel (CSV)</button>
+            <button type="button" id="runBtn" class="bp-btn-primary self-end">Run</button>
+            <button type="button" id="printBtn" class="bp-btn-secondary self-end">Print PDF</button>
+            <button type="button" id="excelBtn" class="bp-btn-secondary self-end">Export CSV</button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" id="kpiRow"></div>
+        <section>
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5" id="kpiRow"></div>
+        </section>
 
+        <section class="space-y-5">
+          <h2 class="bp-section-title">Financial Charts</h2>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <section class="xl:col-span-2 bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
-            <div class="flex items-center justify-between gap-2 mb-3">
-              <h2 class="text-base font-bold text-slate-900">Revenue trend</h2>
+          <section class="xl:col-span-2 bp-card p-5 lg:p-6">
+            <div class="flex items-center justify-between gap-2 mb-4">
+              <h3 class="text-base font-semibold text-slate-900">Revenue Trend</h3>
               <div class="flex items-center gap-2 text-xs text-slate-500">
                 <button type="button" id="chartRefresh" class="p-1.5 rounded-lg hover:bg-slate-100 text-slate-600" title="Refresh chart" aria-label="Refresh chart">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -91,31 +96,32 @@
             </div>
           </section>
 
-          <section class="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
-            <h2 class="text-base font-bold text-slate-900 mb-3">Sales by payment method</h2>
+          <section class="bp-card p-5 lg:p-6">
+            <h3 class="text-base font-semibold text-slate-900 mb-4">Sales by Payment Method</h3>
             <div class="relative h-64 md:h-72 mx-auto max-w-xs">
               <canvas id="payChart"></canvas>
               <div class="donut-center text-center px-4">
-                <div class="text-xs text-slate-500">Total</div>
+                <div class="text-xs font-medium text-[#667085]">Total</div>
                 <div id="donutTotal" class="text-lg font-bold text-slate-900 tabular-nums">₱0.00</div>
               </div>
             </div>
-            <ul id="payLegend" class="mt-4 space-y-2 text-sm"></ul>
+            <ul id="payLegend" class="mt-4 space-y-2 text-sm text-slate-600"></ul>
           </section>
         </div>
+        </section>
 
-        <section id="daily-summary" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div class="px-4 py-3 border-b border-slate-100">
-              <h2 class="text-base font-bold text-slate-900">POS sales summary</h2>
+        <section id="daily-summary" class="bp-table-panel overflow-hidden">
+            <div class="px-5 py-4 border-b border-slate-100">
+              <h2 class="bp-section-title">Daily Financial Summary</h2>
             </div>
             <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+              <table class="w-full text-sm text-slate-700">
+                <thead>
                   <tr>
                     <th class="px-3 py-2.5 text-left">Date</th>
-                    <th class="px-3 py-2.5 text-right">Transactions</th>
-                    <th class="px-3 py-2.5 text-right">Total (₱)</th>
-                    <th class="px-3 py-2.5 text-right">Paid (₱)</th>
+                    <th class="px-3 py-2.5 text-right">Transaction count</th>
+                    <th class="px-3 py-2.5 text-right">Total billed (₱)</th>
+                    <th class="px-3 py-2.5 text-right">Collected (₱)</th>
                     <th class="px-3 py-2.5 text-right">Pending (₱)</th>
                     <th class="px-3 py-2.5 text-right">Voided (₱)</th>
                   </tr>
@@ -126,20 +132,19 @@
             </div>
             <div id="dailyExpandBar" class="hidden px-4 py-2.5 border-t border-slate-100 bg-slate-50/80 flex flex-wrap items-center justify-center gap-4">
               <button type="button" id="btnExpandDaily" class="text-sm font-semibold text-[var(--soft-teal)] hover:underline">View all</button>
-              <a href="#recent-tx" class="text-xs font-medium text-slate-500 hover:text-slate-800">Recent activity →</a>
+              <a href="#recent-tx" class="text-xs font-medium text-slate-500 hover:text-slate-800">Recent transactions →</a>
             </div>
           </section>
 
         <section id="recent-tx" class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div class="px-4 py-3 border-b border-slate-100">
-            <h2 class="text-base font-bold text-slate-900">Recent activity</h2>
+            <h2 class="text-sm font-semibold text-slate-900">Recent Transaction Activity</h2>
           </div>
           <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="bg-slate-50 text-xs font-semibold text-slate-600 uppercase tracking-wide">
+            <table class="w-full text-sm text-slate-700">
+              <thead class="bg-slate-50 text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
                 <tr>
-                  <th class="px-3 py-2.5 text-left">Date &amp; time</th>
-                  <th class="px-3 py-2.5 text-left">Receipt / ref</th>
+                  <th class="px-3 py-2.5 text-left">Receipt / Reference</th>
                   <th class="px-3 py-2.5 text-left">Pet</th>
                   <th class="px-3 py-2.5 text-left">Owner</th>
                   <th class="px-3 py-2.5 text-right">Amount (₱)</th>
@@ -167,7 +172,8 @@
   <script>
     guard("reports");
     if (typeof initBayportAppHeader === "function") initBayportAppHeader(document.getElementById("bpAppHeader"), { accent: "soft-teal" });
-    const role = getRole();
+    const role = typeof canonicalStaffRole === "function" ? canonicalStaffRole(getRole()) : getRole();
+    if (role !== "admin") location.href = "dashboard.html";
     renderSidebar(document.getElementById("sidebarNav"), role, "reports.html");
 
     const periodSel = document.getElementById("period");
@@ -291,15 +297,42 @@
       return sum;
     }
 
+    function countPosSalesInRange(sales, start, end) {
+      let n = 0;
+      for (const s of sales) {
+        if ((s.source || "") !== "POS") continue;
+        if (!inRange(s.occurredAt, start, end)) continue;
+        n++;
+      }
+      return n;
+    }
+
+    function billingWhen(b) {
+      return b.voidedAt || b.paidAt || b.issuedAt || b.createdAt;
+    }
+
     function pendingBillingTotal(billing, start, end) {
       let sum = 0;
       for (const b of billing) {
         if (String(b.status || "").toUpperCase() !== "PENDING") continue;
-        const t = b.issuedAt || b.createdAt;
+        const t = billingWhen(b);
         if (!inRange(t, start, end)) continue;
         sum += Number(b.amount) || 0;
       }
       return sum;
+    }
+
+    function voidedBillingInRange(billing, start, end) {
+      let amount = 0;
+      let count = 0;
+      for (const b of billing) {
+        if (String(b.status || "").toUpperCase() !== "VOID") continue;
+        const t = billingWhen(b);
+        if (!inRange(t, start, end)) continue;
+        count++;
+        amount += Number(b.amount) || 0;
+      }
+      return { amount, count };
     }
 
     let salesChart;
@@ -307,25 +340,15 @@
     const salesCtx = document.getElementById("salesChart").getContext("2d");
     const payCtx = document.getElementById("payChart").getContext("2d");
 
-    function renderKpis(totalPos, pending) {
-      const voided = 0;
+    function renderKpis(collected, pending, txCount, voidedCount) {
       document.getElementById("kpiRow").innerHTML = `
-        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
-          <div class="w-10 h-10 rounded-lg bg-blue-50 text-[var(--soft-teal)] flex items-center justify-center shrink-0">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
-          </div>
-          <div class="min-w-0">
-            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total POS sales</div>
-            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(totalPos)}</div>
-          </div>
-        </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
           <div class="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Paid (POS)</div>
-            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(totalPos)}</div>
+            <div class="text-xs font-medium text-[#667085]">Collected Revenue</div>
+            <div class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">₱${formatPrice(collected)}</div>
           </div>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
@@ -333,8 +356,17 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pending (billing)</div>
-            <div class="text-2xl font-bold text-slate-900 mt-0.5 tabular-nums">₱${formatPrice(pending)}</div>
+            <div class="text-xs font-medium text-[#667085]">Pending Payments</div>
+            <div class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">₱${formatPrice(pending)}</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
+          <div class="w-10 h-10 rounded-lg bg-blue-50 text-[var(--soft-teal)] flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="text-xs font-medium text-[#667085]">Total Transactions</div>
+            <div class="text-2xl font-bold text-slate-900 mt-1 tabular-nums">${txCount}</div>
           </div>
         </div>
         <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm flex gap-3">
@@ -342,8 +374,8 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </div>
           <div class="min-w-0">
-            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Voided</div>
-            <div class="text-2xl font-bold text-slate-400 mt-0.5 tabular-nums">₱${formatPrice(voided)}</div>
+            <div class="text-xs font-medium text-[#667085]">Voided Transactions</div>
+            <div class="text-2xl font-bold ${voidedCount ? "text-slate-900" : "text-slate-400"} mt-1 tabular-nums">${voidedCount}</div>
           </div>
         </div>`;
     }
@@ -389,7 +421,7 @@
             labels,
             datasets: [
               {
-                label: "POS sales",
+                label: "Collected Revenue",
                 data: posValues,
                 borderColor: "#0F5CC0",
                 backgroundColor: "rgba(15,92,192,0.12)",
@@ -399,7 +431,7 @@
                 pointHoverRadius: 5,
               },
               {
-                label: "Pending billing",
+                label: "Pending Payments",
                 data: pendingValues,
                 borderColor: "#d97706",
                 backgroundColor: "rgba(217,119,6,0.1)",
@@ -415,15 +447,36 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
+              x: {
+                ticks: {
+                  color: "#667085",
+                  font: { size: 12, weight: "500", family: "Inter, system-ui, sans-serif" },
+                  maxRotation: 0,
+                },
+                grid: { color: "rgba(148,163,184,0.2)" },
+              },
               y: {
                 beginAtZero: true,
                 ticks: {
+                  color: "#667085",
+                  font: { size: 12, weight: "500", family: "Inter, system-ui, sans-serif" },
                   callback: (v) => "₱" + formatPrice(v),
                 },
+                grid: { color: "rgba(148,163,184,0.25)" },
               },
             },
             plugins: {
-              legend: { display: true, position: "bottom" },
+              legend: {
+                display: true,
+                position: "bottom",
+                labels: {
+                  color: "#475569",
+                  boxWidth: 10,
+                  boxHeight: 10,
+                  padding: 14,
+                  font: { size: 12, weight: "500", family: "Inter, system-ui, sans-serif" },
+                },
+              },
               tooltip: {
                 callbacks: {
                   label: (ctx) => `${ctx.dataset.label}: ₱${formatPrice(ctx.parsed.y)}`,
@@ -434,7 +487,9 @@
         });
       } else {
         salesChart.data.labels = labels;
+        salesChart.data.datasets[0].label = "Collected Revenue";
         salesChart.data.datasets[0].data = posValues;
+        salesChart.data.datasets[1].label = "Pending Payments";
         salesChart.data.datasets[1].data = pendingValues;
         salesChart.update("none");
       }
@@ -460,8 +515,8 @@
         .map((p) => {
           const pct = total > 0 ? ((p.amt / total) * 100).toFixed(0) : "0";
           return `<li class="flex items-center justify-between gap-2">
-            <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full" style="background:${p.color}"></span>${esc(p.key)}</span>
-            <span class="text-slate-700 tabular-nums">₱${formatPrice(p.amt)} <span class="text-slate-400">(${pct}%)</span></span>
+            <span class="flex items-center gap-2 text-slate-600"><span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${p.color}"></span>${esc(p.key)}</span>
+            <span class="text-slate-800 font-medium tabular-nums">₱${formatPrice(p.amt)} <span class="text-xs font-normal text-[#667085]">(${pct}%)</span></span>
           </li>`;
         })
         .join("");
@@ -532,7 +587,7 @@
       const btn = document.getElementById("btnExpandDaily");
       const trs = reportTables.dailyTrs;
       if (!trs.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No POS or pending billing activity in this range.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No financial activity in this range.</td></tr>`;
         bar.classList.add("hidden");
         return;
       }
@@ -552,7 +607,7 @@
       const bar = document.getElementById("recentExpandBar");
       const btn = document.getElementById("btnExpandRecent");
       if (!htmls.length) {
-        tbody.innerHTML = `<tr><td colspan="7" class="px-4 py-10 text-center text-slate-400">No recent activity.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-10 text-center text-slate-400">No recent transactions.</td></tr>`;
         bar.classList.add("hidden");
         return;
       }
@@ -569,44 +624,50 @@
     function renderDailyTable(sales, billing, start, end) {
       const days = eachDay(start, end);
       const pendingByDay = {};
+      const voidedByDay = {};
       for (const b of billing) {
-        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
-        const t = b.issuedAt || b.createdAt;
-        if (!t) continue;
+        const status = String(b.status || "").toUpperCase();
+        const t = billingWhen(b);
+        if (!t || !inRange(t, start, end)) continue;
         const key = localDateKeyFromIso(t);
-        if (!inRange(t, start, end)) continue;
-        pendingByDay[key] = (pendingByDay[key] || 0) + (Number(b.amount) || 0);
+        const amt = Number(b.amount) || 0;
+        if (status === "PENDING") pendingByDay[key] = (pendingByDay[key] || 0) + amt;
+        if (status === "VOID") voidedByDay[key] = (voidedByDay[key] || 0) + amt;
       }
 
       let sumTx = 0;
       let sumTot = 0;
       let sumPaid = 0;
       let sumPend = 0;
+      let sumVoid = 0;
 
       const rowStrings = days
         .map((d) => {
           const key = localDateKey(d);
           let tx = 0;
-          let tot = 0;
+          let collected = 0;
           for (const s of sales) {
             if ((s.source || "") !== "POS") continue;
             if (localDateKeyFromIso(s.occurredAt) !== key) continue;
             tx++;
-            tot += Number(s.amount) || 0;
+            collected += Number(s.amount) || 0;
           }
           const pend = pendingByDay[key] || 0;
+          const voided = voidedByDay[key] || 0;
+          const billed = collected + pend;
           sumTx += tx;
-          sumTot += tot;
-          sumPaid += tot;
+          sumTot += billed;
+          sumPaid += collected;
           sumPend += pend;
-          if (tx === 0 && tot === 0 && pend === 0) return "";
+          sumVoid += voided;
+          if (tx === 0 && billed === 0 && voided === 0) return "";
           return `<tr>
             <td class="px-3 py-2 text-slate-700">${esc(d.toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }))}</td>
             <td class="px-3 py-2 text-right tabular-nums">${tx}</td>
-            <td class="px-3 py-2 text-right font-medium tabular-nums">₱${formatPrice(tot)}</td>
-            <td class="px-3 py-2 text-right text-emerald-700 tabular-nums">₱${formatPrice(tot)}</td>
+            <td class="px-3 py-2 text-right font-medium tabular-nums">₱${formatPrice(billed)}</td>
+            <td class="px-3 py-2 text-right text-emerald-700 tabular-nums">₱${formatPrice(collected)}</td>
             <td class="px-3 py-2 text-right text-amber-700 tabular-nums">₱${formatPrice(pend)}</td>
-            <td class="px-3 py-2 text-right text-slate-400 tabular-nums">₱0.00</td>
+            <td class="px-3 py-2 text-right ${voided ? "text-rose-700" : "text-slate-400"} tabular-nums">₱${formatPrice(voided)}</td>
           </tr>`;
         })
         .filter(Boolean);
@@ -621,7 +682,7 @@
         <td class="px-3 py-2.5 text-right tabular-nums">₱${formatPrice(sumTot)}</td>
         <td class="px-3 py-2.5 text-right text-emerald-800 tabular-nums">₱${formatPrice(sumPaid)}</td>
         <td class="px-3 py-2.5 text-right text-amber-800 tabular-nums">₱${formatPrice(sumPend)}</td>
-        <td class="px-3 py-2.5 text-right text-slate-400 tabular-nums">₱0.00</td>
+        <td class="px-3 py-2.5 text-right ${sumVoid ? "text-rose-800" : "text-slate-400"} tabular-nums">₱${formatPrice(sumVoid)}</td>
       </tr>`;
     }
 
@@ -629,22 +690,13 @@
       const u = String(st || "").toUpperCase();
       if (u === "PAID") return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">Paid</span>`;
       if (u === "PENDING") return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">Pending</span>`;
+      if (u === "VOID") return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800">Voided</span>`;
       return `<span class="inline-flex px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">${esc(u)}</span>`;
     }
 
-    function fmtDT(iso) {
-      if (!iso) return "—";
-      const d = new Date(iso);
-      if (Number.isNaN(d.getTime())) return esc(String(iso).replace("T", " ").slice(0, 19));
-      return esc(
-        d.toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        }),
-      );
+    function invoiceRef(b, whenIso) {
+      const y = localDateKeyFromIso(whenIso).slice(0, 4) || String(new Date().getFullYear());
+      return `INV-${y}-${String(b.id).padStart(4, "0")}`;
     }
 
     function renderRecent(sales, billing, petsById, start, end) {
@@ -660,7 +712,6 @@
         rows.push({
           t: new Date(s.occurredAt).getTime(),
           html: `<tr>
-            <td class="px-3 py-2 text-slate-600 whitespace-nowrap">${fmtDT(s.occurredAt)}</td>
             <td class="px-3 py-2 font-medium text-[var(--soft-teal)]">${esc(receiptNo(s))}</td>
             <td class="px-3 py-2 font-medium text-slate-900">${esc(s.petName || "—")}</td>
             <td class="px-3 py-2 text-slate-600">${esc(owner)}</td>
@@ -672,20 +723,21 @@
       }
 
       for (const b of billing) {
-        if (String(b.status || "").toUpperCase() !== "PENDING") continue;
-        const t = b.issuedAt || b.createdAt;
+        const status = String(b.status || "").toUpperCase();
+        if (status !== "PENDING" && status !== "VOID") continue;
+        const t = billingWhen(b);
         if (!inRange(t, start, end)) continue;
-        const y = localDateKeyFromIso(t).slice(0, 4) || String(new Date().getFullYear());
-        const inv = `INV-${y}-${String(b.id).padStart(4, "0")}`;
+        const inv = invoiceRef(b, t);
+        const tone = status === "VOID" ? "bg-rose-50/40" : "bg-amber-50/40";
+        const refClass = status === "VOID" ? "text-rose-800" : "text-amber-800";
         rows.push({
           t: new Date(t).getTime(),
-          html: `<tr class="bg-amber-50/40">
-            <td class="px-3 py-2 text-slate-600 whitespace-nowrap">${fmtDT(t)}</td>
-            <td class="px-3 py-2 font-medium text-amber-800">${esc(inv)}</td>
+          html: `<tr class="${tone}">
+            <td class="px-3 py-2 font-medium ${refClass}">${esc(inv)}</td>
             <td class="px-3 py-2 font-medium text-slate-900">${esc(b.petName || "—")}</td>
             <td class="px-3 py-2 text-slate-600">${esc(b.ownerName || "—")}</td>
             <td class="px-3 py-2 text-right font-semibold tabular-nums">₱${formatPrice(b.amount)}</td>
-            <td class="px-3 py-2">${statusPill("PENDING")}</td>
+            <td class="px-3 py-2">${statusPill(status)}</td>
             <td class="px-3 py-2 text-slate-500">—</td>
           </tr>`,
         });
@@ -736,9 +788,11 @@
           if (p && p.id != null) petsById.set(Number(p.id), p);
         }
 
-        const totalPos = sumPosSalesInRange(sales, start, end);
+        const collected = sumPosSalesInRange(sales, start, end);
         const pending = pendingBillingTotal(billing, start, end);
-        renderKpis(totalPos, pending);
+        const txCount = countPosSalesInRange(sales, start, end);
+        const voided = voidedBillingInRange(billing, start, end);
+        renderKpis(collected, pending, txCount, voided.count);
 
         updateLineChart(sales, billing, start, end);
         updatePayChart(sales, start, end);
@@ -812,13 +866,18 @@
       const { start, end } = range;
       const sales = await Api.sales.list().catch(() => []);
       const billing = await Api.billing.list().catch(() => []);
-      const totalPos = sumPosSalesInRange(sales, start, end);
+      const collected = sumPosSalesInRange(sales, start, end);
       const pending = pendingBillingTotal(billing, start, end);
+      const txCount = countPosSalesInRange(sales, start, end);
+      const voided = voidedBillingInRange(billing, start, end);
       const rows = [
-        ["Bayport Veterinary Clinic — reports export"],
-        ["Period", r.period || "", "From", r.from || "", "To", r.to || ""],
-        ["Total POS sales (range)", formatPrice(totalPos)],
-        ["Pending billing (range)", formatPrice(pending)],
+        ["Bayport Veterinary Clinic — financial reports"],
+        ["Filter by date", r.period || "", "From", r.from || "", "To", r.to || ""],
+        ["Collected Revenue", formatPrice(collected)],
+        ["Pending Payments", formatPrice(pending)],
+        ["Total Transactions", String(txCount)],
+        ["Voided Transactions", String(voided.count)],
+        ["Voided Amount", formatPrice(voided.amount)],
       ];
       downloadCsv(`Bayport_Reports_${r.from || ""}_${r.to || ""}.csv`, rows);
       toast("CSV exported.", false);

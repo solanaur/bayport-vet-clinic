@@ -3,13 +3,18 @@ package com.bayport.service;
 import com.bayport.entity.Appointment;
 import com.bayport.entity.Pet;
 import jakarta.mail.MessagingException;
+import jakarta.mail.Transport;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -109,6 +114,69 @@ public class EmailService {
             return "smtp";
         }
         return "none";
+    }
+
+    /**
+     * Distinguishes "settings present" from "connection verified".
+     * Never returns passwords or raw exception text that could leak secrets.
+     */
+    public Map<String, Object> connectivityStatus() {
+        Map<String, Object> status = new LinkedHashMap<>();
+        boolean configured = isConfigured();
+        status.put("configured", configured);
+        status.put("provider", describeProvider());
+        if (!configured) {
+            status.put("verified", false);
+            status.put("status", "Not configured");
+            status.put("detail", "Email settings are not configured.");
+            return status;
+        }
+        if (usesBrevo() || usesNetlifyRelay() || usesResend()) {
+            // API keys are present, but this check does not send mail or call the vendor API.
+            status.put("verified", false);
+            status.put("status", "Configured");
+            status.put("detail", "Configured via API. Delivery is not verified by this check.");
+            return status;
+        }
+        if (!(mailSender instanceof JavaMailSenderImpl smtp)) {
+            status.put("verified", false);
+            status.put("status", "Configured");
+            status.put("detail", "SMTP is configured, but connectivity could not be probed.");
+            return status;
+        }
+        try {
+            Transport transport = smtp.getSession().getTransport("smtp");
+            try {
+                transport.connect(smtp.getHost(), smtp.getPort(), smtp.getUsername(), smtp.getPassword());
+            } finally {
+                try {
+                    transport.close();
+                } catch (Exception ignored) {
+                    // ignore close errors
+                }
+            }
+            status.put("verified", true);
+            status.put("status", "Verified");
+            status.put("detail", "SMTP connection succeeded.");
+        } catch (Exception ex) {
+            log.warn("Email SMTP probe failed: {}", safeMailError(ex));
+            status.put("verified", false);
+            status.put("status", "Configured");
+            status.put("detail", "Configured, but SMTP connection failed.");
+        }
+        return status;
+    }
+
+    private static String safeMailError(Throwable ex) {
+        String msg = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+        String lower = msg.toLowerCase();
+        if (lower.contains("password") || lower.contains("credential") || lower.contains("secret")) {
+            return "authentication failed";
+        }
+        if (msg.length() > 160) {
+            return msg.substring(0, 157) + "...";
+        }
+        return msg;
     }
 
     /** From-address used for SMTP or API sends (never includes a password). */

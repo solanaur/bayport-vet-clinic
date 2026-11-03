@@ -220,14 +220,15 @@
 }
 
 .adm-kpi {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
+  background: var(--bp-surface, #fff);
+  border: 1px solid var(--bp-border, #e2e8f0);
+  border-radius: var(--bp-radius, 12px);
   padding: 1.125rem 1.25rem;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  box-shadow: var(--bp-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.05));
   border-top-width: 3px;
   border-top-style: solid;
   min-height: 7.75rem;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -293,11 +294,14 @@
 
 /* ——— Cards ——— */
 .adm-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 14px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  background: var(--bp-surface, #fff);
+  border: 1px solid var(--bp-border, #e2e8f0);
+  border-radius: var(--bp-radius, 12px);
+  box-shadow: var(--bp-shadow-card, 0 1px 3px rgba(15, 23, 42, 0.05));
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .adm-card-head {
@@ -307,10 +311,11 @@
   gap: 0.75rem;
   padding: 1rem 1.25rem;
   border-bottom: 1px solid #f1f5f9;
+  min-height: 3.5rem;
 }
 
 .adm-card-title {
-  font-size: 0.9375rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: #0f172a;
   margin: 0;
@@ -318,6 +323,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  text-transform: none;
 }
 
 .adm-card-title-icon {
@@ -344,10 +350,18 @@
 
 .adm-card-body {
   padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .adm-card-body--chart {
   padding: 0.75rem 1rem 1.25rem;
+}
+
+.adm-timeline .adm-row,
+.adm-card-body .adm-row {
+  align-items: center;
+  min-height: 3.25rem;
 }
 
 .adm-chart-wrap {
@@ -376,12 +390,13 @@
 /* ——— List rows ——— */
 .adm-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.875rem 1.25rem;
   border-bottom: 1px solid #f1f5f9;
   font-size: 0.8125rem;
+  min-height: 3.25rem;
 }
 
 .adm-row:last-child {
@@ -398,11 +413,12 @@
 }
 
 .adm-row-time {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #2563eb;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #667085;
   font-variant-numeric: tabular-nums;
   margin-bottom: 0.2rem;
+  white-space: nowrap;
 }
 
 .adm-row-title {

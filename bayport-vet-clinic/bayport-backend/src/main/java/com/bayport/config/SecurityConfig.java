@@ -91,6 +91,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/admin/**", "/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 .requestMatchers("/api/ops/**").hasRole("ADMIN")
+                // Financial Reports: administrators only (POS recent history stays open to authenticated staff).
+                .requestMatchers("/api/reports/summary", "/api/reports/summary/pdf").hasRole("ADMIN")
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().authenticated()
             )

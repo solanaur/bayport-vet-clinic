@@ -6,7 +6,61 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/bayport-design.css">
-  <style>:root{--soft-teal:#0F5CC0;--bp-primary:#0F5CC0}</style>
+  <style>
+    :root{--soft-teal:#0F5CC0;--bp-primary:#0F5CC0}
+    .user-row-menu-btn{
+      display:inline-flex;align-items:center;justify-content:center;
+      width:2rem;height:2rem;border-radius:0.5rem;border:1px solid #e2e8f0;
+      background:#fff;color:#475569;line-height:1;
+    }
+    .user-row-menu-btn:hover,.user-row-menu-btn[aria-expanded="true"]{
+      background:#f8fafc;border-color:#cbd5e1;color:#0f172a;
+    }
+    .user-actions-menu{
+      min-width:11.5rem;padding:0.35rem;border-radius:0.75rem;
+      border:1px solid #e2e8f0;background:#fff;
+      box-shadow:0 10px 30px rgba(15,23,42,0.12);
+    }
+    .user-actions-menu button{
+      display:block;width:100%;text-align:left;padding:0.55rem 0.75rem;
+      border:0;border-radius:0.5rem;background:transparent;
+      font-size:0.875rem;color:#334155;cursor:pointer;
+    }
+    .user-actions-menu button:hover{background:#f1f5f9;color:#0f172a}
+    .user-actions-menu button.is-danger{color:#b91c1c}
+    .user-actions-menu button.is-danger:hover{background:#fef2f2;color:#991b1b}
+    .users-search-wrap{position:relative;display:block;width:100%;max-width:20rem}
+    .users-search-wrap svg{
+      position:absolute;left:0.75rem;top:50%;transform:translateY(-50%);
+      width:1rem;height:1rem;color:#94a3b8;pointer-events:none;
+    }
+    .users-search{
+      display:block;width:100%;box-sizing:border-box;height:42px;
+      padding:0 0.75rem 0 2.35rem;
+      border:1px solid #e2e8f0;border-radius:0.5rem;
+      background:#fff;font-size:0.875rem;color:#0f172a;line-height:1.25;
+    }
+    .users-search::placeholder{color:#98a2b3}
+    .users-search:focus{outline:none;border-color:#93c5fd;box-shadow:0 0 0 3px rgba(15,92,192,0.12)}
+    .users-table{width:100%;border-collapse:collapse;table-layout:fixed}
+    .users-table th,.users-table td{padding:0.75rem 1rem;vertical-align:middle;height:3rem}
+    .users-table th{font-size:12px;font-weight:500;text-transform:none;letter-spacing:0;color:#667085;text-align:left;background:#f3f8ff}
+    .users-table td{font-size:0.875rem;color:#0f172a}
+    .users-table .col-name{width:22%}
+    .users-table .col-user{width:16%}
+    .users-table .col-email{width:28%}
+    .users-table .col-role{width:14%}
+    .users-table .col-status{width:12%}
+    .users-table .col-actions{width:8%;text-align:right}
+    @media (max-width: 900px){
+      .users-table .col-email,.users-table td:nth-child(3){display:none}
+      .users-table .col-name{width:30%}
+      .users-table .col-user{width:24%}
+      .users-table .col-role{width:20%}
+      .users-table .col-status{width:16%}
+      .users-table .col-actions{width:10%}
+    }
+  </style>
 </head>
 <body class="min-h-screen flex flex-col" style="background-color: var(--bp-bg);">
   <header id="bpAppHeader"></header>
@@ -16,18 +70,69 @@
       <nav id="sidebarNav" class="flex flex-col gap-1"></nav>
     </aside>
 
-    <main class="flex-1 p-5 lg:p-8 min-w-0 overflow-y-auto">
-      <div class="max-w-5xl mx-auto space-y-5">
-        <div class="flex items-center justify-between gap-4">
-          <h1 class="bp-page-title">Users</h1>
-          <button id="addBtn" class="bp-btn-primary">Add User</button>
+    <main class="flex-1 p-4 sm:p-5 lg:p-7 min-w-0 overflow-y-auto">
+      <div class="max-w-7xl mx-auto space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h1 class="bp-page-title">Users &amp; Roles</h1>
+            <p class="bp-page-desc">Manage staff accounts and access. Deactivating an account blocks sign-in and keeps clinic history.</p>
+          </div>
+          <button id="addBtn" class="bp-btn-primary shrink-0">Add User</button>
         </div>
-        <div class="bp-table-panel">
-        <table class="w-full">
-          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
-          <tbody id="rows"></tbody>
-        </table>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="bp-dash-stat bp-dash-stat--blue">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div id="statTotal" class="bp-dash-stat-value">—</div>
+                <div class="bp-dash-stat-label">Total Users</div>
+              </div>
+            </div>
+          </div>
+          <div class="bp-dash-stat bp-dash-stat--green">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div id="statActive" class="bp-dash-stat-value">—</div>
+                <div class="bp-dash-stat-label">Active Users</div>
+              </div>
+            </div>
+          </div>
+          <div class="bp-dash-stat bp-dash-stat--amber">
+            <div class="bp-dash-stat-inner">
+              <div>
+                <div id="statInactive" class="bp-dash-stat-value">—</div>
+                <div class="bp-dash-stat-label">Inactive Users</div>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <section id="panelUsers">
+          <div class="bp-table-panel overflow-hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-slate-100">
+              <div class="users-search-wrap">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z"/></svg>
+                <input id="userSearch" class="users-search" type="search" placeholder="Search by name or username" autocomplete="off">
+              </div>
+              <p id="userResultMeta" class="text-xs text-slate-500"></p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th class="col-name">Name</th>
+                    <th class="col-user">Username</th>
+                    <th class="col-email">Email</th>
+                    <th class="col-role">Role</th>
+                    <th class="col-status">Status</th>
+                    <th class="col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="rows"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -47,6 +152,9 @@
 
     const rows=document.getElementById('rows');
     const modalRoot=document.getElementById('modalRoot');
+    const userSearch=document.getElementById('userSearch');
+    const userResultMeta=document.getElementById('userResultMeta');
+    let allUsers = [];
 
     function bayportJwt() {
       return localStorage.getItem('token') || localStorage.getItem('jwt') || '';
@@ -75,8 +183,9 @@
 
     function userCell(text, extraClass) {
       const td = document.createElement("td");
-      td.className = "py-3" + (extraClass ? " " + extraClass : "");
+      td.className = extraClass || "";
       td.textContent = text || "";
+      td.title = text || "";
       return td;
     }
 
@@ -84,100 +193,311 @@
       rows.replaceChildren();
       const tr = document.createElement("tr");
       const td = document.createElement("td");
-      td.colSpan = 5;
-      td.className = className;
+      td.colSpan = 6;
+      td.className = (className || "") + " py-8";
       td.textContent = message;
       tr.appendChild(td);
       rows.appendChild(tr);
     }
 
+    function normalizeUsersPayload(users) {
+      if (Array.isArray(users)) return users;
+      if (users && typeof users === "object") {
+        if (Array.isArray(users.content)) return users.content;
+        if (Array.isArray(users.data)) return users.data;
+        if (Array.isArray(users.users)) return users.users;
+      }
+      return [];
+    }
+
+    function updateSummaryCards(users) {
+      const total = users.length;
+      const active = users.filter((u) => u && u.active !== false).length;
+      const inactive = total - active;
+      const set = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(value);
+      };
+      set("statTotal", total);
+      set("statActive", active);
+      set("statInactive", inactive);
+    }
+
+    function filteredUsers() {
+      const q = (userSearch?.value || "").trim().toLowerCase();
+      if (!q) return allUsers.slice();
+      return allUsers.filter((u) => {
+        const name = String(u.name || u.fullName || "").toLowerCase();
+        const username = String(u.username || "").toLowerCase();
+        return name.includes(q) || username.includes(q);
+      });
+    }
+    userSearch.addEventListener("input", () => paintUserRows());
+
+    function roleLabel(role) {
+      const r = String(role || "").toLowerCase();
+      if (r === "admin" || r === "administrator") return "Admin";
+      if (r === "vet" || r === "veterinarian") return "Vet";
+      if (r === "front_office" || r === "receptionist" || r === "pharmacist" || r === "staff") return "Front Office";
+      return String(role || "").replaceAll("_", " ");
+    }
+
+    function roleBadge(role) {
+      const wrap = document.createElement("span");
+      if (typeof window.bpStatusBadge === "function") {
+        wrap.innerHTML = window.bpStatusBadge(role);
+        return wrap.firstElementChild || wrap;
+      }
+      wrap.className = "bp-badge bp-badge--muted";
+      wrap.textContent = roleLabel(role);
+      return wrap;
+    }
+
+    function statusBadge(active) {
+      const span = document.createElement("span");
+      span.className = active ? "bp-badge bp-badge--paid" : "bp-badge bp-badge--muted";
+      span.textContent = active ? "Active" : "Inactive";
+      return span;
+    }
+
+    function closeUserMenu() {
+      document.querySelectorAll(".user-actions-menu").forEach((el) => el.remove());
+      document.querySelectorAll(".user-row-menu-btn[aria-expanded='true']").forEach((btn) => {
+        btn.setAttribute("aria-expanded", "false");
+      });
+    }
+
+    function positionUserMenu(menu, btn) {
+      const rect = btn.getBoundingClientRect();
+      const menuWidth = Math.max(menu.offsetWidth || 184, 184);
+      const menuHeight = menu.offsetHeight || 220;
+      let left = rect.right - menuWidth;
+      let top = rect.bottom + 6;
+      if (left < 8) left = 8;
+      if (left + menuWidth > window.innerWidth - 8) left = window.innerWidth - menuWidth - 8;
+      if (top + menuHeight > window.innerHeight - 8 && rect.top > menuHeight + 8) {
+        top = rect.top - menuHeight - 6;
+      }
+      menu.style.left = left + "px";
+      menu.style.top = top + "px";
+    }
+
+    function menuItem(label, onClick, danger) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = label;
+      if (danger) btn.className = "is-danger";
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeUserMenu();
+        onClick();
+      });
+      return btn;
+    }
+
+    function openUserMenu(btn, user) {
+      const wasOpen = btn.getAttribute("aria-expanded") === "true";
+      closeUserMenu();
+      if (wasOpen) return;
+
+      const active = user.active !== false;
+      const menu = document.createElement("div");
+      menu.className = "user-actions-menu fixed z-[80]";
+      menu.setAttribute("role", "menu");
+      menu.append(
+        menuItem("Edit User", () => editUser(user)),
+        menuItem("Change Role", () => editRole(user)),
+        menuItem("Reset Password", () => resetPassword(user)),
+        menuItem("Reset MFA", () => resetMfa(user.id)),
+        menuItem(active ? "Deactivate Account" : "Activate Account", () => setActive(user, !active), !active ? false : true)
+      );
+      document.body.appendChild(menu);
+      positionUserMenu(menu, btn);
+      btn.setAttribute("aria-expanded", "true");
+    }
+
+    function userActionsCell(user) {
+      const td = document.createElement("td");
+      td.className = "col-actions";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "user-row-menu-btn";
+      btn.setAttribute("aria-label", "Actions");
+      btn.setAttribute("aria-haspopup", "menu");
+      btn.setAttribute("aria-expanded", "false");
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="3" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="8" cy="13" r="1.5"/></svg>';
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openUserMenu(btn, user);
+      });
+      td.appendChild(btn);
+      return td;
+    }
+
+    function paintUserRows() {
+      closeUserMenu();
+      const list = filteredUsers();
+      const q = (userSearch?.value || "").trim();
+      if (userResultMeta) {
+        userResultMeta.textContent = q
+          ? list.length + " of " + allUsers.length + " users"
+          : allUsers.length + (allUsers.length === 1 ? " user" : " users");
+      }
+      if (allUsers.length === 0) {
+        showRowsMessage('No users found. Click "Add User" to create one.', "text-center text-gray-500");
+        return;
+      }
+      if (list.length === 0) {
+        showRowsMessage("No users match your search.", "text-center text-gray-500");
+        return;
+      }
+      rows.replaceChildren();
+      for (const u of list) {
+        const active = u.active !== false;
+        const tr = document.createElement("tr");
+        tr.className = "border-b border-slate-100" + (active ? "" : " bg-slate-50/80");
+        tr.appendChild(userCell(u.name || u.fullName || "", "col-name font-medium truncate"));
+        tr.appendChild(userCell(u.username || "", "col-user font-mono text-sm truncate"));
+        tr.appendChild(userCell(u.email || "", "col-email truncate text-slate-600"));
+        const roleTd = document.createElement("td");
+        roleTd.className = "col-role";
+        roleTd.appendChild(roleBadge(u.role));
+        tr.appendChild(roleTd);
+        const statusTd = document.createElement("td");
+        statusTd.className = "col-status";
+        statusTd.appendChild(statusBadge(active));
+        tr.appendChild(statusTd);
+        tr.appendChild(userActionsCell(u));
+        rows.appendChild(tr);
+      }
+    }
+
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".user-actions-menu") || e.target.closest(".user-row-menu-btn")) return;
+      closeUserMenu();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeUserMenu();
+    });
+    window.addEventListener("resize", closeUserMenu);
+    document.querySelector("main")?.addEventListener("scroll", closeUserMenu, { passive: true });
+
     async function render(){
+      closeUserMenu();
       try {
         let users;
         try {
           users = await repoListUsers();
         } catch (err) {
-          showRowsMessage("Error loading users: " + err.message + ". Please refresh the page.", "text-center text-red-500 py-4");
+          allUsers = [];
+          updateSummaryCards([]);
+          showRowsMessage("Error loading users: " + err.message + ". Please refresh the page.", "text-center text-red-500");
           return;
         }
+        allUsers = normalizeUsersPayload(users);
+        updateSummaryCards(allUsers);
+        paintUserRows();
+      } catch (err) {
+        showRowsMessage("Error loading users: " + err.message, "text-center text-red-500");
+      }
+    }
 
-        let usersArray = [];
-        if (Array.isArray(users)) {
-          usersArray = users;
-        } else if (users && typeof users === "object") {
-          if (users.content && Array.isArray(users.content)) usersArray = users.content;
-          else if (users.data && Array.isArray(users.data)) usersArray = users.data;
-          else if (users.users && Array.isArray(users.users)) usersArray = users.users;
-        }
-        if (usersArray.length === 0) {
-          showRowsMessage('No users found. Click "Add User" to create one.', "text-center text-gray-500 py-4");
-          return;
-        }
-        rows.replaceChildren();
-        for (const u of usersArray) {
-          const tr = document.createElement("tr");
-          tr.className = "border-b";
-          tr.appendChild(userCell(u.name || ""));
-          tr.appendChild(userCell(u.username || "", "font-mono text-sm"));
-          tr.appendChild(userCell(u.email || ""));
-          const roleName = String(u.role || "").replaceAll("_", " ");
-          tr.appendChild(userCell(roleName, "capitalize"));
-          const actions = document.createElement("td");
-          actions.className = "py-3 flex gap-2";
-          const edit = document.createElement("button");
-          edit.type = "button";
-          edit.className = "px-3 py-2 border rounded-md text-green-600 hover:bg-green-50";
-          edit.textContent = "Edit Credentials";
-          edit.addEventListener("click", () => editCredentials(u.id, u.name || "", u.username || "", u.email || ""));
-          const reset = document.createElement("button");
-          reset.type = "button";
-          reset.className = "px-3 py-2 border rounded-md text-amber-700 hover:bg-amber-50";
-          reset.textContent = "Reset MFA";
-          reset.addEventListener("click", () => resetMfa(u.id));
-          const remove = document.createElement("button");
-          remove.type = "button";
-          remove.className = "px-3 py-2 border rounded-md text-red-600 hover:bg-red-50";
-          remove.textContent = "Delete";
-          remove.addEventListener("click", () => del(u.id, u.name || u.username || "this user"));
-          actions.append(edit, reset, remove);
-          tr.appendChild(actions);
-          rows.appendChild(tr);
-        }
-      } catch (err) {
-        showRowsMessage("Error loading users: " + err.message, "text-center text-red-500 py-4");
-      }
-    }
-    
-    async function del(id, label){
-      const who = String(label || "this user").trim() || "this user";
-      if (!confirm("Confirm delete " + who + "?")) return;
-      try {
-        await repoDeleteUser(id);
-        render();
-      } catch (err) {
-        alert(err.message || "Could not delete this user.");
-      }
-    }
-    async function resetMfa(id){
-      if(!confirm('Reset MFA for this account? They must set up Google Authenticator again on the next sign-in.')) return;
-      const response = await fetch(`${window.API_BASE}/users/${id}/reset-mfa`, { method: 'POST', headers: authJsonHeaders() });
-      const result = await parseJsonResponse(response);
-      if(!response.ok){
-        alert((result && result.error) || 'Could not reset MFA.');
+    async function setActive(user, active) {
+      const who = user.name || user.username || "this user";
+      const verb = active ? "activate" : "deactivate";
+      if (!confirm((active ? "Activate " : "Deactivate ") + who + "?" + (active ? "" : " They will not be able to sign in. Historical records stay in the system."))) {
         return;
       }
-      alert((result && result.message) || 'MFA reset.');
-      render();
+      try {
+        const result = active ? await Api.users.activate(user.id) : await Api.users.deactivate(user.id);
+        if (result && result.error) throw new Error(result.error);
+        render();
+      } catch (err) {
+        alert(err.message || ("Could not " + verb + " this account."));
+      }
+    }
+
+    async function editRole(user) {
+      const current = String(user.role || "").toLowerCase();
+      modalRoot.innerHTML = `
+      <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md p-6">
+          <h3 class="text-xl font-semibold mb-2">Change Role</h3>
+          <p class="text-sm text-slate-600 mb-4">Update the screens this account can open. Changes apply on their next request after sign-in.</p>
+          <label class="text-sm text-gray-600 block mb-4">Role
+            <select id="edit_role" class="w-full border border-gray-300 rounded-md p-3 mt-1">
+              <option value="admin">Admin</option>
+              <option value="vet">Vet</option>
+              <option value="front_office">Front Office (reception + pharmacy)</option>
+            </select>
+          </label>
+          <div class="mt-5 flex justify-end gap-3">
+            <button type="button" class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
+            <button type="button" id="saveRoleBtn" class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white">Save</button>
+          </div>
+        </div>
+      </div>`;
+      const select = document.getElementById("edit_role");
+      if (current === "administrator") select.value = "admin";
+      else if (current === "veterinarian") select.value = "vet";
+      else if (["receptionist", "pharmacist", "staff"].includes(current)) select.value = "front_office";
+      else if (["admin", "vet", "front_office"].includes(current)) select.value = current;
+      document.getElementById("saveRoleBtn").onclick = async () => {
+        const nextRole = select.value;
+        if (!nextRole) {
+          alert("Choose a role.");
+          return;
+        }
+        try {
+          await repoUpdateUser({
+            id: user.id,
+            name: user.name || user.fullName || user.username,
+            username: user.username,
+            role: nextRole,
+            active: user.active !== false,
+          });
+          closeModal();
+          render();
+        } catch (err) {
+          alert(err.message || "Could not update role.");
+        }
+      };
     }
     
-    async function editCredentials(userId, userName, currentUsername, currentEmail){
-      let otpSent = false;
+    async function resetMfa(id){
+      if(!confirm('Reset MFA for this account? They must set up Google Authenticator again on the next sign-in.')) return;
+      try {
+        const result = await Api.users.resetMfa(id);
+        if (result && result.error) throw new Error(result.error);
+        alert((result && result.message) || 'MFA reset.');
+        render();
+      } catch (err) {
+        alert(err.message || 'Could not reset MFA.');
+      }
+    }
+
+    function editUser(user) {
+      openCredentialEditor(user, { mode: "edit" });
+    }
+
+    function resetPassword(user) {
+      openCredentialEditor(user, { mode: "password" });
+    }
+
+    function openCredentialEditor(user, options) {
+      const userId = user.id;
+      const userName = user.name || user.fullName || user.username || "User";
+      const currentUsername = user.username || "";
+      const currentEmail = user.email || "";
+      const passwordOnly = options && options.mode === "password";
       modalRoot.innerHTML=`
       <div class="fixed inset-0 bg-black/40 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-          <h3 class="text-xl font-semibold mb-4">Edit Credentials — <span id="editUserTitle"></span></h3>
+          <h3 class="text-xl font-semibold mb-4">${passwordOnly ? "Reset Password" : "Edit User"} — <span id="editUserTitle"></span></h3>
           <div id="editFormFields">
-            <p class="text-sm text-gray-600 mb-4">An OTP will be sent to the user's email for verification.</p>
+            <p class="text-sm text-gray-600 mb-4">${passwordOnly
+              ? "An OTP will be sent to the user's email before the password can be changed."
+              : "An OTP will be sent to the user's email for verification."}</p>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
               <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="sendEditOtp(${userId})">Send OTP</button>
@@ -188,33 +508,36 @@
             <label class="text-sm text-gray-600 block mb-3">Enter OTP Code <span class="text-red-500">*</span>
               <input id="edit_otp" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="6-digit code" maxlength="6" required>
             </label>
+            ${passwordOnly ? "" : `
             <label class="text-sm text-gray-600 block mb-3">Username
               <input id="edit_username" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current">
             </label>
             <label class="text-sm text-gray-600 block mb-3">Email
               <input id="edit_email" type="email" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current">
+            </label>`}
+            <label class="text-sm text-gray-600 block mb-3">${passwordOnly ? "New Password" : "Password"} <span class="text-red-500">${passwordOnly ? "*" : ""}</span>
+              <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="${passwordOnly ? "Minimum 10 characters" : "Leave empty to keep current (min 10 characters)"}" ${passwordOnly ? "required" : ""}>
             </label>
-            <label class="text-sm text-gray-600 block mb-3">Password
-              <input id="edit_password" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Leave empty to keep current (min 10 characters)">
-            </label>
-            <label class="text-sm text-gray-600 block mb-4">Confirm Password
-              <input id="edit_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter new password">
+            <label class="text-sm text-gray-600 block mb-4">Confirm Password <span class="text-red-500">${passwordOnly ? "*" : ""}</span>
+              <input id="edit_password_confirm" type="password" class="w-full border border-gray-300 rounded-md p-3 mt-1" placeholder="Re-enter new password" ${passwordOnly ? "required" : ""}>
             </label>
             <div class="mt-5 flex justify-end gap-3">
               <button class="px-4 py-2 border rounded-md" onclick="closeModal()">Cancel</button>
               <button class="px-4 py-2 border rounded-md text-[var(--soft-teal)]" onclick="resendEditOtp(${userId})">Resend OTP</button>
-              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndUpdateCredentials(${userId})">Verify & Update</button>
+              <button class="px-5 py-2 rounded-md bg-[var(--soft-teal)] text-white" onclick="verifyOtpAndUpdateCredentials(${userId})">${passwordOnly ? "Verify & Reset" : "Verify & Update"}</button>
             </div>
           </div>
         </div>
       </div>`;
       const title = document.getElementById("editUserTitle");
       if (title) title.textContent = userName || "User";
-      const usernameInput = document.getElementById("edit_username");
-      const emailInput = document.getElementById("edit_email");
-      if (usernameInput) usernameInput.value = currentUsername || "";
-      if (emailInput) emailInput.value = currentEmail || "";
-      
+      if (!passwordOnly) {
+        const usernameInput = document.getElementById("edit_username");
+        const emailInput = document.getElementById("edit_email");
+        if (usernameInput) usernameInput.value = currentUsername || "";
+        if (emailInput) emailInput.value = currentEmail || "";
+      }
+
       window.sendEditOtp = async function(userId){
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
           alert('No Internet Connection.');
@@ -238,39 +561,43 @@
           alert('Error sending OTP: ' + err.message);
         }
       };
-      
+
       window.resendEditOtp = async function(userId){
         await window.sendEditOtp(userId);
       };
-      
+
       window.verifyOtpAndUpdateCredentials = async function(userId){
         const otp = document.getElementById('edit_otp').value.trim();
-        const username = document.getElementById('edit_username').value.trim();
-        const email = document.getElementById('edit_email').value.trim();
+        const usernameEl = document.getElementById('edit_username');
+        const emailEl = document.getElementById('edit_email');
+        const username = usernameEl ? usernameEl.value.trim() : "";
+        const email = emailEl ? emailEl.value.trim() : "";
         const password = document.getElementById('edit_password').value;
         const passwordConfirm = document.getElementById('edit_password_confirm').value;
-        
+
         if(!otp || otp.length !== 6){
           alert('Please enter the 6-digit OTP code');
           return;
         }
-        
+
         const updateData = {otp};
-        if(username && username !== currentUsername) updateData.username = username;
-        if(email && email !== currentEmail) updateData.email = email;
-        if(password || passwordConfirm){
+        if(!passwordOnly){
+          if(username && username !== currentUsername) updateData.username = username;
+          if(email && email !== currentEmail) updateData.email = email;
+        }
+        if(passwordOnly || password || passwordConfirm){
           if(!password){ alert('Please enter a new password.'); return; }
           if(!passwordConfirm){ alert('Please confirm the new password.'); return; }
           if(password !== passwordConfirm){ alert('Passwords do not match.'); return; }
           if(password.length < 10){ alert('Password must be at least 10 characters.'); return; }
           updateData.password = password;
         }
-        
+
         if(Object.keys(updateData).length === 1){
           alert('Please provide at least one field to update');
           return;
         }
-        
+
         try{
           const response = await fetch(`${window.API_BASE}/users/${userId}/edit-credentials`, {
             method: 'POST',
@@ -279,14 +606,14 @@
           });
           const result = await parseJsonResponse(response);
           if(response.ok){
-            alert('Credentials updated successfully!');
+            alert(passwordOnly ? 'Password reset successfully.' : 'User updated successfully.');
             closeModal();
             render();
           } else {
-            alert('Failed to update credentials: ' + (result.error || 'Unknown error'));
+            alert((passwordOnly ? 'Failed to reset password: ' : 'Failed to update user: ') + (result.error || 'Unknown error'));
           }
         } catch(err){
-          alert('Error updating credentials: ' + err.message);
+          alert((passwordOnly ? 'Error resetting password: ' : 'Error updating user: ') + err.message);
         }
       };
     }

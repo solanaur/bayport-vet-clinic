@@ -353,7 +353,12 @@
         .replace(/'/g, '&#39;');
     }
     function onHand(item) { return Number(item?.quantity ?? item?.stock ?? 0); }
-    function isServiceItem(item) { return String(item?.category || '').trim().toUpperCase() === 'SERVICE'; }
+    function isServiceItem(item) {
+      if (typeof window.bayportIsInventoryService === "function") return window.bayportIsInventoryService(item);
+      const sku = String(item?.sku || "").toUpperCase();
+      if (sku.startsWith("SVC-")) return true;
+      return String(item?.category || '').trim().toUpperCase() === 'SERVICE';
+    }
     function extractDiagnosis(notes) {
       const text = String(notes || '');
       const m = text.match(/Diagnosis:\s*([^\n]+)/i);

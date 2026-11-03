@@ -60,6 +60,8 @@ public class DataInitializer implements CommandLineRunner {
 
         seedEmailTemplates();
         ensureReminderTypeColumn();
+        ensureBillingStatusAllowsVoid();
+        ensureInventoryVersionColumn();
     }
 
     // ---------------------- OWNERS ----------------------
@@ -364,6 +366,44 @@ public class DataInitializer implements CommandLineRunner {
             }
         } catch (Exception ex) {
             System.err.println("[DataInitializer] Unable to ensure reminder.type column exists: " + ex.getMessage());
+        }
+    }
+
+    /** Null {@code @Version} values break Hibernate optimistic locking on inventory updates. */
+    private void ensureInventoryVersionColumn() {
+        try (Connection conn = dataSource.getConnection(); Statement st = conn.createStatement()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            String db = meta.getDatabaseProductName() != null ? meta.getDatabaseProductName().toLowerCase() : "";
+            String table = db.contains("h2") ? "INVENTORY_ITEMS" : "inventory_items";
+            int n = st.executeUpdate("UPDATE " + table + " SET version = 0 WHERE version IS NULL");
+            if (n > 0) {
+                System.out.println("[DataInitializer] Initialized inventory version for " + n + " row(s).");
+            }
+        } catch (Exception ex) {
+            System.err.println("[DataInitializer] Unable to initialize inventory versions: " + ex.getMessage());
+        }
+    }
+
+    /**
+     * Older H2 desktop DBs constrained {@code billing_records.status} to PENDING/PAID only.
+     * Widen to VARCHAR so VOID invoices can be stored.
+     */
+    private void ensureBillingStatusAllowsVoid() {
+        try (Connection conn = dataSource.getConnection()) {
+            DatabaseMetaData meta = conn.getMetaData();
+            String db = meta.getDatabaseProductName() != null ? meta.getDatabaseProductName().toLowerCase() : "";
+            if (!db.contains("h2")) {
+                return;
+            }
+            try (Statement st = conn.createStatement()) {
+                st.executeUpdate("ALTER TABLE BILLING_RECORDS ALTER COLUMN STATUS SET DATA TYPE VARCHAR(32)");
+                System.out.println("[DataInitializer] billing_records.status widened to allow VOID.");
+            } catch (Exception alterEx) {
+                // Column may already be VARCHAR — ignore.
+                System.out.println("[DataInitializer] billing_records.status check: " + alterEx.getMessage());
+            }
+        } catch (Exception ex) {
+            System.err.println("[DataInitializer] Unable to widen billing status column: " + ex.getMessage());
         }
     }
 }

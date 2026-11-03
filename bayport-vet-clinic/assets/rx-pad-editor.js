@@ -88,7 +88,10 @@
         if (g.Api && typeof g.Api.inventory?.list === "function") {
           const inv = await g.Api.inventory.list();
           drugCatalogCache = (inv || [])
-            .filter((i) => String(i?.category || "").trim().toUpperCase() !== "SERVICE")
+            .filter((i) => !(typeof window.bayportIsInventoryService === "function"
+              ? window.bayportIsInventoryService(i)
+              : (String(i?.sku || "").toUpperCase().startsWith("SVC-")
+                || String(i?.category || "").trim().toUpperCase() === "SERVICE")))
             .map((i) => String(i?.name || "").trim())
             .filter(Boolean)
             .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));

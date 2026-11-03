@@ -30,6 +30,13 @@ public class InventoryItem {
     /** Optional product image URL (e.g. /uploads/...). Services typically omit this. */
     private String photo;
 
+    /**
+     * Optional product SKU consumed when this service is performed (e.g. a vaccine vial).
+     * Null for ordinary products and fees that do not use stocked goods.
+     */
+    @Column(name = "consumable_sku", length = 64)
+    private String consumableSku;
+
     @Column(precision = 12, scale = 2)
     @JsonSerialize(using = MoneySerializer.class)
     private BigDecimal unitPrice;
@@ -50,6 +57,10 @@ public class InventoryItem {
     @PreUpdate
     public void touch() {
         lastUpdated = LocalDateTime.now();
+        // Legacy rows may have a null @Version; Hibernate requires a non-null starting value.
+        if (version == null) {
+            version = 0L;
+        }
     }
 
     // Getters / setters
@@ -117,6 +128,14 @@ public class InventoryItem {
         this.photo = photo;
     }
 
+    public String getConsumableSku() {
+        return consumableSku;
+    }
+
+    public void setConsumableSku(String consumableSku) {
+        this.consumableSku = consumableSku == null || consumableSku.isBlank() ? null : consumableSku.trim();
+    }
+
     public BigDecimal getUnitPrice() {
         return unitPrice;
     }
@@ -137,5 +156,8 @@ public class InventoryItem {
     public void setBatchNo(String batchNo) { this.batchNo = batchNo; }
     public java.time.LocalDate getExpiryDate() { return expiryDate; }
     public void setExpiryDate(java.time.LocalDate expiryDate) { this.expiryDate = expiryDate; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }
 

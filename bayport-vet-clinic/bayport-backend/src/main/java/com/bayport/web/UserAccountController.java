@@ -362,12 +362,95 @@ public class UserAccountController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/users/{id}/deactivate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deactivateUser(@PathVariable long id, HttpServletRequest request) {
+        return setUserActive(id, false, request);
+    }
+
+    @PostMapping("/users/{id}/activate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> activateUser(@PathVariable long id, HttpServletRequest request) {
+        return setUserActive(id, true, request);
+    }
+
+    private ResponseEntity<?> setUserActive(long id, boolean active, HttpServletRequest request) {
+        Optional<User> existingOpt = bayportService.getUserById(id);
+        if (existingOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        User existing = existingOpt.get();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (!active && auth != null && existing.getUsername() != null
+                && existing.getUsername().equalsIgnoreCase(auth.getName())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "You cannot deactivate your own account."));
+        }
+        if (!active && isLastActiveAdmin(existing)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Cannot deactivate the last active administrator."));
+        }
+        if (existing.isActive() == active) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "active", active,
+                    "message", active ? "Account is already active." : "Account is already inactive."
+            ));
+        }
+        // Build a patch so BayportService.updateUser sees the prior active flag correctly.
+        User patch = new User();
+        patch.setName(existing.getName());
+        patch.setFullName(existing.getFullName() != null ? existing.getFullName() : existing.getName());
+        patch.setUsername(existing.getUsername());
+        patch.setRole(existing.getRole());
+        patch.setActive(active);
+        User updated = bayportService.updateUser(id, patch);
+        auditLogService.log(active ? "USER_ACTIVATED" : "USER_DEACTIVATED", "User", String.valueOf(id),
+                active ? "Account activated" : "Account deactivated", request);
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "active", updated.isActive(),
+                "message", active ? "Account activated." : "Account deactivated."
+        ));
+    }
+
+    private boolean isLastActiveAdmin(User target) {
+        if (target == null || !isAdminRole(target.getRole())) {
+            return false;
+        }
+        long activeAdmins = bayportService.getAllUsers().stream()
+                .filter(u -> u != null && u.isActive() && isAdminRole(u.getRole()))
+                .count();
+        return activeAdmins <= 1;
+    }
+
+    private static boolean isAdminRole(String role) {
+        if (role == null) return false;
+        String r = role.trim().toLowerCase();
+        return "admin".equals(r) || "administrator".equals(r);
+    }
+
     @DeleteMapping("/users/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable long id) {
-        if (bayportService.getUserById(id).isEmpty()) return ResponseEntity.notFound().build();
+    public ResponseEntity<?> deleteUser(@PathVariable long id, HttpServletRequest request) {
+        Optional<User> existingOpt = bayportService.getUserById(id);
+        if (existingOpt.isEmpty()) return ResponseEntity.notFound().build();
+        User existing = existingOpt.get();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && existing.getUsername() != null
+                && existing.getUsername().equalsIgnoreCase(auth.getName())) {
+            return ResponseEntity.badRequest().body(Map.of("error", "You cannot delete your own account."));
+        }
+        if (isLastActiveAdmin(existing)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Cannot delete the last active administrator."));
+        }
+        // Soft-disable first so historical records stay linked; then remove the login account.
+        if (existing.isActive()) {
+            existing.setActive(false);
+            bayportService.updateUser(id, existing);
+        }
         bayportService.deleteUser(id);
-        auditLogService.log("USER_DISABLED", "User", String.valueOf(id), "User deleted", null);
+        auditLogService.log("USER_DISABLED", "User", String.valueOf(id), "User deleted", request);
         return ResponseEntity.noContent().build();
     }
 }

@@ -488,7 +488,7 @@ public class PdfService {
             dateRange.setSpacingAfter(12);
             document.add(dateRange);
 
-            Paragraph finTitle = new Paragraph("Financial snapshot", section);
+            Paragraph finTitle = new Paragraph("Financial Summary", section);
             finTitle.setSpacingAfter(6);
             document.add(finTitle);
 
@@ -497,13 +497,16 @@ public class PdfService {
             fin.setWidths(new float[]{1.35f, 1f});
             fin.setSpacingAfter(10);
             BigDecimal posTotal = summary.posSales != null ? summary.posSales : BigDecimal.ZERO;
-            addRow(fin, "Total POS sales", MoneyUtils.formatPeso(posTotal), label, value);
-            addRow(fin, "Paid (POS)", MoneyUtils.formatPeso(posTotal), label, value);
-            addRow(fin, "Pending (billing)", MoneyUtils.formatPeso(summary.pendingBilling), label, value);
-            addRow(fin, "Voided", MoneyUtils.formatPeso(summary.voidedAmount), label, value);
+            addRow(fin, "Collected Revenue", MoneyUtils.formatPeso(posTotal), label, value);
+            addRow(fin, "Pending Payments", MoneyUtils.formatPeso(summary.pendingBilling), label, value);
+            int txCount = summary.dailyPos == null ? 0 : summary.dailyPos.stream()
+                    .mapToInt(d -> d != null ? d.transactions : 0)
+                    .sum();
+            addRow(fin, "Total Transactions", String.valueOf(txCount), label, value);
+            addRow(fin, "Voided Amount", MoneyUtils.formatPeso(summary.voidedAmount), label, value);
             document.add(fin);
 
-            Paragraph payTitle = new Paragraph("Sales by payment method", section);
+            Paragraph payTitle = new Paragraph("Sales by Payment Method", section);
             payTitle.setSpacingBefore(4);
             payTitle.setSpacingAfter(6);
             document.add(payTitle);
@@ -521,7 +524,7 @@ public class PdfService {
             addPaymentRow(pay, value, "Other", summary.posOtherPayment, payDenom);
             document.add(pay);
 
-            Paragraph dailyTitle = new Paragraph("POS sales by day", section);
+            Paragraph dailyTitle = new Paragraph("Daily Financial Summary", section);
             dailyTitle.setSpacingBefore(4);
             dailyTitle.setSpacingAfter(6);
             document.add(dailyTitle);
@@ -751,8 +754,7 @@ public class PdfService {
     }
 
     private static boolean isInventoryService(InventoryItem item) {
-        return item != null && item.getCategory() != null
-                && "SERVICE".equalsIgnoreCase(item.getCategory().trim());
+        return InventoryRules.isService(item);
     }
 
     private static String inventoryStockStatus(int qty, int reorder) {
