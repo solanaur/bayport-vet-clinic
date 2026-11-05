@@ -108,6 +108,64 @@ aside.bp-sidebar {
   height: auto;
   max-height: 100%;
   overflow: hidden;
+  transition: width 0.18s ease, min-width 0.18s ease, max-width 0.18s ease, padding 0.18s ease, opacity 0.15s ease;
+}
+
+/* Must beat aside:has(#sidebarNav) specificity so hide truly collapses the column. */
+aside.bp-sidebar.bp-sidebar--collapsed,
+aside.bp-sidebar.bp-sidebar--collapsed:has(#sidebarNav),
+html.bp-sidebar-collapsed aside:has(#sidebarNav),
+html.bp-sidebar-collapsed aside.bp-sidebar {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-right-width: 0 !important;
+  overflow: hidden !important;
+  opacity: 0;
+  pointer-events: none;
+}
+
+aside.bp-sidebar.bp-sidebar--collapsed > *,
+html.bp-sidebar-collapsed aside.bp-sidebar > * {
+  visibility: hidden !important;
+}
+
+/* Re-open control lives in the top header — never overlays page text. */
+#bpSidebarShow,
+.bp-header-show-menu {
+  display: none !important;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  height: 34px;
+  padding: 0 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#bpSidebarShow svg,
+.bp-header-show-menu svg {
+  width: 16px;
+  height: 16px;
+}
+
+html.bp-sidebar-collapsed #bpSidebarShow,
+html.bp-sidebar-collapsed .bp-header-show-menu,
+#bpSidebarShow.bp-sidebar-show--visible {
+  display: inline-flex !important;
+}
+
+#bpSidebarShow:hover,
+.bp-header-show-menu:hover {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 body:has(#sidebarNav) main {
@@ -438,13 +496,27 @@ table tbody td {
 
 /* ——— Sidebar navigation ——— */
 #sidebarNav {
-  gap: 2px !important;
+  gap: 6px !important;
+}
+
+#sidebarNav .sidebar-group,
+#sidebarNav .mt-1.flex.flex-col,
+#sidebarNav details.sidebar-group > div {
+  gap: 4px !important;
 }
 
 #sidebarNav button {
+  display: flex !important;
+  align-items: center !important;
   border: none;
   border-radius: var(--bp-radius) !important;
   border-left: none !important;
+  overflow: hidden;
+  min-height: 36px;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  gap: 10px !important;
+  line-height: 1.25;
 }
 
 #sidebarNav button[data-sidebar-active="1"] {
@@ -467,6 +539,8 @@ table tbody td {
 #sidebarNav button svg {
   width: 18px !important;
   height: 18px !important;
+  min-width: 18px !important;
+  flex-shrink: 0 !important;
   color: #6b7280 !important;
 }
 
@@ -474,10 +548,18 @@ table tbody td {
   color: #ffffff !important;
 }
 
+#sidebarNav button > span {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .sidebar-group {
   border: none !important;
-  margin-bottom: 0.25rem !important;
-  padding-bottom: 0.25rem !important;
+  margin-bottom: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
 }
 
 .sidebar-group summary {
@@ -487,13 +569,6 @@ table tbody td {
   letter-spacing: 0.04em !important;
   text-transform: uppercase !important;
   padding: 8px 10px 6px !important;
-}
-
-#sidebarNav button {
-  min-height: 36px;
-  padding: 8px 10px !important;
-  font-size: 13px !important;
-  gap: 10px !important;
 }
 
 details.sidebar-group:not([open]) > :not(summary) {
@@ -561,6 +636,8 @@ details.sidebar-group:not([open]) > :not(summary) {
   font-weight: 600 !important;
   width: 32px !important;
   height: 32px !important;
+  min-width: 32px !important;
+  flex-shrink: 0 !important;
 }
 
 [data-bp-app-header-root] #bpHeaderClock {
@@ -570,15 +647,33 @@ details.sidebar-group:not([open]) > :not(summary) {
 }
 
 [data-bp-app-header-root] #bpUserMenuBtn {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
   color: #ffffff !important;
+  max-width: 100%;
 }
 
 [data-bp-app-header-root] #bpUserMenuBtn:hover {
   background: rgba(255, 255, 255, 0.12) !important;
 }
 
+[data-bp-app-header-root] .bp-header-user-text {
+  min-width: 0;
+  overflow: hidden;
+}
+
 [data-bp-app-header-root] #bpUserMenuChevron {
   color: rgba(255, 255, 255, 0.85) !important;
+  flex-shrink: 0 !important;
+}
+
+[data-bp-app-header-root] #bpUserMenuDropdown,
+[data-bp-app-header-root] #bpNotifDropdown {
+  top: 100% !important;
+  right: 0 !important;
+  left: auto !important;
+  margin-top: 0.5rem !important;
 }
 
 /* ——— Stat cards ——— */
@@ -835,31 +930,71 @@ details.sidebar-group:not([open]) > :not(summary) {
   box-shadow: var(--bp-shadow-card);
 }
 
-/* ——— Search ——— */
-.bp-search {
+/* ——— Search / icon text fields (flex so icons never overlap text) ——— */
+.bp-search,
+.bp-icon-field,
+.users-search-wrap {
   position: relative;
-  display: block;
+  display: flex !important;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: var(--bp-input-height);
+  padding: 0 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--bp-border);
+  border-radius: var(--bp-radius-sm);
+  background: var(--bp-surface);
 }
 
-.bp-search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 16px;
-  height: 16px;
+.bp-search:focus-within,
+.bp-icon-field:focus-within,
+.users-search-wrap:focus-within {
+  border-color: var(--bp-primary);
+  box-shadow: 0 0 0 2px rgba(15, 92, 192, 0.12);
+}
+
+.bp-search-icon,
+.bp-icon-field > svg,
+.users-search-wrap > svg,
+.bp-search > svg {
+  position: static !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  flex: 0 0 18px;
+  width: 18px !important;
+  height: 18px !important;
   color: var(--bp-text-muted);
   pointer-events: none;
 }
 
 .bp-search input.bp-search-input,
 .bp-search input:not([type="checkbox"]):not([type="radio"]):not([type="date"]),
-input.bp-search-input:not([type="checkbox"]):not([type="radio"]):not([type="date"]) {
-  width: 100%;
-  height: var(--bp-input-height) !important;
-  min-height: var(--bp-input-height) !important;
-  padding-left: 2.5rem !important;
-  padding-right: 12px !important;
+input.bp-search-input:not([type="checkbox"]):not([type="radio"]):not([type="date"]),
+.bp-icon-field input,
+.bp-icon-field input.bp-icon-field-input,
+.users-search-wrap input,
+.users-search-wrap input.users-search {
+  flex: 1 1 auto;
+  width: auto !important;
+  min-width: 0;
+  height: calc(var(--bp-input-height) - 2px) !important;
+  min-height: calc(var(--bp-input-height) - 2px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.bp-search input:focus,
+.bp-icon-field input:focus,
+.users-search-wrap input:focus {
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 /* ——— Segmented tabs ——— */

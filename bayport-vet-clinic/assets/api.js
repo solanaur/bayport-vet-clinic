@@ -171,7 +171,7 @@ window.resolveApiBase = function resolveApiBase() {
   return "";
 };
 window.API_BASE = window.resolveApiBase();
-const API_TIMEOUT_LOCAL = 12000;
+const API_TIMEOUT_LOCAL = 30000;
 const API_TIMEOUT_CLOUD = 180000;
 const API_DISABLED_ERR = "Backend integration is required. Please keep USE_API=true so the server endpoints remain reachable.";
 

@@ -117,6 +117,7 @@ if (isDev) {
 let mainWindow;
 let backendProcess = null;
 let shuttingDown = false;
+let applyingH2Restore = false;
 let backendStartPromise = null;
 let backendRestartAttempts = 0;
 let healthMonitorTimer = null;
@@ -192,12 +193,12 @@ function stopHealthMonitor() {
 function startHealthMonitor() {
   stopHealthMonitor();
   healthMonitorTimer = setInterval(() => {
-    if (shuttingDown || backendStartPromise) return;
+    if (shuttingDown || applyingH2Restore || backendStartPromise) return;
     const req = http.get(API_HEALTH_CHECK, { timeout: 3000 }, (res) => {
       if (res.statusCode === 200) backendRestartAttempts = 0;
     });
     req.on('error', () => {
-      if (!shuttingDown && !backendStartPromise) {
+      if (!shuttingDown && !applyingH2Restore && !backendStartPromise) {
         log.warn('Backend health check failed while app is open — restarting…');
         restartBackend('health check failed').catch((err) => log.error(err.message));
       }
@@ -402,7 +403,7 @@ function launchBackendProcess() {
     backendProcess.on('exit', (code, signal) => {
       log.warn(`Backend process exited (code=${code}, signal=${signal || 'none'})`);
       backendProcess = null;
-      if (!shuttingDown) {
+      if (!shuttingDown && !applyingH2Restore) {
         restartBackend(`process exited (${code})`).catch((err) => log.error(err.message));
       }
       if (code !== 0 && code !== null) {
@@ -754,6 +755,115 @@ ipcMain.handle('desktop:show-error', async (_evt, message) => {
     message: message || 'Unknown error'
   });
   log.error(message);
+});
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function removeLiveH2Files() {
+  if (!fs.existsSync(DATA_DIR)) return;
+  for (const name of fs.readdirSync(DATA_DIR)) {
+    if (!name.startsWith('bayport-db.')) continue;
+    try {
+      fs.unlinkSync(path.join(DATA_DIR, name));
+    } catch (err) {
+      log.warn('Could not remove ' + name + ':', err.message);
+    }
+  }
+}
+
+function runH2RestoreTool(stagedZip) {
+  return new Promise((resolve, reject) => {
+    const javaPath = resolveJavaExecutable();
+    // Spring Boot fat jar keeps H2 under BOOT-INF/lib — use PropertiesLauncher.
+    const args = [
+      `-Dloader.main=org.h2.tools.Restore`,
+      '-cp',
+      JAR_PATH,
+      'org.springframework.boot.loader.launch.PropertiesLauncher',
+      '-file',
+      stagedZip,
+      '-dir',
+      DATA_DIR,
+      '-db',
+      'bayport-db',
+    ];
+    log.info('Applying H2 restore:', args.join(' '));
+    const child = spawn(javaPath, args, {
+      cwd: FRONTEND_ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: false,
+    });
+    let stderr = '';
+    let stdout = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('exit', (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const detail = (stderr || stdout).trim();
+      reject(new Error(detail || ('H2 restore exited with code ' + code)));
+    });
+  });
+}
+
+ipcMain.handle('desktop:apply-h2-restore', async (_evt, pendingDir) => {
+  const dir = typeof pendingDir === 'string' ? pendingDir.trim() : '';
+  if (!dir) {
+    return { ok: false, error: 'Missing restore folder.' };
+  }
+  const stagedZip = path.join(dir, 'database.zip');
+  if (!fs.existsSync(stagedZip)) {
+    return { ok: false, error: 'Staged restore file was not found.' };
+  }
+
+  applyingH2Restore = true;
+  try {
+    killBackendProcessSync();
+    await sleep(1500);
+    removeLiveH2Files();
+    await runH2RestoreTool(stagedZip);
+    try {
+      fs.rmSync(dir, { recursive: true, force: true });
+    } catch (err) {
+      log.warn('Could not clear pending restore folder:', err.message);
+    }
+
+    backendRestartAttempts = 0;
+    await launchBackendProcess();
+    await waitForBackendHealth();
+    injectDesktopApiConfig();
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const loginPath = path.join(HTML_ROOT, 'login.html');
+      if (fs.existsSync(loginPath)) {
+        mainWindow.loadURL(pathToFileURL(loginPath).href);
+      } else {
+        mainWindow.reload();
+      }
+    }
+    return { ok: true };
+  } catch (err) {
+    log.error('Desktop H2 restore failed:', err);
+    try {
+      await launchBackendProcess();
+      await waitForBackendHealth();
+      injectDesktopApiConfig();
+    } catch (restartErr) {
+      log.error('Backend restart after failed restore:', restartErr.message);
+    }
+    return { ok: false, error: err.message || 'Restore did not finish.' };
+  } finally {
+    applyingH2Restore = false;
+  }
 });
 
 ipcMain.handle('desktop:list-printers', async (evt) => {

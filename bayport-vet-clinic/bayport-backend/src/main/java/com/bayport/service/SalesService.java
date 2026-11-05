@@ -7,6 +7,8 @@ import com.bayport.util.MoneyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -37,20 +39,20 @@ public class SalesService {
         sale.setSource(source);
         sale.setNote(note);
         Sale saved = saleRepository.save(sale);
-        broadcast(saved);
+        broadcastAfterCommit(saved);
         return saved;
     }
 
     public Sale recordPrescriptionSale(Sale sale) {
         Sale saved = saleRepository.save(sale);
-        broadcast(saved);
+        broadcastAfterCommit(saved);
         return saved;
     }
 
     /** Point-of-sale checkout (front desk). */
     public Sale recordPosSale(Sale sale) {
         Sale saved = saleRepository.save(sale);
-        broadcast(saved);
+        broadcastAfterCommit(saved);
         return saved;
     }
 
@@ -96,6 +98,20 @@ public class SalesService {
         return emitter;
     }
 
+    /** Broadcast only after the DB commit so a broken SSE client cannot abort checkout. */
+    private void broadcastAfterCommit(Sale sale) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    broadcast(sale);
+                }
+            });
+            return;
+        }
+        broadcast(sale);
+    }
+
     private void broadcast(Sale sale) {
         // Never let a broken SSE connection interfere with billing / recording the sale.
         List<SseEmitter> toRemove = new ArrayList<>();
@@ -105,18 +121,17 @@ public class SalesService {
                 emitter.send(SseEmitter.event()
                         .name("sale")
                         .data(sale));
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 if (isClientDisconnected(ex)) {
-                    // Normal scenario – client closed the connection.
-                    log.debug("Sales SSE client disconnected while broadcasting sale id={}: {}", sale.getId(), ex.getMessage());
+                    log.debug("Sales SSE client disconnected while broadcasting sale id={}: {}", sale.getId(), ex.toString());
                 } else {
-                    // Unexpected problem with this emitter only.
-                    log.error("Failed to send sale update over SSE for sale id={}: {}", sale.getId(), ex.getMessage(), ex);
+                    // Avoid log.error(..., throwable) — JUL→Logback can fail hard in this JVM.
+                    log.warn("Failed to send sale update over SSE for sale id={}: {}", sale.getId(), ex.toString());
                 }
                 toRemove.add(emitter);
                 try {
                     emitter.complete();
-                } catch (Exception ignore) {
+                } catch (Throwable ignore) {
                     // ignore completion errors for already closed connections
                 }
             }

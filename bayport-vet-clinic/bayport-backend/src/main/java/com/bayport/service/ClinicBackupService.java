@@ -310,13 +310,24 @@ public class ClinicBackupService {
             }
 
             if (jdbcUrl.startsWith("jdbc:h2:")) {
+                Path pendingDir = h2PendingRestoreDir();
+                deleteTree(pendingDir);
+                Files.createDirectories(pendingDir);
+                Path stagedDb = pendingDir.resolve("database.zip");
+                extractZipEntry(zip, "database.zip", stagedDb);
+                Files.writeString(pendingDir.resolve("backup-id.txt"), backupId);
+                Files.writeString(pendingDir.resolve("safety-id.txt"), safety.getLocation());
+
+                result.put("ok", true);
+                result.put("requiresRestart", true);
+                result.put("pendingDir", pendingDir.toAbsolutePath().toString());
                 result.put("connectivityVerified", false);
                 result.put("message",
                         "Safety backup " + safety.getLocation()
-                                + " was created and backup " + backupId
-                                + " passed integrity checks. Stop Bayport, then replace the desktop database file from "
-                                + backupId + ".zip before starting again. Current records were not overwritten.");
-                throw new IllegalStateException(String.valueOf(result.get("message")));
+                                + " was saved. Restart Bayport to finish restoring "
+                                + backupId + ".");
+                log.info("H2 restore staged from {} into {}", backupId, pendingDir);
+                return result;
             }
 
             throw new IllegalStateException("This database type cannot be restored automatically.");
@@ -333,6 +344,7 @@ public class ClinicBackupService {
                 : String.valueOf(detail.getOrDefault("message", "No successful backup found."));
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("ok", ok);
+        body.put("running", backupRunning);
         body.put("message", message);
         body.put("finishedAt", detail.get("finishedAt"));
         body.put("finishedAtDisplay", detail.get("finishedAtDisplay"));
@@ -474,17 +486,32 @@ public class ClinicBackupService {
                 Class<?> restoreTool = Class.forName("org.h2.tools.Restore");
                 restoreTool.getMethod("execute", String.class, String.class, String.class)
                         .invoke(null, databaseFile.toString(), restored.toString(), "check");
-                try (Connection connection = java.sql.DriverManager.getConnection(
-                        "jdbc:h2:file:" + restored.resolve("check").toAbsolutePath().toString().replace('\\', '/')
-                                + ";IFEXISTS=TRUE",
-                        "sa",
-                        dbPassword);
+                String checkUrl = "jdbc:h2:file:" + restored.resolve("check").toAbsolutePath().toString().replace('\\', '/')
+                        + ";IFEXISTS=TRUE;DB_CLOSE_DELAY=0";
+                try (Connection connection = java.sql.DriverManager.getConnection(checkUrl, "sa", dbPassword);
                      Statement statement = connection.createStatement()) {
                     statement.execute("SELECT 1");
+                    try {
+                        statement.execute("SHUTDOWN");
+                    } catch (Exception ignore) {
+                        // File lock released even if SHUTDOWN reports closed.
+                    }
                 }
                 return "PASSED";
             } finally {
-                deleteTree(restored);
+                // Retry briefly — H2 background writer may still hold files for a moment.
+                for (int i = 0; i < 5; i++) {
+                    deleteTree(restored);
+                    if (!Files.exists(restored)) {
+                        break;
+                    }
+                    try {
+                        Thread.sleep(50L);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
             }
         }
         if (verifyDatabase.isBlank()) {
@@ -619,16 +646,33 @@ public class ClinicBackupService {
     }
 
     private Path extractDatabaseSql(Path zipPath) throws IOException {
+        Path sql = Files.createTempFile("bayport-restore-", ".sql");
+        extractZipEntry(zipPath, "database.sql", sql);
+        return sql;
+    }
+
+    private Path h2PendingRestoreDir() {
+        Path uploadRoot = Path.of(uploadDir).toAbsolutePath().normalize();
+        Path parent = uploadRoot.getParent();
+        if (parent != null) {
+            return parent.resolve("pending-h2-restore");
+        }
+        return BackupRules.resolveDirectory(backupDir).resolve("pending-h2-restore");
+    }
+
+    private static void extractZipEntry(Path zipPath, String entryName, Path target) throws IOException {
         try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipPath.toFile())) {
-            ZipEntry entry = zip.getEntry("database.sql");
+            ZipEntry entry = zip.getEntry(entryName);
             if (entry == null) {
-                throw new IOException("This backup has no MySQL dump.");
+                throw new IOException("This backup is missing " + entryName + ".");
             }
-            Path sql = Files.createTempFile("bayport-restore-", ".sql");
-            try (InputStream input = zip.getInputStream(entry); OutputStream output = Files.newOutputStream(sql)) {
+            Path parent = target.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            try (InputStream input = zip.getInputStream(entry); OutputStream output = Files.newOutputStream(target)) {
                 input.transferTo(output);
             }
-            return sql;
         }
     }
 

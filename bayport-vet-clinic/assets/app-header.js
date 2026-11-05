@@ -440,6 +440,10 @@
 
     root.innerHTML = `
       <div class="flex items-center gap-3 min-w-0 flex-1">
+        <button type="button" id="bpSidebarShow" class="bp-header-show-menu" hidden aria-label="Show menu" title="Show menu">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <span>Menu</span>
+        </button>
         <img src="assets/logo.png" class="w-9 h-9 rounded-lg object-contain shrink-0 bg-white/95 p-0.5" alt="" />
         <div class="min-w-0">
           <h1 class="text-[15px] font-semibold tracking-tight truncate leading-tight">Bayport Veterinary Clinic</h1>
@@ -454,7 +458,7 @@
             </svg>
             <span id="bpNotifCount" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center">0</span>
           </button>
-          <div id="bpNotifDropdown" class="hidden absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-[200] max-h-96 overflow-y-auto text-gray-900">
+          <div id="bpNotifDropdown" class="hidden absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-[#E5E7EB] z-[200] max-h-96 overflow-y-auto text-gray-900">
             <div class="p-3 border-b border-[#E5E7EB] flex justify-between items-center gap-2">
               <h3 class="font-semibold text-[#101828] text-sm">Notifications</h3>
               <button type="button" id="bpMarkAllReadBtn" class="text-xs font-medium text-[#0F5CC0] hover:underline shrink-0 bp-mark-all-read" data-accent="${accentKey}">Mark all as read</button>
@@ -468,10 +472,10 @@
           <span class="text-[10px] uppercase tracking-wide bp-header-clock-label">Time</span>
           <span id="bpHeaderClock" class="text-[13px] font-medium tabular-nums"></span>
         </div>
-        <div class="relative flex items-center">
-          <button type="button" id="bpUserMenuBtn" class="flex items-center gap-2 rounded-lg pl-1 pr-2 py-1 text-left">
+        <div class="relative flex items-center shrink-0">
+          <button type="button" id="bpUserMenuBtn" class="flex items-center gap-2 rounded-lg pl-1 pr-2 py-1 text-left min-w-0">
             <span id="bpHeaderInitials" class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 bp-header-initials" data-accent="${accentKey}"></span>
-            <div class="hidden md:block min-w-0 max-w-[11rem]">
+            <div class="hidden md:block min-w-0 max-w-[11rem] bp-header-user-text">
               <div id="bpHeaderDisplayName" class="text-[13px] font-medium truncate leading-tight"></div>
               <div id="bpHeaderRoleTitle" class="text-[11px] font-normal leading-tight truncate"></div>
             </div>
@@ -479,7 +483,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
             </svg>
           </button>
-          <div id="bpUserMenuDropdown" class="hidden absolute right-0 mt-2 w-64 rounded-lg bg-white text-gray-900 shadow-lg border border-[#E5E7EB] py-1 z-[200] overflow-hidden">
+          <div id="bpUserMenuDropdown" class="hidden absolute top-full right-0 mt-2 w-64 rounded-lg bg-white text-gray-900 shadow-lg border border-[#E5E7EB] py-1 z-[200] overflow-hidden">
             <button type="button" id="bpMenuViewQr" class="w-full text-left px-4 py-3 text-sm font-medium hover:bg-gray-50 text-gray-800">
               Reset Google Authenticator
             </button>
@@ -503,5 +507,10 @@
     wireUserMenu(root);
     wireDocumentClose();
     maybeShowFirstLoginQr();
+    if (typeof window.maybeBayportAutoBackup === "function") {
+      window.setTimeout(() => {
+        window.maybeBayportAutoBackup().catch(() => {});
+      }, 1200);
+    }
   };
 })();

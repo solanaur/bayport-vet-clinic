@@ -164,13 +164,17 @@ window.bayportFitPreviewFrame = function bayportFitPreviewFrame(frame) {
     const style = document.createElement("style");
     style.id = "bp-sidebar-boot-styles";
     style.textContent = `
-      html.bp-sidebar-collapsed-pending aside:has(#sidebarNav) {
+      html.bp-sidebar-collapsed-pending aside:has(#sidebarNav),
+      html.bp-sidebar-collapsed-pending aside.bp-sidebar {
         width: 0 !important;
         min-width: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
+        max-width: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: 0 !important;
         overflow: hidden !important;
-        border-right-color: transparent !important;
+        opacity: 0;
+        pointer-events: none;
       }
     `;
     (document.head || document.documentElement).appendChild(style);
@@ -782,8 +786,8 @@ window.renderSidebar = function (container, role, activeFile) {
 
     const wrap = document.createElement("div");
     wrap.className = flatSingleGroup
-      ? "sidebar-group flex flex-col gap-0.5 mb-0"
-      : "mt-1 flex flex-col gap-0.5";
+      ? "sidebar-group flex flex-col gap-1 mb-0"
+      : "mt-1 flex flex-col gap-1";
 
     if (flatSingleGroup && String(group.label || "").trim()) {
       const head = document.createElement("p");
@@ -798,9 +802,9 @@ window.renderSidebar = function (container, role, activeFile) {
       const tip = NAV_TOOLTIPS[key];
       if (tip) btn.title = tip;
       btn.className =
-        "w-full text-left px-3 py-2 text-sm rounded-lg text-[#374151] hover:bg-[#EFF6FF] flex items-center gap-2.5";
+        "w-full text-left px-3 py-2 text-sm rounded-lg text-[#374151] hover:bg-[#EFF6FF] flex items-center gap-2.5 overflow-hidden";
       const iconHtml = SIDEBAR_ICONS[key] || "";
-      btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
+      btn.innerHTML = `${iconHtml}<span class="min-w-0 flex-1 truncate">${SIDEBAR_LABEL[key] || LABEL[key]}</span>`;
       btn.onclick = () => {
         const parentDet = btn.closest("details.sidebar-group");
         if (parentDet) parentDet.open = true;
@@ -813,7 +817,7 @@ window.renderSidebar = function (container, role, activeFile) {
       if (`${key}.html` === activeFile) {
         btn.dataset.sidebarActive = "1";
         btn.className =
-          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--bp-primary,#0F5CC0)] text-white font-medium flex items-center gap-2.5";
+          "w-full text-left px-3 py-2 text-sm rounded-lg bg-[var(--bp-primary,#0F5CC0)] text-white font-medium flex items-center gap-2.5 overflow-hidden";
       }
       wrap.appendChild(btn);
     });
@@ -875,24 +879,64 @@ function bayportBackupNote(text) {
   el._hide = setTimeout(() => el.remove(), 7000);
 }
 
-/** Daily backups run on the backend schedule. Client no longer auto-creates or auto-downloads. */
+/**
+ * If the last successful backup is stale, start one in the background for admins.
+ * Shows a short status note while it runs. Safe to call on every page load.
+ */
 window.maybeBayportAutoBackup = async function maybeBayportAutoBackup() {
-  return;
+  try {
+    const role = String(typeof window.getRole === "function" ? window.getRole() : "").toLowerCase();
+    if (role !== "admin") return;
+    if (window.__bayportBackupBusy || window.__bayportAutoBackupTried) return;
+    if (!window.Api || !Api.backups || typeof Api.backups.status !== "function") return;
+
+    window.__bayportAutoBackupTried = true;
+    const status = await Api.backups.status();
+    if (status && status.running) {
+      bayportBackupNote("A backup is already running…");
+      return;
+    }
+    if (status && status.ok) return;
+
+    bayportBackupNote("Starting automatic backup…");
+    const created = await window.bayportCreateBackup();
+    let when = "";
+    try {
+      const latest = await Api.backups.status();
+      when = (latest && (latest.finishedAtDisplay || latest.finishedAt)) || "";
+    } catch (_) {
+      when = (created && created.finishedAt) || "";
+    }
+    bayportBackupNote(
+      when
+        ? "Automatic backup finished · " + when
+        : (created && created.message) || "Automatic backup finished."
+    );
+  } catch (err) {
+    const msg = (err && err.message) || "Automatic backup did not finish.";
+    if (/already running/i.test(msg)) {
+      bayportBackupNote("A backup is already running…");
+      return;
+    }
+    bayportBackupNote(msg);
+  }
 };
 
 /** Create a server-side backup without downloading it. */
 window.bayportCreateBackup = async function bayportCreateBackup() {
   if (window.__bayportBackupBusy) throw new Error("A backup is already running.");
   window.__bayportBackupBusy = true;
+  window.dispatchEvent(new CustomEvent("bayport-backup-started"));
   try {
     const created = await Api.backups.create();
     if (!created || !created.ok || !created.id) {
       throw new Error((created && created.message) || "Backup did not finish.");
     }
-    window.dispatchEvent(new CustomEvent("bayport-backup-ready"));
+    window.dispatchEvent(new CustomEvent("bayport-backup-ready", { detail: created }));
     return created;
   } finally {
     window.__bayportBackupBusy = false;
+    window.dispatchEvent(new CustomEvent("bayport-backup-finished"));
   }
 };
 
@@ -983,15 +1027,6 @@ window.initBayportSidebar = function initBayportSidebar() {
         margin-left: 0 !important;
         margin-right: 0 !important;
       }
-      aside.bp-sidebar.bp-sidebar--collapsed {
-        width: 0 !important;
-        min-width: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        border-right-color: transparent !important;
-        overflow: hidden;
-      }
-      aside.bp-sidebar.bp-sidebar--collapsed > * { visibility: hidden; }
       details.sidebar-group:not([open]) > :not(summary) { display: none !important; }
     `;
     document.head.appendChild(style);
@@ -1010,20 +1045,29 @@ window.initBayportSidebar = function initBayportSidebar() {
 
   let showBtn = document.getElementById("bpSidebarShow");
   if (!showBtn) {
+    const header = document.getElementById("bpAppHeader") || document.querySelector("[data-bp-app-header-root]");
     showBtn = document.createElement("button");
     showBtn.type = "button";
     showBtn.id = "bpSidebarShow";
-    showBtn.className =
-      "fixed left-0 top-[4.25rem] z-[85] hidden items-center gap-1.5 pl-2.5 pr-3 py-2 bg-white border border-slate-200 border-l-0 rounded-r-lg shadow-md text-xs font-semibold text-slate-700 hover:bg-slate-50";
-    showBtn.innerHTML = `<svg class="w-4 h-4 text-[var(--soft-teal,#0057b8)]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg><span>Show menu</span>`;
-    document.body.appendChild(showBtn);
+    showBtn.className = "bp-header-show-menu";
+    showBtn.setAttribute("aria-label", "Show menu");
+    showBtn.title = "Show menu";
+    showBtn.innerHTML = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg><span>Menu</span>`;
+    if (header) {
+      const brand = header.querySelector(".flex.items-center.gap-3.min-w-0.flex-1") || header.firstElementChild;
+      if (brand) brand.insertBefore(showBtn, brand.firstChild);
+      else header.appendChild(showBtn);
+    } else {
+      document.body.appendChild(showBtn);
+    }
   }
 
   function setCollapsed(collapsed, persist) {
     if (persist !== false) localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
     aside.classList.toggle("bp-sidebar--collapsed", collapsed);
-    showBtn.classList.toggle("hidden", !collapsed);
-    showBtn.classList.toggle("flex", collapsed);
+    document.documentElement.classList.toggle("bp-sidebar-collapsed", collapsed);
+    showBtn.classList.toggle("bp-sidebar-show--visible", collapsed);
+    showBtn.hidden = !collapsed;
     hideBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
     showBtn.setAttribute("aria-expanded", collapsed ? "true" : "false");
     document.documentElement.classList.remove("bp-sidebar-collapsed-pending");

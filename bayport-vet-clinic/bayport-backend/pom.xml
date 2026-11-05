@@ -47,6 +47,22 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!--
+          JUL→SLF4J bridge breaks Tomcat error logging in the fat jar
+          (NoClassDefFoundError: ThrowableProxy), which aborts the socket
+          after checkout/login already returned 200 and leaves the UI hanging.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-logging</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jul-to-slf4j</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
         <!-- Validation -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

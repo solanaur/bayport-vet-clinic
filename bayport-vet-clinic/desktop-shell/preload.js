@@ -10,5 +10,6 @@ contextBridge.exposeInMainWorld('desktopBridge', {
   platform: process.platform,
   listPrinters: () => ipcRenderer.invoke('desktop:list-printers'),
   printReceipt: (payload) => ipcRenderer.invoke('desktop:print-receipt', payload),
+  applyH2Restore: (pendingDir) => ipcRenderer.invoke('desktop:apply-h2-restore', pendingDir),
 });
 

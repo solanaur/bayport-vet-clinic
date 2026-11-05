@@ -370,11 +370,26 @@ body.auth-landing-page {
   position: relative;
   display: flex;
   align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--bp-border);
+  border-radius: var(--bp-radius);
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.auth-input-wrap:focus-within {
+  border-color: var(--bp-blue);
+  box-shadow: 0 0 0 2px rgba(15, 92, 192, 0.12);
 }
 
 .auth-input-wrap svg.auth-input-icon {
-  position: absolute;
-  left: 12px;
+  position: static;
+  left: auto;
+  top: auto;
+  transform: none;
+  flex: 0 0 18px;
   width: 18px;
   height: 18px;
   color: #9ca3af;
@@ -383,37 +398,42 @@ body.auth-landing-page {
 
 .auth-input-wrap input,
 .auth-input-wrap select {
-  width: 100%;
-  min-height: 44px;
-  padding: 0 2.5rem 0 2.5rem;
-  border: 1px solid var(--bp-border);
-  border-radius: var(--bp-radius);
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 42px;
+  margin: 0;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0;
   font-size: 0.9375rem;
   color: var(--bp-text);
-  background: #fff;
+  background: transparent !important;
+  box-shadow: none !important;
   outline: none;
 }
 
 .auth-input-wrap input:focus,
 .auth-input-wrap select:focus {
-  border-color: var(--bp-blue);
-  box-shadow: 0 0 0 2px rgba(15, 92, 192, 0.12);
+  border: 0 !important;
+  box-shadow: none !important;
 }
 
 .auth-input-wrap select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
+  background-position: right 0 center;
   background-size: 16px;
-  padding-right: 2.5rem;
+  padding-right: 1.25rem !important;
 }
 
 .auth-toggle-pw {
-  position: absolute;
-  right: 4px;
-  top: 50%;
-  transform: translateY(-50%);
+  position: static;
+  right: auto;
+  top: auto;
+  transform: none;
+  flex: 0 0 36px;
   width: 36px;
   height: 36px;
   border: none;
